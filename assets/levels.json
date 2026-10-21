@@ -1,0 +1,12 @@
+[
+    {"x":96, "y":672, "width":48, "height":48, "type":"spawnPoint", "mapID":1}
+    {"x":0, "y":864, "width":2880, "height":96, "type":"solid", "mapID":1}
+    {"x":480, "y":672, "width":384, "height":48, "type":"solid", "mapID":1}
+    {"x":1056, "y":528, "width":288, "height":24, "type":"oneWay", "mapID":1}
+    {"x":1536, "y":384, "width":480, "height":24, "type":"oneWay", "mapID":1}
+    {"x":2304, "y":480, "width":96, "height":384, "type":"solid", "mapID":1}
+
+    {"x":144, "y":672, "width":48, "height":48, "type":"spawnPoint", "mapID":2}
+    {"x":0, "y":864, "width":576, "height":96, "type":"solid", "mapID":2}
+    {"x":960, "y":864, "width":1920, "height":96, "type":"solid", "mapID":2}
+]
