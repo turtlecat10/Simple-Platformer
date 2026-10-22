@@ -31,13 +31,17 @@ public class Display {
                 continue;
             }
             if(obj.type == GameObject.Type.spawnPoint) continue;
-            
+
             if(obj.type == GameObject.Type.solid){
                 g2.setColor(Color.GREEN);
             }else if(obj.type == GameObject.Type.oneWay){
                 g2.setColor(Color.MAGENTA);
-            }else{
+            }else if(obj.type == GameObject.Type.respawn){
                 g2.setColor(Color.BLUE);
+            }else if(obj.type == GameObject.Type.death){
+                g2.setColor(Color.RED);
+            }else{
+                g2.setColor(Color.GRAY);
             }
             g2.fillRect( obj.x - cameraX, obj.y - cameraY, obj.width, obj.height);
         }

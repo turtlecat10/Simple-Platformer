@@ -3,7 +3,9 @@ public class GameObject {
         solid,
         oneWay,
         background,
-        spawnPoint
+        spawnPoint,
+        respawn,
+        death
     }
     public int x, y;
     public int width, height;

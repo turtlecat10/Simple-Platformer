@@ -36,7 +36,7 @@ public class Graphics extends JPanel implements ActionListener {
         initializeAllLevels();
 
         this.display = new Display(tileSize,screenWidth,screenHeight);
-        this.movement = new Movement(tileSize, worldWidth, worldHeight, gameObjects, 2, 5, 4);
+        this.movement = new Movement(tileSize, worldWidth, worldHeight, gameObjects, 2, 5, 6);
 
         setupKeyBindings();
 
@@ -88,6 +88,8 @@ public class Graphics extends JPanel implements ActionListener {
                             if(value.equals("oneWay")) type = GameObject.Type.oneWay;
                             else if(value.equals("background")) type = GameObject.Type.background;
                             else if(value.equals("spawnPoint")) type = GameObject.Type.spawnPoint;
+                            else if(value.equals("respawn")) type = GameObject.Type.respawn;
+                            else if(value.equals("death")) type = GameObject.Type.death;
                             else type = GameObject.Type.solid;
                         }
                     }
