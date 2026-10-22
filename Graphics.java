@@ -16,11 +16,15 @@ public class Graphics extends JPanel implements ActionListener {
     public static final int worldWidth = 60 * tileSize;
     public static final int worldHeight = 20 * tileSize;
 
+    private int startGridX = 2;
+    private int startGridY = 5;
+    private int speed = 8;
+
     private int cameraX = 0;
     private int cameraY = 0;
 
     private int currentMap = 1;
-    private final ArrayList<GameObject> gameObjects;
+    private ArrayList<GameObject> gameObjects;
 
     private final Display display;
     private final Movement movement;
@@ -36,9 +40,10 @@ public class Graphics extends JPanel implements ActionListener {
         initializeAllLevels();
 
         this.display = new Display(tileSize,screenWidth,screenHeight);
-        this.movement = new Movement(tileSize, worldWidth, worldHeight, gameObjects, 2, 5, 6);
+        this.movement = new Movement(tileSize, worldWidth, worldHeight, gameObjects, startGridX, startGridY, speed);
 
         setupKeyBindings();
+        loadLevel(1);
 
         this.gameTimer = new Timer(16, this);
         this.gameTimer.start();
@@ -103,13 +108,15 @@ public class Graphics extends JPanel implements ActionListener {
     }
     public void loadLevel(int mapID){
         this.currentMap = mapID;
+        boolean found = false;
         for(GameObject obj : gameObjects){
             if(obj.mapID == currentMap && obj.type == GameObject.Type.spawnPoint){
-                int gridX = obj.x / tileSize;
-                int gridY = obj.y / tileSize;
-                movement.respawnPlayer(gridX,gridY);
-                break;
+                found = true;
+                movement.setInitialSpawn(obj.x, obj.y);
             }
+        }
+        if(!found){
+            movement.setInitialSpawn(0,0);
         }
     }
     private void updateCamera(){
@@ -182,16 +189,40 @@ public class Graphics extends JPanel implements ActionListener {
         });
 
         im.put(KeyStroke.getKeyStroke("DOWN"),"pDown");
-        am.put("pDown",new AbstractAction() {
+        am.put("pDown", new AbstractAction() {
             public void actionPerformed(ActionEvent e){
                 movement.setDown(true);
             }
         });
         im.put(KeyStroke.getKeyStroke("released DOWN"),"rDown");
-        am.put("rDown",new AbstractAction() {
+        am.put("rDown", new AbstractAction() {
             public void actionPerformed(ActionEvent e){
                 movement.setDown(false);
             } 
+        });
+        im.put(KeyStroke.getKeyStroke("Z"), "pShift");
+        am.put("pShift", new AbstractAction(){
+            public void actionPerformed(ActionEvent e){
+                movement.setZoom(true);
+            }
+        });
+        im.put(KeyStroke.getKeyStroke("released Z"), "rShift");
+        am.put("rShift", new AbstractAction() {
+            public void actionPerformed(ActionEvent e){
+                movement.setZoom(false);
+            }
+        });
+        im.put(KeyStroke.getKeyStroke("pressed X"), "pX");
+        am.put("pX", new AbstractAction(){
+            public void actionPerformed(ActionEvent e){
+                movement.setDash(true);
+            }
+        });
+        im.put(KeyStroke.getKeyStroke("released X"), "rX");
+        am.put("rX", new AbstractAction() {
+            public void actionPerformed(ActionEvent e){
+                movement.setDash(false);
+            }
         });
     }
 }

@@ -5,8 +5,11 @@
     {"x":1056, "y":528, "width":288, "height":24, "type":"oneWay", "mapID":1}
     {"x":1536, "y":384, "width":480, "height":24, "type":"oneWay", "mapID":1}
     {"x":2304, "y":480, "width":96, "height":384, "type":"solid", "mapID":1}
-    {"x":2016, "y":728, "width":48, "height":48, "type":"respawn", "mapID":1}
+    {"x":2016, "y":816, "width":48, "height":48, "type":"respawn", "mapID":1}
     {"x":2100, "y":700, "width":48, "height":48, "type":"death", "mapID":1}
+    {"x":2148, "y":700, "width":48, "height":48, "type":"solid", "mapID":1}
+    {"x":2052, "y":700, "width":48, "height":48, "type":"oneWay", "mapID":1}
+
 
     {"x":144, "y":672, "width":48, "height":48, "type":"spawnPoint", "mapID":2}
     {"x":0, "y":864, "width":576, "height":96, "type":"solid", "mapID":2}
