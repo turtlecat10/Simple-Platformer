@@ -24,6 +24,8 @@ public class Movement{
     private final int maxJumpHoldTime = 32;
     private int jumpCounter = 0;
 
+    private boolean stoppedJumping = true;
+    private boolean doubleJump = false;
     private boolean isJumping = false;
     private boolean isGrounded = false;
     private boolean isDroppingThrough = false;
@@ -131,11 +133,13 @@ public class Movement{
     }
     private void jump(){
         //if jumping
+        
         if(up && isGrounded){
             velocityY = initialJumpForce;
             isGrounded = false;
             isJumping = true;
             jumpCounter = 0;
+            stoppedJumping = false;
         }
         //for increasing height based on how long you hold jump
         if(up && isJumping){
@@ -148,9 +152,19 @@ public class Movement{
         }
         //to stop pressing up
         if(!up){
+            stoppedJumping = true;
             isJumping = false;
+            jumpCounter = 0;
         }
-        
+        // System.out.println(up+" "+!isJumping+" "+!isGrounded+" "+doubleJump);
+        if(up && !isJumping && !isGrounded && doubleJump && stoppedJumping){
+            System.out.println("what");
+            doubleJump = false;
+            velocityY = initialJumpForce;
+            isJumping = true;
+            jumpCounter = 0;
+            gravityY = 0;
+        }
     }
     private void move(int currentMap){
 
@@ -251,11 +265,6 @@ public class Movement{
         }
 
 
-        
-
-
-
-
         //for checking if standing on something
         if(velocityY == 0 && !isDroppingThrough){
             playerY += 1;
@@ -267,6 +276,7 @@ public class Movement{
 
             if(standingOnSolid){
                 isGrounded = true;
+                doubleJump = true;
             }else if(standingOnOneWay){
                 if(down){
                     playerY += 2;
@@ -275,12 +285,12 @@ public class Movement{
                     isDroppingThrough = true;
                 }else{
                     isGrounded = true;
+                    doubleJump = true;
                 }
             }else{
                 isGrounded = false;
             }
         }
-
     }
     public void setLeft(boolean pressed) {this.left = pressed;}
     public void setRight(boolean pressed) {this.right = pressed;}
