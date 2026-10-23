@@ -10,19 +10,19 @@ public class Movement{
 
     private int spawnX;
     private int spawnY;
-
     private int playerX;
     private int playerY;
+     
     private boolean left, right, up, down, zoom, dash;
     
     private double velocityY = 0;
-    private double gravityY = 0;
-    private final double gravity = .1;
-    private final double terminalVelocity = 24;
+    // private double gravityY = 0;
+    private final double gravity = .4;
+    private final double terminalVelocity = 14;
 
-    private final double initialJumpForce = -6.0;
-    private final double holdJumpBoost = -1.4;
-    private final int maxJumpHoldTime = 32;
+    private final double initialJumpForce = -5.8;
+    private final double holdJumpBoost = -.32;
+    private final int maxJumpHoldTime = 14;
     private int jumpCounter = 0;
 
     private boolean stoppedJumping = true;
@@ -58,12 +58,11 @@ public class Movement{
         this.hasDoubleJumped = false;
     }
     public void respawnPlayer(int gridX, int gridY){
-        this.playerX = gridX * tileSize;
-        this.playerY = gridY * tileSize;
+        this.playerX = this.spawnX;
+        this.playerY = this.spawnY;
         this.velocityY = 0;
         this.isGrounded = false;
         this.isJumping = false;
-        this.isGrounded = false;
         this.isDroppingThrough = false;
     }
     public void update(int currentMap){
@@ -77,18 +76,18 @@ public class Movement{
         move(currentMap);
         //checking if on the ground
         if(isGrounded){
-            gravityY = 0;
+            hasDoubleJumped = false;
+            if(velocityY > 0) velocityY = 0;
         }
-        //jumping
-        jump();
         //applying gravity
         if(!isGrounded){
-            gravityY += gravity;
-            velocityY += gravityY;
+            velocityY += gravity;
             if(velocityY > terminalVelocity){
                 velocityY = terminalVelocity;
             }
         }
+        jump();
+        move(currentMap);
     }
     private ArrayList<GameObject> checkCornerCollision(int startX, int startY, int endX, int endY, int currentMap){
         ArrayList<GameObject> objColliding = new ArrayList<>();
@@ -169,7 +168,7 @@ public class Movement{
             velocityY = initialJumpForce;
             isJumping = true;
             jumpCounter = 0;
-            gravityY = 0;
+            // gravityY = 0;
         }
     }
     private void move(int currentMap){
@@ -337,6 +336,10 @@ public class Movement{
     public void setZoom(boolean pressed) {this.zoom = pressed;}
     public void setDash(boolean pressed) {this.dash = pressed;}
 
-    public int getPlayerX(){ return playerX; }
-    public int getPlayerY(){ return playerY; }
+    public int getPlayerX() { return playerX; }
+    public int getPlayerY() { return playerY; }
+    public double getVelocityY() { return velocityY; }
+    public void setVelocityY(double val) { this.velocityY = val; }
+    public boolean isGrounded() { return isGrounded; }
+    public int getFps() { return fps; }
 }
