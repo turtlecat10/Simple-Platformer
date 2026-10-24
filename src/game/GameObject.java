@@ -1,3 +1,4 @@
+package src.game;
 public class GameObject {
     public enum Type{
         solid,
@@ -7,10 +8,12 @@ public class GameObject {
         respawn,
         death
     }
+    
     public int x, y;
     public int width, height;
     public Type type;
     public int mapID;
+    
     public GameObject(int x, int y, int width, int height, Type type, int mapID){
         this.x = x;
         this.y = y;

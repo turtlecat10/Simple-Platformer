@@ -1,41 +1,54 @@
+package src.game;
 import java.awt.Rectangle;
 import java.util.ArrayList;
 
 public class Movement{
+    //world
     private final int tileSize;
     private final int worldWidth;
     private final int worldHeight;
     private final int playerSpeed;
     private final ArrayList<GameObject> objects;
-
+    
+    //tracking where you are
     private int spawnX;
     private int spawnY;
     private int playerX;
     private int playerY;
-     
-    private boolean left, right, up, down, zoom, dash;
-    
+
+    //inputs 
+    private boolean left, right, up, down, zoom, dash, reset;
+
+    //gravity
     private double velocityY = 0;
-    // private double gravityY = 0;
-    private final double gravity = .4;
-    private final double terminalVelocity = 14;
+    private final double terminalVelocity = 20;
+    private double gravityApproach = 0.03;
 
-    private final double initialJumpForce = -5.8;
-    private final double holdJumpBoost = -.32;
-    private final int maxJumpHoldTime = 14;
+    //dashing
+    private int dashDuration = 10;
+    private int dashCooldown= 45;
+    private int dashCounter = 0;
+    private int dashCooldownCounter = 0;
+    private boolean isDashing = false;
+    private int dashDirectionX = 0;
+    private int dashDirectionY = 0;
+
+    //jumping
+    private final double initialJumpForce = -9;
+    private final double holdJumpBoost = -.9;
+    private final int maxJumpHoldTime = 30;
     private int jumpCounter = 0;
-
     private boolean stoppedJumping = true;
     private boolean hasDoubleJumped = false;
     private boolean isJumping = false;
     private boolean isGrounded = false;
     private boolean isDroppingThrough = false;
     
+    //fps
     private int totalframes = 0;
     private int fps = 0;
     private long lastFrameCheck = System.nanoTime();
      
-
     public Movement(int tileSize, int worldWidth, int worldHeight, ArrayList<GameObject> objects, int startGridX, int startGridY, int speed){
         this.tileSize = tileSize;
         this.worldWidth = worldWidth;
@@ -46,25 +59,7 @@ public class Movement{
         this.playerX = startGridX * tileSize;
         this.playerY = startGridY * tileSize;
     }
-    public void setInitialSpawn(int x, int y){
-        this.spawnX = x;
-        this.spawnY = y;
-        this.playerX = x;
-        this.playerY = y;
-        
-        this.velocityY = 0;
-        this.isGrounded = true;
-        this.isDroppingThrough = false;
-        this.hasDoubleJumped = false;
-    }
-    public void respawnPlayer(int gridX, int gridY){
-        this.playerX = this.spawnX;
-        this.playerY = this.spawnY;
-        this.velocityY = 0;
-        this.isGrounded = false;
-        this.isJumping = false;
-        this.isDroppingThrough = false;
-    }
+    
     public void update(int currentMap){
         totalframes++;
         //frames per second
@@ -73,68 +68,61 @@ public class Movement{
             totalframes = 0;
             lastFrameCheck = System.nanoTime();
         }
-        move(currentMap);
+        // move(currentMap);
         //checking if on the ground
         if(isGrounded){
             hasDoubleJumped = false;
             if(velocityY > 0) velocityY = 0;
         }
-        //applying gravity
-        if(!isGrounded){
-            velocityY += gravity;
-            if(velocityY > terminalVelocity){
-                velocityY = terminalVelocity;
+        if(dashCooldownCounter > 0){
+            dashCooldownCounter--;
+        }
+
+        if(dash && !isDashing && dashCooldownCounter == 0){
+            dashDirectionX = 0;
+            int currentDirX = 0;
+            if(left != right) currentDirX = left ? -1 : 1;
+
+            if(currentDirX != 0){
+                isDashing = true;
+                dashDirectionX = currentDirX;
+                dashCounter = 0;
+                dashCooldownCounter = dashCooldown;
+                velocityY = 0;
+            }
+            dashDirectionY = 0;
+            int currentDirY = 0;
+            if(up != down) currentDirY = up ? -1 : 1;
+            System.out.println(currentDirY);
+            if(currentDirY != 0){
+                isDashing = true;
+                dashDirectionY = currentDirY;
+                dashCounter = 0;
+                dashCooldownCounter = dashCooldown;
             }
         }
-        jump();
+
+        //applying gravity  
+        if(!isDashing){
+            if(!isGrounded){
+                velocityY += Math.abs((terminalVelocity - velocityY)) * gravityApproach;
+                if(velocityY > terminalVelocity){
+                    velocityY = terminalVelocity;
+                }
+            }
+            jump();
+        }else{
+            dashCounter++;
+            if(dashCounter >= dashDuration){
+                isDashing = false;
+            }
+        }
         move(currentMap);
-    }
-    private ArrayList<GameObject> checkCornerCollision(int startX, int startY, int endX, int endY, int currentMap){
-        ArrayList<GameObject> objColliding = new ArrayList<>();
-        
-        int minX = Math.min(startX, endX);
-        int maxX = Math.max(startX, endX) + tileSize;
-        int minY = Math.min(startY, endY);
-        int maxY = Math.max(startY, endY) + tileSize;
-        
-        Rectangle sweepBox = new Rectangle(minX, minY, maxX - minX, maxY - minY);
-
-        for(GameObject obj : objects){
-            if(obj.mapID != currentMap){
-                continue;
-            }
-
-            Rectangle tile = new Rectangle(obj.x, obj.y, obj.width, obj.height);
-
-            if(sweepBox.intersects(tile)){
-                objColliding.add(obj);
-            }
+        if(reset){
+            respawnPlayer(spawnX, spawnY);
         }
+    }
 
-        return objColliding;
-    }
-    private boolean checkCollision(boolean checkOneWayPlatforms, int currentMap){
-        Rectangle pBounds = new Rectangle(playerX, playerY, tileSize, tileSize);
-        for(GameObject obj : objects){
-            if(obj.mapID != currentMap){
-                continue;
-            }
-            Rectangle oBounds = new Rectangle(obj.x, obj.y, obj.width, obj.height);
-            if(pBounds.intersects(oBounds)){
-                if(obj.type == GameObject.Type.solid){
-                    return true;
-                }
-                if(obj.type != GameObject.Type.solid){
-                    if(checkOneWayPlatforms && obj.type == GameObject.Type.oneWay && !isDroppingThrough){
-                        if((playerY + tileSize - 1) >= obj.y && (playerY + tileSize - 1) <= obj.y){
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        return false;
-    }
     private void jump(){
         //if jumping
         if(isGrounded){
@@ -151,7 +139,11 @@ public class Movement{
         //for increasing height based on how long you hold jump
         if(up && isJumping){
             if(jumpCounter < maxJumpHoldTime){
-                velocityY += holdJumpBoost;
+                if(hasDoubleJumped){
+                    velocityY += holdJumpBoost*.9;
+                }else{
+                    velocityY += holdJumpBoost;
+                }
                 jumpCounter++;
             }else{
                 isJumping = false;
@@ -165,14 +157,14 @@ public class Movement{
         }
         if(up && !isJumping && !isGrounded && !hasDoubleJumped && stoppedJumping){
             hasDoubleJumped = true;
-            velocityY = initialJumpForce;
+            velocityY = initialJumpForce*.75;
             isJumping = true;
             jumpCounter = 0;
             // gravityY = 0;
         }
     }
+    
     private void move(int currentMap){
-        //reset double jump
         if(isGrounded){
             hasDoubleJumped = false;
         }
@@ -182,9 +174,18 @@ public class Movement{
             directionX = left ? -1 : 1;
         }
         //for speed
-        double speedMult = zoom ? 1.5 : 1.0;
-        int moveX = (int) (Math.abs(playerSpeed) * directionX * speedMult);
+        // double speedMult = zoom ? 1.5 : 1.0;
+        int moveX = 0;
         int moveY = (int) velocityY;
+        if(isDashing){
+            int dashSpeedSpeed = 14;
+            moveX = dashDirectionX * dashSpeedSpeed;
+            moveY = dashDirectionY * dashSpeedSpeed;
+        }else{
+            double speedMult = zoom ? 1.5 : 1.0;
+            moveX = (int) (Math.abs(playerSpeed) * directionX * speedMult);
+        }
+
         //if not moving will change later
         if(moveX == 0 && moveY == 0){
             checkGroundStatus(currentMap);
@@ -214,7 +215,7 @@ public class Movement{
             int targetX = playerX + moveX;
 
             if(targetX < 0) targetX = 0;
-            if(targetX > worldWidth - tileSize) targetX = worldWidth - tileSize;
+            // if(targetX > worldWidth - tileSize) targetX = worldWidth - tileSize;
             
             ArrayList<GameObject> hitsX = checkCornerCollision(playerX, playerY, targetX, playerY, currentMap);
             //sort
@@ -239,7 +240,13 @@ public class Movement{
         if(moveY != 0){
             int targetY = playerY + moveY;
 
-            if(targetY < 0) targetY = 0;
+            if(targetY < 0) {
+                targetY = 0;
+                System.out.println("What!");
+                jumpCounter = maxJumpHoldTime;
+                isJumping = false;
+                velocityY = 1;
+            }
 
             ArrayList<GameObject> hitsY = checkCornerCollision(playerX, playerY, playerX, targetY, currentMap);
             
@@ -273,12 +280,14 @@ public class Movement{
                     }
                 }
             }
-
             if (!collidedY) {
                 // trigger pit death
                 if (targetY > worldHeight - tileSize) {
-                    respawnPlayer(spawnX / tileSize, spawnY / tileSize);
+                    respawnPlayer(spawnX, spawnY);
                     return;
+                }
+                if(targetY < 0){
+                    isJumping = false;
                 }
                 playerY = targetY; // Safe to move 
                 isGrounded = false;
@@ -287,6 +296,76 @@ public class Movement{
         checkTriggerObjects(playerX, playerY, currentMap);
         checkGroundStatus(currentMap);
     }
+
+    public void setInitialSpawn(int x, int y){
+        this.spawnX = x;
+        this.spawnY = y;
+        this.playerX = x;
+        this.playerY = y;
+        
+        this.velocityY = 0;
+        this.isGrounded = true;
+        this.isDroppingThrough = false;
+        this.hasDoubleJumped = false;
+    }
+    
+    public void respawnPlayer(int gridX, int gridY){
+        this.playerX = this.spawnX;
+        this.playerY = this.spawnY;
+        this.velocityY = 0;
+        this.isGrounded = false;
+        this.isJumping = false;
+        this.isDroppingThrough = false;
+    }
+        
+    private ArrayList<GameObject> checkCornerCollision(int startX, int startY, int endX, int endY, int currentMap){
+        ArrayList<GameObject> objColliding = new ArrayList<>();
+        
+        int minX = Math.min(startX, endX);
+        int maxX = Math.max(startX, endX) + tileSize;
+        int minY = Math.min(startY, endY);
+        int maxY = Math.max(startY, endY) + tileSize;
+        
+        Rectangle sweepBox = new Rectangle(minX, minY, maxX - minX, maxY - minY);
+
+        for(GameObject obj : objects){
+            if(obj.mapID != currentMap){
+                continue;
+            }
+
+            Rectangle tile = new Rectangle(obj.x, obj.y, obj.width, obj.height);
+
+            if(sweepBox.intersects(tile)){
+                objColliding.add(obj);
+            }
+        }
+
+        return objColliding;
+    }
+    
+    private boolean checkCollision(boolean checkOneWayPlatforms, int currentMap){
+        Rectangle pBounds = new Rectangle(playerX, playerY, tileSize, tileSize);
+        for(GameObject obj : objects){
+            if(obj.mapID != currentMap){
+                continue;
+            }
+            Rectangle oBounds = new Rectangle(obj.x, obj.y, obj.width, obj.height);
+            if(pBounds.intersects(oBounds)){
+                if(obj.type == GameObject.Type.solid){
+                    return true;
+                }
+                if(obj.type != GameObject.Type.solid){
+                    if(checkOneWayPlatforms && obj.type == GameObject.Type.oneWay && !isDroppingThrough){
+                        if((playerY + tileSize - 1) >= obj.y && (playerY + tileSize - 1) <= obj.y){
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+        
     private void checkTriggerObjects(int checkX, int checkY, int currentMap){
         Rectangle playerBounds = new Rectangle(checkX, checkY, tileSize, tileSize);
 
@@ -297,7 +376,7 @@ public class Movement{
 
             if(playerBounds.intersects(triggerBounds)){
                 if(obj.type == GameObject.Type.death){
-                    respawnPlayer(spawnX / tileSize, spawnY / tileSize);
+                    respawnPlayer(spawnX, spawnY);
                     return;
                 }
                 if(obj.type == GameObject.Type.respawn){
@@ -307,6 +386,7 @@ public class Movement{
             }
         }
     }
+    
     private void checkGroundStatus(int currentMap){
         if(velocityY == 0 && !isDroppingThrough){
             playerY += 1;
@@ -329,12 +409,14 @@ public class Movement{
             }
         }
     }
+    
     public void setLeft(boolean pressed) {this.left = pressed;}
     public void setRight(boolean pressed) {this.right = pressed;}
     public void setUp(boolean pressed) {this.up = pressed;}
     public void setDown(boolean pressed) {this.down = pressed;}
     public void setZoom(boolean pressed) {this.zoom = pressed;}
     public void setDash(boolean pressed) {this.dash = pressed;}
+    public void setReset(boolean pressed) {this.reset = pressed;}
 
     public int getPlayerX() { return playerX; }
     public int getPlayerY() { return playerY; }
