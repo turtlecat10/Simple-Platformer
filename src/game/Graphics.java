@@ -266,11 +266,12 @@ public class Graphics extends JPanel implements ActionListener {
             if(obj.mapID != currentMap) continue;
 
             switch(obj.type){
-                case solid: g2.setColor(Color.DARK_GRAY); break;
+                case solid: g2.setColor(Color.GREEN); break;
                 case oneWay :g2.setColor(new Color(147, 112, 219)); break;
                 case death: g2.setColor(Color.RED); break;
                 case respawn: g2.setColor(Color.BLUE); break;
                 case spawnPoint: g2.setColor(Color.YELLOW); break;
+                case ladder: g2.setColor(new Color(150, 75, 0)); break;
                 default: g2.setColor(Color.GRAY); break;
             }
             g2.fillRect(obj.x, obj.y, obj.width, obj.height);

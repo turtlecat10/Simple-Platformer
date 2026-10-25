@@ -232,8 +232,8 @@ public class MapEditorWindow extends JFrame{
         btnExit.addActionListener(e -> {
             gameCanvas.setEditorMode(true);
             
-            gameCanvas.setCameraX(0);
-            gameCanvas.setCameraY(0);
+            // gameCanvas.setCameraX(0);
+            // gameCanvas.setCameraY(0);
             btnPlay.setEnabled(true);
             btnExit.setEnabled(false);
         });

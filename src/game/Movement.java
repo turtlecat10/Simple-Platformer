@@ -32,6 +32,7 @@ public class Movement{
     private boolean isDashing = false;
     private int dashDirectionX = 0;
     private int dashDirectionY = 0;
+    private boolean dashAble = false;
 
     //jumping
     private final double initialJumpForce = -9;
@@ -78,12 +79,13 @@ public class Movement{
             dashCooldownCounter--;
         }
 
-        if(dash && !isDashing && dashCooldownCounter == 0){
+        if(dash && !isDashing && dashCooldownCounter == 0 && dashAble){
             dashDirectionX = 0;
             int currentDirX = 0;
             if(left != right) currentDirX = left ? -1 : 1;
 
             if(currentDirX != 0){
+                dashAble = false;
                 isDashing = true;
                 dashDirectionX = currentDirX;
                 dashCounter = 0;
@@ -93,8 +95,9 @@ public class Movement{
             dashDirectionY = 0;
             int currentDirY = 0;
             if(up != down) currentDirY = up ? -1 : 1;
-            System.out.println(currentDirY);
+            // System.out.println(currentDirY);
             if(currentDirY != 0){
+                dashAble = false;
                 isDashing = true;
                 dashDirectionY = currentDirY;
                 dashCounter = 0;
@@ -259,6 +262,7 @@ public class Movement{
                     if (falling) {
                         playerY = obj.y - tileSize;
                         isGrounded = true;
+                        dashAble = true;
                         hasDoubleJumped = false;         
                     } else {
                         playerY = obj.y + obj.height;
@@ -272,6 +276,7 @@ public class Movement{
                 if (obj.type == GameObject.Type.oneWay && allowOneWayCollision) {
                     if (playerY + tileSize <= obj.y) {
                         playerY = obj.y - tileSize;
+                        dashAble = true;
                         isGrounded = true;
                         hasDoubleJumped = false;         
                         velocityY = 0;
@@ -314,6 +319,7 @@ public class Movement{
         this.playerY = this.spawnY;
         this.velocityY = 0;
         this.isGrounded = false;
+        this.dashAble = false;
         this.isJumping = false;
         this.isDroppingThrough = false;
     }
@@ -383,6 +389,18 @@ public class Movement{
                     spawnX = obj.x;
                     spawnY = obj.y;
                 }
+                if(obj.type == GameObject.Type.ladder){
+                    velocityY = 0;
+                    if(up != down){
+                        velocityY = (up) ? -5 : 5;
+                    }
+                    if(down){
+                        isGrounded = false;
+                    }else{
+                        isGrounded = true;
+                        dashAble = true;
+                    }
+                }
             }
         }
     }
@@ -395,6 +413,7 @@ public class Movement{
             playerY -= 1;
             if(standingOnSolid){
                 isGrounded = true;
+                dashAble = true;
             }else if(standingOnOneWay){
                 if(down){
                     playerY += 2;
@@ -403,6 +422,7 @@ public class Movement{
                     isDroppingThrough = true;
                 }else{
                     isGrounded = true;
+                    dashAble = true;
                 }
             }else{
                 isGrounded = false;
