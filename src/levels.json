@@ -26,7 +26,6 @@
  {"x":624, "y":480, "width":48, "height":48, "type":"death", "mapID":1},
  {"x":672, "y":624, "width":48, "height":48, "type":"death", "mapID":1},
  {"x":528, "y":384, "width":48, "height":48, "type":"respawn", "mapID":1},
- {"x":0, "y":144, "width":48, "height":48, "type":"solid", "mapID":1},
  {"x":768, "y":432, "width":336, "height":192, "type":"oneWay", "mapID":1},
  {"x":768, "y":672, "width":384, "height":48, "type":"solid", "mapID":1},
  {"x":1104, "y":384, "width":48, "height":288, "type":"solid", "mapID":1},
@@ -49,7 +48,6 @@
  {"x":1296, "y":1104, "width":192, "height":48, "type":"death", "mapID":1},
  {"x":1152, "y":1248, "width":144, "height":48, "type":"death", "mapID":1},
  {"x":1344, "y":1392, "width":96, "height":48, "type":"death", "mapID":1},
- {"x":1488, "y":432, "width":48, "height":48, "type":"spawnPoint", "mapID":1},
  {"x":1296, "y":1680, "width":192, "height":48, "type":"death", "mapID":1},
  {"x":1152, "y":1872, "width":48, "height":48, "type":"death", "mapID":1},
  {"x":1248, "y":1872, "width":48, "height":48, "type":"death", "mapID":1},
@@ -60,5 +58,7 @@
  {"x":1488, "y":1488, "width":48, "height":432, "type":"solid", "mapID":1},
  {"x":1104, "y":2064, "width":912, "height":48, "type":"solid", "mapID":1},
  {"x":1824, "y":480, "width":672, "height":48, "type":"oneWay", "mapID":1},
- {"x":2064, "y":48, "width":288, "height":432, "type":"death", "mapID":1}
+ {"x":2064, "y":48, "width":288, "height":432, "type":"death", "mapID":1},
+ {"x":1104, "y":2016, "width":48, "height":48, "type":"win", "mapID":1},
+ {"x":0, "y":144, "width":48, "height":48, "type":"spawnPoint", "mapID":1}
 ]

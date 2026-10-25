@@ -50,7 +50,7 @@ public class Graphics extends JPanel implements ActionListener {
         setupKeyBindings();
         loadLevel(1);
 
-        this.gameTimer = new Timer(16, this);
+        this.gameTimer = new Timer(128, this);
         if(!isEditorMode){
             this.gameTimer.start();
         }
@@ -58,7 +58,7 @@ public class Graphics extends JPanel implements ActionListener {
         
     private void initializeAllLevels() {
         // We defer layout construction to 
-        System.out.println("Level system online. Enter Map ID and click Load Level to fetch active elements arrays.");
+        // System.out.println("Level system online. Enter Map ID and click Load Level to fetch active elements arrays.");
     }    
     
     public void loadLevel(int mapID){
@@ -272,6 +272,7 @@ public class Graphics extends JPanel implements ActionListener {
                 case respawn: g2.setColor(Color.BLUE); break;
                 case spawnPoint: g2.setColor(Color.YELLOW); break;
                 case ladder: g2.setColor(new Color(150, 75, 0)); break;
+                case win: g2.setColor(new Color(212, 175, 55)); break;
                 default: g2.setColor(Color.GRAY); break;
             }
             g2.fillRect(obj.x, obj.y, obj.width, obj.height);

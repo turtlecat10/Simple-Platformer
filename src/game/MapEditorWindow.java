@@ -13,6 +13,7 @@ public class MapEditorWindow extends JFrame{
     private Graphics gameCanvas;
     private JPanel controlPanel;
 
+
     //making/deleting objects
     private GameObject selectedObject = null;
     private Point bottomLeftCorner = null;
@@ -29,6 +30,9 @@ public class MapEditorWindow extends JFrame{
     private JButton btnDelete;
 
     private boolean freePlace;
+    private JButton btnPlay = new JButton("Play");
+    private JButton btnExit = new JButton("Exit to Editor");
+
 
     //moving camera around
     public int cameraX = 0;
@@ -36,8 +40,12 @@ public class MapEditorWindow extends JFrame{
     private final int cameraSpeed = 16;
     private boolean camLeft = false, camRight = false, camUp = false, camDown = false;
     private Timer editorCamTimer;
+    public static MapEditorWindow instance;
+
 
     public MapEditorWindow(){
+        instance = this;
+
         setTitle("Platformer");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
@@ -80,6 +88,21 @@ public class MapEditorWindow extends JFrame{
         gameCanvas.requestFocusInWindow();
     }
     
+    public static void win() {
+        if (instance == null) return;
+
+        // Use our instance proxy to alter UI components safely from a static context
+        instance.gameCanvas.setEditorMode(true);
+        instance.gameCanvas.setCameraX(0);
+        instance.gameCanvas.setCameraY(0);
+        // System.out.println("Hello");
+        
+        instance.btnPlay.setEnabled(true);
+        instance.btnExit.setEnabled(false);
+
+        JOptionPane.showMessageDialog(instance, "Level Complete! You Win!", "Victory!", JOptionPane.INFORMATION_MESSAGE);
+    }
+
     private void createControlBar(){
         controlPanel = new JPanel();
         controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
@@ -169,8 +192,6 @@ public class MapEditorWindow extends JFrame{
         controlPanel.add(Box.createVerticalStrut(15));
         
         JButton btnSave = new JButton("Save Level");
-        JButton btnPlay = new JButton("Play");
-        JButton btnExit = new JButton("exit to editor");
         JButton btnLoad = new JButton("Load stage");
         JButton btnFreePlace = new JButton("Free place");
 
@@ -225,7 +246,7 @@ public class MapEditorWindow extends JFrame{
                 btnExit.setEnabled(true);
                 gameCanvas.requestFocusInWindow();
             }catch (Exception ex){
-                System.out.println("Loader sequence halted");
+                // System.out.println("Loader sequence halted");
             }
         });
 
@@ -247,7 +268,7 @@ public class MapEditorWindow extends JFrame{
                     lblFreePlace.setText("Selection mode: Grid");
                 }
             }catch (Exception ex){
-                System.out.println("Cannot go into freeplace mode");
+                // System.out.println("Cannot go into freeplace mode");
             }
         });
 
@@ -360,7 +381,7 @@ public class MapEditorWindow extends JFrame{
                 }
                 json = content.toString().trim();
             }catch(Exception e){
-                System.err.println("");
+                // System.err.println("");
             }
         }else{
             try(java.io.InputStream is = getClass().getResourceAsStream("/levels.json")){
@@ -375,7 +396,7 @@ public class MapEditorWindow extends JFrame{
                     }
                 }
             }catch(Exception e){
-                System.err.println("No backup map layout found");
+                // System.err.println("No backup map layout found");
             }
         }
 
@@ -433,7 +454,7 @@ public class MapEditorWindow extends JFrame{
             }
             writer.write("]");
         }catch (java.io.IOException e){
-            System.err.println("error");
+            // System.err.println("error");
         }
     }
     
@@ -452,7 +473,7 @@ public class MapEditorWindow extends JFrame{
             }
             jsonStringData = content.toString().trim();
         } catch (Exception e) {
-            System.err.println("Error reading external map file.");
+            // System.err.println("Error reading external map file.");
         }
     } else {
         // Fallback: Read the raw template map embedded inside your JAR binary
@@ -468,7 +489,7 @@ public class MapEditorWindow extends JFrame{
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error reading internal map template asset.");
+            // System.err.println("Error reading internal map template asset.");
         }
     }
 
@@ -518,7 +539,7 @@ public class MapEditorWindow extends JFrame{
         this.topRightCorner = null;
         this.selectedObject = null;
         if (this.btnDelete != null) this.btnDelete.setEnabled(false);
-        System.out.println("Editor selection points successfully cleared!");
+        // System.out.println("Editor selection points successfully cleared!");
         if (this.gameCanvas != null) this.gameCanvas.repaint();
     }
 
@@ -528,5 +549,4 @@ public class MapEditorWindow extends JFrame{
     public void setCamRight(boolean state) { this.camRight = state; }
     public void setCamUp(boolean state) { this.camUp = state; }
     public void setCamDown(boolean state) { this.camDown = state; }
-
 }

@@ -181,7 +181,7 @@ public class Movement{
         int moveX = 0;
         int moveY = (int) velocityY;
         if(isDashing){
-            int dashSpeedSpeed = 14;
+            int dashSpeedSpeed = 16;
             moveX = dashDirectionX * dashSpeedSpeed;
             moveY = dashDirectionY * dashSpeedSpeed;
         }else{
@@ -245,7 +245,7 @@ public class Movement{
 
             if(targetY < 0) {
                 targetY = 0;
-                System.out.println("What!");
+                // System.out.println("What!");
                 jumpCounter = maxJumpHoldTime;
                 isJumping = false;
                 velocityY = 1;
@@ -400,6 +400,9 @@ public class Movement{
                         isGrounded = true;
                         dashAble = true;
                     }
+                }
+                if(obj.type == GameObject.Type.win){
+                    MapEditorWindow.win();
                 }
             }
         }

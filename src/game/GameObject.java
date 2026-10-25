@@ -7,7 +7,8 @@ public class GameObject {
         spawnPoint,
         respawn,
         death,
-        ladder
+        ladder,
+        win
     }
     
     public int x, y;
