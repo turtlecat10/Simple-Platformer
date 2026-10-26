@@ -18,3 +18,4 @@ press play when you are ready, when you exit out of the tab or load another game
 modified if you didn't save. load back other maps by typing in the map id for them and pressing load
 
 if you enjoyed playing please message me with what features you think i should add! (feedback is appreciated)
+also if you go into the src folder and look at levels.json you can copy/paste to let other people play your level
