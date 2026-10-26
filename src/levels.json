@@ -1,5 +1,4 @@
 [
- {"x":0, "y":144, "width":672, "height":48, "type":"solid", "mapID":2},
  {"x":0, "y":192, "width":624, "height":48, "type":"solid", "mapID":1},
  {"x":96, "y":432, "width":672, "height":48, "type":"solid", "mapID":1},
  {"x":0, "y":672, "width":768, "height":48, "type":"solid", "mapID":1},

@@ -17,4 +17,4 @@ and i need to fix that but not yet). Middle click to select an object to be able
 press play when you are ready, when you exit out of the tab or load another game it deletes what you
 modified if you didn't save. load back other maps by typing in the map id for them and pressing load
 
-(Yes left side level 1 is possible)
+if you enjoyed playing please message me with what features you think i should add! (feedback is appreciated)
