@@ -59,5 +59,6 @@
  {"x":1824, "y":480, "width":672, "height":48, "type":"oneWay", "mapID":1},
  {"x":2064, "y":48, "width":288, "height":432, "type":"death", "mapID":1},
  {"x":1104, "y":2016, "width":48, "height":48, "type":"win", "mapID":1},
- {"x":0, "y":144, "width":48, "height":48, "type":"spawnPoint", "mapID":1}
+ {"x":0, "y":144, "width":48, "height":48, "type":"spawnPoint", "mapID":1},
+ {"x":48, "y":480, "width":768, "height":48, "type":"death", "mapID":2}
 ]

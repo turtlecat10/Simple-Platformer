@@ -16,6 +16,7 @@ public class MapEditorWindow extends JFrame{
     private GameObject selectedObject = null;
     private Point bottomLeftCorner = null;
     private Point topRightCorner = null;
+    private Point currentHoverPoint = null;
 
 
     private GameObject.Type activeBrushType = GameObject.Type.solid;
@@ -26,6 +27,10 @@ public class MapEditorWindow extends JFrame{
     private JLabel lblX, lblY, lblWidth, lblHeight, lblBrush, lblSelectedInfo, lblFreePlace;
     private JTextField txtMapID;
     private JButton btnDelete;
+
+    private JPanel mainContentCardContainer;
+    private CardLayout windowLayoutSwitcher;
+    private JPanel levelGridMenuPanel;
 
     private boolean freePlace;
     private JButton btnPlay = new JButton("Play");
@@ -48,9 +53,23 @@ public class MapEditorWindow extends JFrame{
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
+        windowLayoutSwitcher = new CardLayout();
+        mainContentCardContainer = new JPanel(windowLayoutSwitcher);
+
         gameCanvas = new Graphics();
         gameCanvas.setOpaque(true);
         add(gameCanvas, BorderLayout.CENTER);
+
+        levelGridMenuPanel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 15, 15));
+        levelGridMenuPanel.setBackground(Color.DARK_GRAY);
+        JScrollPane menuScrollPane = new JScrollPane(levelGridMenuPanel);
+        menuScrollPane.setBorder(null);
+
+        mainContentCardContainer.add(gameCanvas, "GAME_CANVAS");
+        mainContentCardContainer.add(menuScrollPane, "LEVEL_MENU");
+
+        add(mainContentCardContainer, BorderLayout.CENTER);
+
 
         createControlBar();
 
@@ -269,6 +288,34 @@ public class MapEditorWindow extends JFrame{
             }
         });
 
+        JButton btnSelectLevelMenu = new JButton("Browse Levels UI");
+        btnSelectLevelMenu.setMaximumSize(btnSize);
+        btnSelectLevelMenu.setAlignmentX(Component.LEFT_ALIGNMENT);
+        controlPanel.add(btnSelectLevelMenu);
+        controlPanel.add(Box.createVerticalStrut(5));
+
+        btnSelectLevelMenu.addActionListener(e ->{
+            levelGridMenuPanel.removeAll();
+
+            java.util.Set<Integer> registeredMaps = new java.util.HashSet<>();
+            if(gameCanvas.getGameObjects() != null){
+                for(GameObject obj : gameCanvas.getGameObjects()){
+                    registeredMaps.add(obj.mapID);
+                }
+            }
+            if(registeredMaps.isEmpty()){
+                registeredMaps.add(1);
+            }
+            for(int id :registeredMaps){
+                LevelPreview preview = new LevelPreview(id, this, gameCanvas);
+                levelGridMenuPanel.add(preview);
+            }
+            levelGridMenuPanel.revalidate();
+            levelGridMenuPanel.repaint();
+
+            windowLayoutSwitcher.show(mainContentCardContainer, "LEVEL_MENU");
+        });
+
         JScrollPane scrollPaneWrapper = new JScrollPane(controlPanel);
         scrollPaneWrapper.setPreferredSize(sideBarDimensions);
         scrollPaneWrapper.setMinimumSize(sideBarDimensions);
@@ -277,37 +324,99 @@ public class MapEditorWindow extends JFrame{
         add(scrollPaneWrapper, BorderLayout.EAST);
     }
     
+    private Point getTransformedGamePoint(MouseEvent e){
+        int panelWidth = gameCanvas.getWidth();
+        int panelHeight = gameCanvas.getHeight();
+        int virtualWidth = gameCanvas.virtualWidth;
+        int virtualHeight = gameCanvas.virtualHeight;
+
+        double scaleX = (double) panelWidth / virtualWidth;
+        double scaleY = (double) panelHeight / virtualHeight;
+        double scale = Math.min(scaleX, scaleY);
+
+        int offsetX = (int) ((panelWidth - (virtualWidth * scale)) / 2);
+        int offsetY = (int) ((panelHeight - (virtualHeight * scale)) / 2);
+
+        int virtualMouseX = (int) ((e.getX() - offsetX) / scale);
+        int virtualMouseY = (int) ((e.getY() - offsetY) / scale);
+
+        return new Point(virtualMouseX + gameCanvas.getCameraX(), virtualMouseY + gameCanvas.getCameraY());
+    }
+    
     private void setupEditorClickEngine(){
         if(gameCanvas == null){
             return;
         }
+        gameCanvas.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    bottomLeftCorner = null;
+                    currentHoverPoint = null;
+                    gameCanvas.repaint();
+                }
+            }
+        });
         gameCanvas.addMouseListener(new MouseAdapter(){
             @Override
             public void mousePressed(MouseEvent e){
+
                 gameCanvas.requestFocusInWindow();
+
+                Point gamePoint = getTransformedGamePoint(e);
 
                 if (gameCanvas == null || !gameCanvas.isEditorMode()) return;
                 int snapSize = gameCanvas.getTileSize();
-                int rawX = e.getX() + gameCanvas.getCameraX();
-                int rawY = e.getY() + gameCanvas.getCameraY();
                 int snapX;
                 int snapY;
-
                 if(!freePlace){
-                    snapX = Math.floorDiv(rawX, snapSize) * snapSize;
-                    snapY = Math.floorDiv(rawY, snapSize) * snapSize;
+                    snapX = Math.floorDiv(gamePoint.x, snapSize) * snapSize;
+                    snapY = Math.floorDiv(gamePoint.y, snapSize) * snapSize;
                 }else{
-                    snapX = rawX;
-                    snapY = rawY;
+                    snapX = gamePoint.x;
+                    snapY = gamePoint.y;
                 }
 
-                if(SwingUtilities.isLeftMouseButton(e)){
-                    int finalY = freePlace ? snapY : (snapY + snapSize);
-                    bottomLeftCorner = new Point(snapX, finalY);
-                    lblX.setText("X Offset: "+ snapX);
-                }else if(SwingUtilities.isRightMouseButton(e)){
-                    topRightCorner = new Point(snapX + (freePlace ? 0 : snapSize), snapY);
-                }else if(SwingUtilities.isMiddleMouseButton(e)){
+                if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
+                    if(bottomLeftCorner == null){
+                        int finalY = freePlace ? snapY : (snapY + snapSize);
+                        bottomLeftCorner = new Point(snapX, finalY);
+                        lblX.setText("X Offset:" + snapX);
+                        
+                        int currentRightX = snapX + (freePlace? 0 : snapSize);
+                        currentHoverPoint = new Point(currentRightX, snapY);
+                        gameCanvas.repaint();
+                    }else{
+                        int currentRightX = snapX + (freePlace ? 0 : snapSize);
+                
+                        try { activeEditingMapID = Integer.parseInt(txtMapID.getText().trim()); } catch (NumberFormatException ex) { activeEditingMapID = 1; }
+                        
+                        int realX = Math.min(bottomLeftCorner.x, currentRightX);
+                        int realY = Math.min(bottomLeftCorner.y, snapY);
+                        int realWidth = Math.abs(currentRightX - bottomLeftCorner.x);
+                        int realHeight = Math.abs(bottomLeftCorner.y - snapY);
+
+                        if (realWidth == 0) realWidth = snapSize;
+                        if (realHeight == 0) realHeight = snapSize;
+
+                        if (gameCanvas.getGameObjects() != null) {
+                            gameCanvas.getGameObjects().add(new GameObject(realX, realY, realWidth, realHeight, activeBrushType, activeEditingMapID));
+                        }
+
+                        // Reset parameters cleanly for the next placement
+                        bottomLeftCorner = null;
+                        currentHoverPoint = null;
+                        gameCanvas.repaint();
+                    }
+                }
+                    
+                if(SwingUtilities.isMiddleMouseButton(e)){
+                    if(bottomLeftCorner != null){
+                        bottomLeftCorner = null;
+                        currentHoverPoint = null;
+                        gameCanvas.repaint();
+                        return;
+                    }
                     selectedObject = null;
                     btnDelete.setEnabled(false);
                     lblSelectedInfo.setText("Selection: None");
@@ -321,7 +430,7 @@ public class MapEditorWindow extends JFrame{
                             }catch(Exception ex){
                                 activeEditingMapID = 1;
                             }
-                            if(obj.mapID == activeEditingMapID && rawX >= obj.x && rawX <= (obj.x + obj.width) && rawY >= obj.y && rawY <= (obj.y + obj.height)){
+                            if(obj.mapID == activeEditingMapID && gamePoint.x >= obj.x && gamePoint.x <= (obj.x + obj.width) && gamePoint.y >= obj.y && gamePoint.y <= (obj.y + obj.height)){
                                 selectedObject = obj;
 
                                 activeBrushType = obj.type;
@@ -334,35 +443,30 @@ public class MapEditorWindow extends JFrame{
                     }
                     return;
                 }
-                if(bottomLeftCorner != null && topRightCorner != null){
-                    try{
-                        activeEditingMapID = Integer.parseInt(txtMapID.getText().trim());
-                    }catch(NumberFormatException ex){
-                        activeEditingMapID = 1;
-                    }
-                    int realX = Math.min(bottomLeftCorner.x, topRightCorner.x);
-                    int realY = Math.min(bottomLeftCorner.y, topRightCorner.y);
-                    
-                    int realWidth = Math.abs(topRightCorner.x - bottomLeftCorner.x);
-                    int realHeight = Math.abs(bottomLeftCorner.y - topRightCorner.y);
+            }
+        });
+        gameCanvas.addMouseMotionListener(new MouseMotionAdapter(){
+            @Override 
+            public void mouseMoved(MouseEvent e){
+                if(gameCanvas == null || !gameCanvas.isEditorMode() || bottomLeftCorner == null) return;
+                Point gamePoint = getTransformedGamePoint(e);
+                int snapSize = gameCanvas.getTileSize();
+                int snapX = !freePlace ? Math.floorDiv(gamePoint.x, snapSize) * snapSize : gamePoint.x;
+                int snapY = !freePlace ? Math.floorDiv(gamePoint.y, snapSize) * snapSize : gamePoint.y;
 
-                    if(realWidth == 0) realWidth = snapSize;
-                    if(realHeight == 0) realHeight = snapSize;
-                    
-                    lblWidth.setText("Width Status: " + realWidth);
-                    lblHeight.setText("Height Status: "+ realHeight);
-                    lblX.setText("X Offset: "+ realX);
-                    lblY.setText("Y Offset: "+ realY);
-                    if(gameCanvas.getGameObjects() != null){
-                        gameCanvas.getGameObjects().add(new GameObject(realX, realY, realWidth, realHeight, activeBrushType, activeEditingMapID));
-                    }
-                    bottomLeftCorner = null;
-                    topRightCorner = null;
-                    gameCanvas.repaint();
-                }
+                int currentRightX = snapX + (freePlace ? 0 : snapSize);
+                currentHoverPoint = new Point(currentRightX, snapY);
+
+                int realWidth = Math.abs(currentHoverPoint.x - bottomLeftCorner.x);
+                int realHeight = Math.abs(bottomLeftCorner.y - currentHoverPoint.y);
+                lblWidth.setText("Width Status: " + (realWidth == 0 ? snapSize : realWidth));
+                lblHeight.setText("Height Status: " + (realHeight == 0 ? snapSize : realHeight));
+                gameCanvas.repaint();
+
             }
         });
     }
+
     
     private void saveMapManual(ArrayList<GameObject> currentEditingObjects, String filePath){
         ArrayList<GameObject> masterList = new ArrayList<>();
@@ -539,10 +643,28 @@ public class MapEditorWindow extends JFrame{
         if (this.gameCanvas != null) this.gameCanvas.repaint();
     }
 
+    public void updateMapIDField(String text){
+        if(txtMapID != null) txtMapID.setText(text);
+    }
+    public void setCurrentlyLoadedMapID(int id){
+        this.currentlyLoadedMapID = id;
+    }
+    public void restoreGameView(){
+        if(windowLayoutSwitcher != null && mainContentCardContainer != null){
+            windowLayoutSwitcher.show(mainContentCardContainer, "GAME_CANVAS");
+            gameCanvas.requestFocusInWindow();
+        }
+    }
+
     public int getCameraX(){return this.cameraX;}
     public int getCameraY(){return this.cameraY;}
     public void setCamLeft(boolean state) { this.camLeft = state; }
     public void setCamRight(boolean state) { this.camRight = state; }
     public void setCamUp(boolean state) { this.camUp = state; }
     public void setCamDown(boolean state) { this.camDown = state; }
+
+    public Point getBottomLeftCorner(){return this.bottomLeftCorner;}
+    public Point getCurrentHoverPoint(){return this.currentHoverPoint;}
+    public GameObject.Type getActiveBrushType(){ return this.activeBrushType;}
+
 }

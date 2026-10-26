@@ -31,6 +31,9 @@ public class Graphics extends JPanel implements ActionListener {
     private final Movement movement;
     private final Timer gameTimer;
 
+    public final int virtualWidth = 1920;
+    public final int virtualHeight = 1080;
+
     public Graphics(){
         Dimension canvasSize = new Dimension(screenWidth, screenHeight);
         this.setPreferredSize(canvasSize);
@@ -248,17 +251,60 @@ public class Graphics extends JPanel implements ActionListener {
     }
 
     @Override
-    protected void paintComponent(java.awt.Graphics g){
+    protected void paintComponent(java.awt.Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
 
-        int camOffsetX = this.cameraX;
-        int camOffsetY = this.cameraY;
+        // int camOffsetX = this.cameraX;
+        // int camOffsetY = this.cameraY;
 
-        g2.translate(-camOffsetX, -camOffsetY);
+        // // Apply viewport translation camera shifts
+        // g2.translate(-camOffsetX, -camOffsetY);
+
+        drawLevelCanvas(g2, currentMap, true, getWidth(), getHeight());
+
+        // If editor mode is engaged, lay down the alignment grid lines
+        if (isEditorMode) {
+            g2.setColor(new Color(255, 255, 255, 30)); // Ultra faint transparent white tint
+            
+            // for (int x = camOffsetX; x < camOffsetX + screenWidth + tileSize; x += tileSize) {
+            //     int snapGridX = (x / tileSize) * tileSize;
+            //     g2.drawLine(snapGridX, camOffsetY, snapGridX, camOffsetY + screenHeight);
+            // }
+            // for (int y = camOffsetY; y < camOffsetY + screenHeight + tileSize; y += tileSize) {
+            //     int snapGridY = (y / tileSize) * tileSize;
+            //     g2.drawLine(camOffsetX, snapGridY, camOffsetX + screenWidth, snapGridY);
+            // }
+
+            // // Temporarily cancel translation offsets strictly to stamp the HUD text overlay flush
+            // g2.translate(camOffsetX, camOffsetY);
+            g2.setColor(Color.GREEN);
+            g2.setFont(new Font("Arial", Font.BOLD, 14));
+            g2.drawString(String.format("✏ MAP CANVAS EDITOR ACTIVE [Cam: %d, %d]", this.cameraX, this.cameraY), 15, 25);
+        }
+        
+        g2.dispose();
+    }
+
+    public void drawLevelCanvas(Graphics2D g2, int mapID, boolean drawPlayer, int panelWidth, int panelHeight){
+
+        java.awt.geom.AffineTransform oldTransform = g2.getTransform();
+
+        double scaleX = (double) panelWidth / virtualWidth;
+        double scaleY = (double) panelHeight / virtualHeight;
+        double scale = Math.min(scaleX, scaleY);
+
+        int offsetX = (int) ((panelWidth - virtualWidth * scale)) / 2;
+        int offsetY = (int) ((panelHeight - virtualHeight * scale)) / 2;
+
+        g2.translate(offsetX, offsetY);
+        g2.scale(scale, scale);
+
+        g2.translate(-this.cameraX, -this.cameraY);
+
 
         for(GameObject obj : gameObjects){
-            if(obj.mapID != currentMap) continue;
+            if(obj.mapID != mapID) continue;
 
             switch(obj.type){
                 case solid: g2.setColor(Color.GREEN); break;
@@ -274,32 +320,85 @@ public class Graphics extends JPanel implements ActionListener {
             g2.setColor(Color.black);
             g2.drawRect(obj.x, obj.y, obj.width, obj.height);
         }
-        g2.setColor(Color.WHITE);
-        g2.fillRect(movement.getPlayerX(), movement.getPlayerY(), tileSize, tileSize);
-        g2.setColor(Color.BLUE);
-        g2.drawRect(movement.getPlayerX(), movement.getPlayerY(), tileSize, tileSize);
-
-        if(isEditorMode){
-            g2.setColor(new Color(255, 255, 255, 30)); // Ultra faint transparent white tint
-            
-            // Draw grid lines matching your viewport camera shifts
-            for (int x = camOffsetX; x < camOffsetX + screenWidth + tileSize; x += tileSize) {
-                int snapGridX = (x / tileSize) * tileSize;
-                g2.drawLine(snapGridX, camOffsetY, snapGridX, camOffsetY + screenHeight);
-            }
-            for (int y = camOffsetY; y < camOffsetY + screenHeight + tileSize; y += tileSize) {
-                int snapGridY = (y / tileSize) * tileSize;
-                g2.drawLine(camOffsetX, snapGridY, camOffsetX + screenWidth, snapGridY);
-            }
-
-            // Temporarily cancel translation offsets strictly to stamp the HUD text overlay flush
-            g2.translate(camOffsetX, camOffsetY);
-            g2.setColor(Color.GREEN);
-            g2.setFont(new Font("Arial", Font.BOLD, 14));
-            g2.drawString(String.format("✏ MAP CANVAS EDITOR ACTIVE [Cam: %d, %d]", camOffsetX, camOffsetY), 15, 25);
+        if(drawPlayer && movement != null){
+            g2.setColor(Color.WHITE);
+            g2.fillRect(movement.getPlayerX(), movement.getPlayerY(), tileSize, tileSize);
+            g2.setColor(Color.BLUE);
+            g2.drawRect(movement.getPlayerX(), movement.getPlayerY(), tileSize, tileSize);
         }
-        g2.dispose();
+        if (this.isEditorMode && drawPlayer) {
+            g2.setColor(new Color(255, 255, 255, 30)); // Faint transparent white grid
+
+            // Draw vertical grid lines aligned with current camera view space bounds
+            for (int x = this.cameraX; x < this.cameraX + virtualWidth + tileSize; x += tileSize) {
+                int snapGridX = (x / tileSize) * tileSize;
+                g2.drawLine(snapGridX, this.cameraY, snapGridX, this.cameraY + virtualHeight);
+            }
+            
+            // Draw horizontal grid lines
+            for (int y = this.cameraY; y < this.cameraY + virtualHeight + tileSize; y += tileSize) {
+                int snapGridY = (y / tileSize) * tileSize;
+                g2.drawLine(this.cameraX, snapGridY, this.cameraX + virtualWidth, snapGridY);
+            }
+
+
+            java.awt.Point anchor = MapEditorWindow.instance.getBottomLeftCorner();
+            java.awt.Point hover = MapEditorWindow.instance.getCurrentHoverPoint();
+            GameObject.Type brush = MapEditorWindow.instance.getActiveBrushType();
+            if (anchor != null && hover != null) {
+                int previewX = Math.min(anchor.x, hover.x);
+                int previewY = Math.min(anchor.y, hover.y);
+                int previewWidth = Math.abs(hover.x - anchor.x);
+                int previewHeight = Math.abs(anchor.y - hover.y);
+
+                if (previewWidth == 0) previewWidth = tileSize;
+                if (previewHeight == 0) previewHeight = tileSize;
+
+                // Pick standard color structures matching brush definitions
+                Color previewColor;
+                switch (brush) {
+                    case solid: previewColor = Color.GREEN; break;
+                    case oneWay: previewColor = new Color(147, 112, 219); break;
+                    case death: previewColor = Color.RED; break;
+                    case respawn: previewColor = Color.BLUE; break;
+                    case spawnPoint: previewColor = Color.YELLOW; break;
+                    case ladder: previewColor = new Color(150, 75, 0); break;
+                    case win: previewColor = new Color(212, 175, 55); break;
+                    default: previewColor = Color.GRAY; break;
+                }
+
+                // Alpha level set to 100 out of 255 for a beautiful transparent look
+                g2.setColor(new Color(previewColor.getRed(), previewColor.getGreen(), previewColor.getBlue(), 100));
+                g2.fillRect(previewX, previewY, previewWidth, previewHeight);
+
+                // Draw clean solid structural dashed lines framing bounds
+                g2.setColor(previewColor);
+                g2.setStroke(new java.awt.BasicStroke(2f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
+                g2.drawRect(previewX, previewY, previewWidth, previewHeight);
+            }
+        }
+        g2.setTransform(oldTransform);
     }
+
+    // private void drawEditorGrid(Graphics2D g2, int camOffsetX, int camOffsetY){
+    //     g2.setColor(new Color(255, 255, 255, 30)); // Ultra faint transparent white tint     
+    //         // Draw grid lines matching your viewport camera shifts
+    //         for (int x = camOffsetX; x < camOffsetX + screenWidth + tileSize; x += tileSize) {
+    //             int snapGridX = (x / tileSize) * tileSize;
+    //             g2.drawLine(snapGridX, camOffsetY, snapGridX, camOffsetY + screenHeight);
+    //         }
+    //         for (int y = camOffsetY; y < camOffsetY + screenHeight + tileSize; y += tileSize) {
+    //             int snapGridY = (y / tileSize) * tileSize;
+    //             g2.drawLine(camOffsetX, snapGridY, camOffsetX + screenWidth, snapGridY);
+    //         }
+    //         // Temporarily cancel translation offsets strictly to stamp the HUD text overlay flush
+    //         g2.translate(camOffsetX, camOffsetY);
+    //         g2.setColor(Color.GREEN);
+    //         g2.setFont(new Font("Arial", Font.BOLD, 14));
+    //         g2.drawString(String.format("✏ MAP CANVAS EDITOR ACTIVE [Cam: %d, %d]", camOffsetX, camOffsetY), 15, 25);
+    // }
+
+
 
     public int getTileSize(){return this.tileSize;}
     public ArrayList<GameObject> getGameObjects(){return this.gameObjects;}
