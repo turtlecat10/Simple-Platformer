@@ -3,8 +3,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
-import java.io.*;
-import java.nio.charset.StandardCharsets;
 
 public class MapEditorWindow extends JFrame{
 
@@ -95,7 +93,6 @@ public class MapEditorWindow extends JFrame{
         instance.gameCanvas.setEditorMode(true);
         instance.gameCanvas.setCameraX(0);
         instance.gameCanvas.setCameraY(0);
-        // System.out.println("Hello");
         
         instance.btnPlay.setEnabled(true);
         instance.btnExit.setEnabled(false);
@@ -539,7 +536,6 @@ public class MapEditorWindow extends JFrame{
         this.topRightCorner = null;
         this.selectedObject = null;
         if (this.btnDelete != null) this.btnDelete.setEnabled(false);
-        // System.out.println("Editor selection points successfully cleared!");
         if (this.gameCanvas != null) this.gameCanvas.repaint();
     }
 

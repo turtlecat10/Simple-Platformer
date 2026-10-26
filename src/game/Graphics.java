@@ -42,7 +42,7 @@ public class Graphics extends JPanel implements ActionListener {
         this.setDoubleBuffered(true);
 
         this.gameObjects = new ArrayList<>();
-        initializeAllLevels();
+        // initializeAllLevels();
         this.display = new Display(tileSize,screenWidth,screenHeight);
 
         this.movement = new Movement(tileSize, worldWidth, worldHeight, gameObjects, startGridX, startGridY, speed);
@@ -55,11 +55,6 @@ public class Graphics extends JPanel implements ActionListener {
             this.gameTimer.start();
         }
     }
-        
-    private void initializeAllLevels() {
-        // We defer layout construction to 
-        // System.out.println("Level system online. Enter Map ID and click Load Level to fetch active elements arrays.");
-    }    
     
     public void loadLevel(int mapID){
         this.currentMap = mapID;
