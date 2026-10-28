@@ -8,15 +8,27 @@ public class MapEditorWindow extends JFrame{
 
     private final String externalSavePath = "src/levels.json";
     
-    private Graphics gameCanvas;
+    public Graphics gameCanvas;
     private JPanel controlPanel;
 
 
     //making/deleting objects
     private GameObject selectedObject = null;
     private Point bottomLeftCorner = null;
-    private Point topRightCorner = null;
     private Point currentHoverPoint = null;
+    private Point pathHoverPoint = null;
+
+    private GameObject propertyEditingObject = null;
+    private int highlightedBroadcastChannel = 0;
+
+    private JDialog propertyDialog = null;
+    private JTextField txtTriggeredBy, txtActivatesChannel;
+    private JToggleButton btnToggleDisplay;
+
+    private JTextField txtTimeLimit;
+    private enum PathClickMode { NONE, OSCILLATION, TRIGGERED_MOVE, OSCILLATE_AFTER_TRIGGER}
+    private PathClickMode currentPathClickMode = PathClickMode.NONE;
+
 
 
     private GameObject.Type activeBrushType = GameObject.Type.solid;
@@ -27,6 +39,7 @@ public class MapEditorWindow extends JFrame{
     private JLabel lblX, lblY, lblWidth, lblHeight, lblBrush, lblSelectedInfo, lblFreePlace;
     private JTextField txtMapID;
     private JButton btnDelete;
+    private JButton btnEditProperties;
 
     private JPanel mainContentCardContainer;
     private CardLayout windowLayoutSwitcher;
@@ -58,7 +71,6 @@ public class MapEditorWindow extends JFrame{
 
         gameCanvas = new Graphics();
         gameCanvas.setOpaque(true);
-        add(gameCanvas, BorderLayout.CENTER);
 
         levelGridMenuPanel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 15, 15));
         levelGridMenuPanel.setBackground(Color.DARK_GRAY);
@@ -69,7 +81,6 @@ public class MapEditorWindow extends JFrame{
         mainContentCardContainer.add(menuScrollPane, "LEVEL_MENU");
 
         add(mainContentCardContainer, BorderLayout.CENTER);
-
 
         createControlBar();
 
@@ -94,6 +105,17 @@ public class MapEditorWindow extends JFrame{
             }
         });
         editorCamTimer.start();
+
+        try{
+            loadMapManual(externalSavePath);
+            gameCanvas.loadLevel(activeEditingMapID);
+            currentlyLoadedMapID = activeEditingMapID;
+            if(gameCanvas.getMovement() != null){
+                gameCanvas.getMovement().resetTriggerTrackingState();
+            }
+        }catch(Exception ex){
+
+        }
 
         pack();
         setLocationRelativeTo(null);
@@ -210,9 +232,11 @@ public class MapEditorWindow extends JFrame{
         JButton btnSave = new JButton("Save Level");
         JButton btnLoad = new JButton("Load stage");
         JButton btnFreePlace = new JButton("Free place");
+        JButton btnNew = new JButton("New map");
+        JButton btnSelectLevelMenu = new JButton("Browse Levels");
 
         Dimension btnSize = new Dimension(200, 32);
-        JButton[] actionButtons = {btnSave, btnPlay, btnExit, btnLoad, btnFreePlace};
+        JButton[] actionButtons = {btnSave, btnPlay, btnExit, btnLoad, btnFreePlace, btnNew, btnSelectLevelMenu};
         for (JButton btn : actionButtons) {
             btn.setMaximumSize(btnSize);
             btn.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -223,6 +247,9 @@ public class MapEditorWindow extends JFrame{
 
         btnLoad.addActionListener(e -> {
             try {
+                if (gameCanvas.getMovement() != null) {
+                    gameCanvas.getMovement().resetTriggerTrackingState();
+                }
                 activeEditingMapID = Integer.parseInt(txtMapID.getText().trim());
                 loadMapManual(externalSavePath);
                 gameCanvas.loadLevel(activeEditingMapID); // Updates camera references
@@ -235,6 +262,9 @@ public class MapEditorWindow extends JFrame{
 
         btnSave.addActionListener(e -> {
             try {
+                if (gameCanvas.getMovement() != null) {
+                    gameCanvas.getMovement().resetTriggerTrackingState();
+                }
                 int targetSaveID = Integer.parseInt(txtMapID.getText().trim());
 
                 if(currentlyLoadedMapID == -1){
@@ -244,6 +274,13 @@ public class MapEditorWindow extends JFrame{
                 if(targetSaveID != currentlyLoadedMapID){
                     JOptionPane.showMessageDialog(this, "ERROR: You are trying to save to Map ID " + targetSaveID + ", but you currently have Map ID " + currentlyLoadedMapID + " loaded\n"+"To edit Map " + targetSaveID + ", load it first to prevet overwriting data", "Editor Safety Error", JOptionPane.ERROR_MESSAGE);
                 }
+                ArrayList<GameObject> liveObjects = gameCanvas.getGameObjects();
+                if (liveObjects != null) {
+                    for (GameObject obj : liveObjects) {
+                        obj.isTriggered = false;
+                    }
+                }
+                gameCanvas.repaint();
 
                 activeEditingMapID = targetSaveID;
                 saveMapManual(gameCanvas.getGameObjects(), externalSavePath);
@@ -260,19 +297,47 @@ public class MapEditorWindow extends JFrame{
                 gameCanvas.loadLevel(activeEditingMapID);
                 btnPlay.setEnabled(false);
                 btnExit.setEnabled(true);
+                btnSave.setEnabled(false);
+                btnLoad.setEnabled(false);
+                btnFreePlace.setEnabled(false);
+                btnNew.setEnabled(false);
+                btnSelectLevelMenu.setEnabled(false);
                 gameCanvas.requestFocusInWindow();
+                gameCanvas.getMovement().resetTriggerTrackingState();
             }catch (Exception ex){
                 // System.out.println("Loader sequence halted");
             }
         });
 
         btnExit.addActionListener(e -> {
+            if (gameCanvas.getMovement() != null) {
+                gameCanvas.getMovement().resetTriggerTrackingState();
+            }
             gameCanvas.setEditorMode(true);
+            ArrayList<GameObject> allObjects = gameCanvas.getGameObjects();
+            if(allObjects != null){
+                for(GameObject obj : allObjects){
+                    obj.isTriggered = false;
+                    obj.timeElapsed = 0;
+                    obj.currentX = obj.x;
+                    obj.currentY = obj.y;
+                    obj.lastX = obj.x;
+                    obj.lastY = obj.y;
+                    obj.deltaX = 0;
+                    obj.deltaY = 0;
+                }
+            }
             
             // gameCanvas.setCameraX(0);
             // gameCanvas.setCameraY(0);
             btnPlay.setEnabled(true);
             btnExit.setEnabled(false);
+            btnSave.setEnabled(true);
+            btnLoad.setEnabled(true);
+            btnFreePlace.setEnabled(true);
+            btnNew.setEnabled(true);
+            btnSelectLevelMenu.setEnabled(true);
+            gameCanvas.repaint();
         });
 
         btnFreePlace.addActionListener(e -> {
@@ -288,11 +353,18 @@ public class MapEditorWindow extends JFrame{
             }
         });
 
-        JButton btnSelectLevelMenu = new JButton("Browse Levels UI");
-        btnSelectLevelMenu.setMaximumSize(btnSize);
-        btnSelectLevelMenu.setAlignmentX(Component.LEFT_ALIGNMENT);
-        controlPanel.add(btnSelectLevelMenu);
-        controlPanel.add(Box.createVerticalStrut(5));
+        btnNew.addActionListener(e -> {
+            int nextID = getNextUnusedMapID();
+            activeEditingMapID = nextID;
+            currentlyLoadedMapID = nextID;
+            txtMapID.setText(String.valueOf(nextID));
+            gameCanvas.setCameraX(0);
+            gameCanvas.setCameraY(0);
+            loadMapManual(externalSavePath);
+            gameCanvas.loadLevel(activeEditingMapID);
+            gameCanvas.repaint();
+            JOptionPane.showMessageDialog(this, "New Map " + activeEditingMapID + " created succesfully");
+        });
 
         btnSelectLevelMenu.addActionListener(e ->{
             levelGridMenuPanel.removeAll();
@@ -376,7 +448,39 @@ public class MapEditorWindow extends JFrame{
                     snapX = gamePoint.x;
                     snapY = gamePoint.y;
                 }
-
+                if(propertyEditingObject != null){
+                    if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
+                        if (currentPathClickMode == PathClickMode.OSCILLATION) {
+                            // Route 1: Constant/Standard background looping limits
+                            propertyEditingObject.moveX = snapX;
+                            propertyEditingObject.moveY = snapY;
+                            currentPathClickMode = PathClickMode.NONE;
+                            JOptionPane.showMessageDialog(propertyDialog, "Standard Oscillation Target set to: (" + snapX + ", " + snapY + ")");
+                            
+                        } else if (currentPathClickMode == PathClickMode.TRIGGERED_MOVE) {
+                            // Route 2: Single-activation baseline slide point destination 
+                            propertyEditingObject.triggeredX = snapX;
+                            propertyEditingObject.triggeredY = snapY;
+                            currentPathClickMode = PathClickMode.NONE;
+                            JOptionPane.showMessageDialog(propertyDialog, "Triggered Movement Target set to: (" + snapX + ", " + snapY + ")");
+                            
+                        } else if (currentPathClickMode == PathClickMode.OSCILLATE_AFTER_TRIGGER) {
+                            // Route 3: Secondary looping boundaries configuration parameters
+                            // This allows you to set moveX/Y relative to where it arrives when triggered
+                            propertyEditingObject.triggerMoveX = snapX;
+                            propertyEditingObject.triggerMoveY = snapY;
+                            currentPathClickMode = PathClickMode.NONE;
+                            JOptionPane.showMessageDialog(propertyDialog, "Post-Trigger Oscillation Target set to: (" + snapX + ", " + snapY + ")");
+                            
+                        } else {
+                            // Default Fallback
+                            propertyEditingObject.triggeredX = snapX;
+                            propertyEditingObject.triggeredY = snapY;
+                        }
+                        gameCanvas.repaint();
+                        return;
+                    }
+                }
                 if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
                     if(bottomLeftCorner == null){
                         int finalY = freePlace ? snapY : (snapY + snapSize);
@@ -399,9 +503,17 @@ public class MapEditorWindow extends JFrame{
                         if (realWidth == 0) realWidth = snapSize;
                         if (realHeight == 0) realHeight = snapSize;
 
-                        if (gameCanvas.getGameObjects() != null) {
-                            gameCanvas.getGameObjects().add(new GameObject(realX, realY, realWidth, realHeight, activeBrushType, activeEditingMapID));
-                        }
+                        lblWidth.setText("Width Status: " + realWidth);
+                    lblHeight.setText("Height Status: " + realHeight);
+                    lblX.setText("X Offset: " + realX);
+                    lblY.setText("Y Offset: " + realY);
+                    
+                    if (gameCanvas.getGameObjects() != null) {
+                        // Create the object configuration block
+                        GameObject newlyCreatedObject = new GameObject(realX, realY, realWidth, realHeight, activeBrushType, activeEditingMapID);
+                        gameCanvas.getGameObjects().add(newlyCreatedObject);
+                        showPropertyConfigDialog(newlyCreatedObject);
+                    }
 
                         // Reset parameters cleanly for the next placement
                         bottomLeftCorner = null;
@@ -421,6 +533,9 @@ public class MapEditorWindow extends JFrame{
                     btnDelete.setEnabled(false);
                     lblSelectedInfo.setText("Selection: None");
 
+                    propertyEditingObject = null;
+                    highlightedBroadcastChannel = 0;
+
                     ArrayList<GameObject> allObjects = gameCanvas.getGameObjects();
                     if(allObjects != null){
                         for(int i = allObjects.size() - 1; i>= 0; i--){
@@ -433,6 +548,12 @@ public class MapEditorWindow extends JFrame{
                             if(obj.mapID == activeEditingMapID && gamePoint.x >= obj.x && gamePoint.x <= (obj.x + obj.width) && gamePoint.y >= obj.y && gamePoint.y <= (obj.y + obj.height)){
                                 selectedObject = obj;
 
+                                propertyEditingObject = obj;
+
+                                if(obj.type == GameObject.Type.trigger){
+                                    highlightedBroadcastChannel = obj.activatesChannel;
+                                }
+
                                 activeBrushType = obj.type;
                                 lblBrush.setText("Selected Brush: " + obj.type.name().toUpperCase());
                                 lblSelectedInfo.setText(String.format("Selection: %s (%dx%d)", obj.type.name(), obj.width, obj.height));
@@ -441,6 +562,7 @@ public class MapEditorWindow extends JFrame{
                             }
                         }
                     }
+                    gameCanvas.repaint();
                     return;
                 }
             }
@@ -448,25 +570,48 @@ public class MapEditorWindow extends JFrame{
         gameCanvas.addMouseMotionListener(new MouseMotionAdapter(){
             @Override 
             public void mouseMoved(MouseEvent e){
-                if(gameCanvas == null || !gameCanvas.isEditorMode() || bottomLeftCorner == null) return;
-                Point gamePoint = getTransformedGamePoint(e);
+                int panelWidth = gameCanvas.getWidth();
+                int panelHeight = gameCanvas.getHeight();
+                int virtualWidth = gameCanvas.virtualWidth;
+                int virtualHeight = gameCanvas.virtualHeight;
+
+                double scaleX = (double) panelWidth / virtualWidth;
+                double scaleY = (double) panelHeight / virtualHeight;
+                double scale = Math.min(scaleX, scaleY);
+
+                int offsetX = (int) ((panelWidth - (virtualWidth * scale)) / 2);
+                int offsetY = (int) ((panelHeight - (virtualHeight * scale)) / 2);
+
+                int virtualMouseX = (int) ((e.getX() - offsetX) / scale);
+                int virtualMouseY = (int) ((e.getY() - offsetY) / scale);
+
+                int rawX = virtualMouseX + gameCanvas.getCameraX();
+                int rawY = virtualMouseY + gameCanvas.getCameraY();
+
                 int snapSize = gameCanvas.getTileSize();
-                int snapX = !freePlace ? Math.floorDiv(gamePoint.x, snapSize) * snapSize : gamePoint.x;
-                int snapY = !freePlace ? Math.floorDiv(gamePoint.y, snapSize) * snapSize : gamePoint.y;
+                int snapX = !freePlace ? Math.floorDiv(rawX, snapSize) * snapSize : rawX;
+                int snapY = !freePlace ? Math.floorDiv(rawY, snapSize) * snapSize : rawY;
 
-                int currentRightX = snapX + (freePlace ? 0 : snapSize);
-                currentHoverPoint = new Point(currentRightX, snapY);
+                //Record path hover coordinate changes
+                if (propertyEditingObject != null && currentPathClickMode != PathClickMode.NONE) {
+                    pathHoverPoint = new Point(snapX, snapY);
+                } else {
+                    pathHoverPoint = null;
+                }
 
-                int realWidth = Math.abs(currentHoverPoint.x - bottomLeftCorner.x);
-                int realHeight = Math.abs(bottomLeftCorner.y - currentHoverPoint.y);
-                lblWidth.setText("Width Status: " + (realWidth == 0 ? snapSize : realWidth));
-                lblHeight.setText("Height Status: " + (realHeight == 0 ? snapSize : realHeight));
+                if (bottomLeftCorner != null) {
+                    int currentRightX = snapX + (freePlace ? 0 : snapSize);
+                    currentHoverPoint = new Point(currentRightX, snapY);
+                    int realWidth = Math.abs(currentHoverPoint.x - bottomLeftCorner.x);
+                    int realHeight = Math.abs(bottomLeftCorner.y - currentHoverPoint.y);
+                    lblWidth.setText("Width Status: " + (realWidth == 0 ? snapSize : realWidth));
+                    lblHeight.setText("Height Status: " + (realHeight == 0 ? snapSize : realHeight));
+                }
                 gameCanvas.repaint();
 
             }
         });
     }
-
     
     private void saveMapManual(ArrayList<GameObject> currentEditingObjects, String filePath){
         ArrayList<GameObject> masterList = new ArrayList<>();
@@ -511,7 +656,12 @@ public class MapEditorWindow extends JFrame{
                 for(String rawObj: objectsRaw){
                     rawObj = rawObj.replace("{", "").replace("}", "").trim();
                     int x = 0, y = 0, width = 0, height = 0, mapID = 1;
+                    boolean isTriggered= false, triggeredDisplay = true;
+                    int triggeredX = -1, triggeredY = -1, triggeredBy = 0, activatesChannel = 0;
+                    int time = 0, timeElapsed = 0, moveX = 0, moveY = 0, triggerMoveX = 0, triggerMoveY = 0;
                     GameObject.Type type = GameObject.Type.solid;
+                    GameObject.movement move = GameObject.movement.never;
+
                     String[] properties = rawObj.split(",");
                     for(String prop : properties){
 
@@ -527,9 +677,28 @@ public class MapEditorWindow extends JFrame{
                             case "height": height = Integer.parseInt(val); break;
                             case "mapID": mapID = Integer.parseInt(val); break;
                             case "type": type = GameObject.Type.valueOf(val); break;
+                            case "isTriggered": isTriggered = Boolean.parseBoolean(val); break;
+                            case "triggeredX": triggeredX = Integer.parseInt(val); break;
+                            case "triggeredY": triggeredY = Integer.parseInt(val); break;
+                            case "triggeredDisplay": triggeredDisplay = Boolean.parseBoolean(val); break;
+                            case "triggeredBy": triggeredBy = Integer.parseInt(val); break;
+                            case "activatesChannel": activatesChannel = Integer.parseInt(val); break;
+                            case "time": time = Integer.parseInt(val); break;
+                            case "timeElapsed": timeElapsed = Integer.parseInt(val); break;
+                            case "move": move = GameObject.movement.valueOf(val); break;
+                            case "moveX": moveX = Integer.parseInt(val); break;
+                            case "moveY": moveY = Integer.parseInt(val); break;
+                            case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
+                            case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
+
                         }
                     }
-                    masterList.add(new GameObject(x, y, width, height, type, mapID));
+                    if(triggeredX == -1 && triggeredY == -1){ triggeredX = x; triggeredY = y; }
+                    if (moveX == 0 && moveY == 0) { moveX = x; moveY = y; }
+                    if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
+
+                     masterList.add(new GameObject(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY, 
+                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, moveX, moveY, triggerMoveX, triggerMoveY, x, y));
                 }
             }
         }
@@ -545,7 +714,14 @@ public class MapEditorWindow extends JFrame{
             writer.write("[\n");
             for(int i = 0; i < masterList.size(); i++){
                 GameObject obj = masterList.get(i);
-                String jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"type\":\"%s\", \"mapID\":%d}", obj.x, obj.y, obj.width, obj.height, obj.type.name(), obj.mapID);
+                String jsonStr = String.format(
+                    "{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"type\":\"%s\", \"mapID\":%d, \"isTriggered\":%b, " +
+                    "\"triggeredX\":%d, \"triggeredY\":%d, \"triggeredDisplay\":%b, \"triggeredBy\":%d, \"activatesChannel\":%d, " +
+                    "\"time\":%d, \"timeElapsed\":%d, \"move\":\"%s\", \"moveX\":%d, \"moveY\":%d, \"triggerMoveX\":%d, \"triggerMoveY\":%d}", 
+                    obj.x, obj.y, obj.width, obj.height, obj.type.name(), obj.mapID, obj.isTriggered, 
+                    obj.triggeredX, obj.triggeredY, obj.triggeredDisplay, obj.triggeredBy, obj.activatesChannel,
+                    obj.time, obj.timeElapsed, obj.move.name(), obj.moveX, obj.moveY, obj.triggerMoveX, obj.triggerMoveY
+                );
                 writer.write(" "+ jsonStr);
                 if(i < masterList.size() - 1){
                     writer.write(",\n");
@@ -604,8 +780,16 @@ public class MapEditorWindow extends JFrame{
             String[] objectsRaw = jsonStringData.split("\\},\\s*\\{");
             for (String rawObj : objectsRaw) {
                 rawObj = rawObj.replace("{", "").replace("}", "").trim();
+
                 int x = 0, y = 0, width = 0, height = 0, mapID = 1;
+                boolean isTriggered = false, triggeredDisplay = true;
+                int triggeredX = -1, triggeredY = -1, triggeredBy = 0, activatesChannel = 0;
+                int time = 0, timeElapsed = 0, moveX = 0, moveY = 0, triggerMoveX = 0, triggerMoveY = 0;
                 GameObject.Type type = GameObject.Type.solid;
+                GameObject.movement move = GameObject.movement.never;
+
+
+
                 String[] properties = rawObj.split(",");
                 for (String prop : properties) {
                     String[] kv = prop.split(":");
@@ -620,9 +804,26 @@ public class MapEditorWindow extends JFrame{
                         case "height": height = Integer.parseInt(val); break;
                         case "mapID": mapID = Integer.parseInt(val); break;
                         case "type": type = GameObject.Type.valueOf(val); break;
+                        case "isTriggered": isTriggered = Boolean.parseBoolean(val); break;
+                        case "triggeredX": triggeredX = Integer.parseInt(val); break;
+                        case "triggeredY": triggeredY = Integer.parseInt(val); break;
+                        case "triggeredDisplay": triggeredDisplay = Boolean.parseBoolean(val); break;
+                        case "triggeredBy": triggeredBy = Integer.parseInt(val); break;
+                        case "activatesChannel": activatesChannel = Integer.parseInt(val); break;
+                        case "time": time = Integer.parseInt(val); break;
+                        case "timeElapsed": timeElapsed = Integer.parseInt(val); break;
+                        case "move": move = GameObject.movement.valueOf(val); break;
+                        case "moveX": moveX = Integer.parseInt(val); break;
+                        case "moveY": moveY = Integer.parseInt(val); break;
+                        case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
+                        case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
                     }
                 }
-                loadedObjects.add(new GameObject(x, y, width, height, type, mapID));
+                if (triggeredX == -1 && triggeredY == -1) { triggeredX = x; triggeredY = y; }
+                if (moveX == 0 && moveY == 0) { moveX = x; moveY = y; }
+                if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
+                loadedObjects.add(new GameObject(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY,
+                    triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, moveX, moveY, triggerMoveX, triggerMoveY, x, y));
             }
         }
     }
@@ -631,13 +832,23 @@ public class MapEditorWindow extends JFrame{
     if (gameCanvas.getGameObjects() != null) {
         gameCanvas.getGameObjects().clear();
         gameCanvas.getGameObjects().addAll(loadedObjects);
+        for(GameObject obj : gameCanvas.getGameObjects()){
+            obj.currentX = obj.x;
+            obj.currentY = obj.y;
+            obj.lastX = obj.x;
+            obj.lastY = obj.y;
+            obj.deltaX = 0;
+            obj.deltaY = 0;
+            obj.timeElapsed = 0;
+        }
+        
         gameCanvas.repaint();
     }
 }
 
     public void clearSelectionPoints() {
         this.bottomLeftCorner = null;
-        this.topRightCorner = null;
+        // this.topRightCorner = null;
         this.selectedObject = null;
         if (this.btnDelete != null) this.btnDelete.setEnabled(false);
         if (this.gameCanvas != null) this.gameCanvas.repaint();
@@ -655,7 +866,126 @@ public class MapEditorWindow extends JFrame{
             gameCanvas.requestFocusInWindow();
         }
     }
+    
+    private void showPropertyConfigDialog(GameObject obj){
+        this.propertyEditingObject = obj;
+        this.currentPathClickMode = PathClickMode.NONE;
 
+        propertyDialog = new JDialog(this, "Configure object properties", false);
+
+        propertyDialog.setLayout(new GridLayout(9, 2, 10, 10));
+        propertyDialog.getRootPane().setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+        // Field 1: Channel Listener
+        propertyDialog.add(new JLabel("Triggered By Channel ID:"));
+        txtTriggeredBy = new JTextField(String.valueOf(obj.triggeredBy));
+        propertyDialog.add(txtTriggeredBy);
+
+        propertyDialog.add(new JLabel("Activates Channel ID:"));
+        txtActivatesChannel = new JTextField(String.valueOf(obj.activatesChannel));
+        txtActivatesChannel.setEnabled(obj.type == GameObject.Type.trigger);
+        propertyDialog.add(txtActivatesChannel);
+
+        //2. Timeline
+        propertyDialog.add(new JLabel("Travel Duraction (In Frames 60 FPS):"));
+        txtTimeLimit = new JTextField(String.valueOf(obj.time < 0 ? 60 : obj.time));
+        propertyDialog.add(txtTimeLimit);
+
+        // Field 3: Post-Trigger Appearance
+        propertyDialog.add(new JLabel("Visible When Triggered:"));
+        btnToggleDisplay = new JToggleButton(obj.triggeredDisplay ? "TRUE (Stay Visible)" : "FALSE (Hide Block)", obj.triggeredDisplay);
+        btnToggleDisplay.addActionListener(e -> {
+            btnToggleDisplay.setText(btnToggleDisplay.isSelected() ? "TRUE (Stay Visible)" : "FALSE (Hide Block)");
+        });
+        propertyDialog.add(btnToggleDisplay);
+
+        // Button 1: Standard continuous looping movement
+        JButton btnSetOscillate = new JButton("Place Standard Oscillation");
+        btnSetOscillate.addActionListener(e -> {
+            this.currentPathClickMode = PathClickMode.OSCILLATION;
+            JOptionPane.showMessageDialog(propertyDialog, "Click on the main editor grid to set the standard home oscillation target (moveX, moveY).");
+        });
+        propertyDialog.add(btnSetOscillate);
+
+        // Button 2: Slides once when channel flips to true
+        JButton btnSetTriggerMove = new JButton("Place Triggered Move Target");
+        btnSetTriggerMove.addActionListener(e -> {
+            this.currentPathClickMode = PathClickMode.TRIGGERED_MOVE;
+            JOptionPane.showMessageDialog(propertyDialog, "Click on the main editor grid to set the initial triggered arrival destination (triggerX, triggerY).");
+        });
+        propertyDialog.add(btnSetTriggerMove);
+
+        // Button 3: Loop/Oscillate outward from its triggered location parameters
+        JButton btnSetOscillateAfterTrigger = new JButton("Place Oscillation After Triggered");
+        btnSetOscillateAfterTrigger.addActionListener(e -> {
+            this.currentPathClickMode = PathClickMode.OSCILLATE_AFTER_TRIGGER;
+            JOptionPane.showMessageDialog(propertyDialog, "Click on the main editor grid to define the secondary looping target path AFTER the trigger wakes it up.");
+        });
+        propertyDialog.add(btnSetOscillateAfterTrigger);
+
+        // 5. activation condition
+        propertyDialog.add(new JLabel("Movement Activation Condition:"));
+        JButton btnCycleMoveCondition = new JButton(obj.move.name().toUpperCase());
+        btnCycleMoveCondition.addActionListener(e -> {
+            if(obj.move == GameObject.movement.never){
+                obj.move = GameObject.movement.always;
+            }else if(obj.move == GameObject.movement.always){
+                obj.move = GameObject.movement.touch;
+            }else if(obj.move == GameObject.movement.touch){
+                obj.move = GameObject.movement.trigger;
+            }else{
+                obj.move = GameObject.movement.never;
+            }
+            btnCycleMoveCondition.setText(obj.move.name().toUpperCase());
+        });
+        propertyDialog.add(btnCycleMoveCondition);
+
+        // Field 6: Finalize Configurations
+        propertyDialog.add(new JLabel("<html><i>Tip: Tap a Place path button<br>then click the Grid map!</i></html>"));
+        JButton btnConfirm = new JButton("Confirm & Close");
+        btnConfirm.addActionListener(e -> {
+            try {
+                propertyEditingObject.triggeredBy = Integer.parseInt(txtTriggeredBy.getText().trim());
+                if (propertyEditingObject.type == GameObject.Type.trigger) {
+                    propertyEditingObject.activatesChannel = Integer.parseInt(txtActivatesChannel.getText().trim());
+                }
+                propertyEditingObject.triggeredDisplay = btnToggleDisplay.isSelected();
+                propertyEditingObject.time = Integer.parseInt(txtTimeLimit.getText().trim());
+                
+                // Clean active editor workflow states
+                this.propertyEditingObject = null;
+                this.currentPathClickMode = PathClickMode.NONE;
+                propertyDialog.dispose();
+                gameCanvas.repaint();
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(propertyDialog, "Please verify all numerical text entries are clean integer values.");
+            }
+        });
+        propertyDialog.add(btnConfirm);
+
+        propertyDialog.pack();
+        propertyDialog.setLocationRelativeTo(this);
+        propertyDialog.setVisible(true);
+
+    }
+
+    public int getNextUnusedMapID(){
+        int highestID = 1;
+        boolean found = false;
+        if(gameCanvas != null && gameCanvas.getGameObjects() != null){
+            while(!found){
+                found = true;
+                for(GameObject obj : gameCanvas.getGameObjects()){
+                    if(obj.mapID == highestID){
+                        found = false;
+                        highestID++;
+                    }
+                }
+            }
+        }
+        return highestID;
+    }
+    
     public int getCameraX(){return this.cameraX;}
     public int getCameraY(){return this.cameraY;}
     public void setCamLeft(boolean state) { this.camLeft = state; }
@@ -666,5 +996,11 @@ public class MapEditorWindow extends JFrame{
     public Point getBottomLeftCorner(){return this.bottomLeftCorner;}
     public Point getCurrentHoverPoint(){return this.currentHoverPoint;}
     public GameObject.Type getActiveBrushType(){ return this.activeBrushType;}
+    public GameObject getPropertyEditingObject(){ return this.propertyEditingObject; }
+    public int getHighlightedBroadcastChannel(){ return this.highlightedBroadcastChannel; }
+
+    public Point getPathHoverPoint() { return this.pathHoverPoint; }
+    public String getCurrentPathClickModeName() { return this.currentPathClickMode.name(); }
+    public boolean isSettingPathMode() { return this.currentPathClickMode != PathClickMode.NONE; }
 
 }

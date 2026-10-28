@@ -51,20 +51,7 @@ public class LevelPreview extends JPanel {
         Graphics2D g2 = (Graphics2D) g.create();
         
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        // Fetch display dimension targets from screen dimensions
-        int designWidth = canvasReference.getWidth(); 
-        int designHeight = canvasReference.getHeight();
         
-        // Enforce safe fallbacks if metrics are unset during initial render
-        // if (designWidth <= 0) designWidth = 800;
-        // if (designHeight <= 0) designHeight = 576;
-
-        // // Auto-scale physics environment to thumbnail view dimensions
-        // double scaleX = (double) getWidth() / designWidth;
-        // double scaleY = (double) getHeight() / designHeight;
-        // g2.scale(scaleX, scaleY);
-
         // Render target map level outline without showing player position
         canvasReference.drawLevelCanvas(g2, targetMapID, false, getWidth(), getHeight());
         g2.dispose();
