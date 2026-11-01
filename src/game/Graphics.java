@@ -33,6 +33,8 @@ public class Graphics extends JPanel implements ActionListener {
     private final Timer gameTimer;
 
     private final java.util.ArrayList<DeathParticle> deathParticles = new java.util.ArrayList<>();
+    public final java.util.ArrayList<Enemy> activeEnemies = new java.util.ArrayList<>();
+
 
     public final int virtualWidth = 1920;
     public final int virtualHeight = 1080;
@@ -354,6 +356,13 @@ public class Graphics extends JPanel implements ActionListener {
             g2.setColor(Color.black);
             g2.drawRect(renderX, renderY, obj.width, obj.height);
         }
+        if(movement != null && movement.getEnemies() != null){
+            for(Enemy enemy : movement.getEnemies()){
+                if(enemy.mapID == mapID){
+                    enemy.draw(g2);
+                }
+            }
+        }
         if(drawPlayer && movement != null){
             if(!movement.isDead){
                 g2.setColor(Color.WHITE);
@@ -461,7 +470,7 @@ public class Graphics extends JPanel implements ActionListener {
             boolean hasTrigOscEnd = (editingObj.triggerMoveX != editingObj.x || editingObj.triggerMoveY != editingObj.y) && (editingObj.triggerMoveX != 0);
 
             // 1. Draw standard background pre-trigger oscillation pathing if active
-            if (hasNormalOsc && !hasTrigStart) {
+            if (hasNormalOsc) {
                 g2.setColor(new Color(138, 43, 226, 40));
                 g2.fillRect(editingObj.moveX, editingObj.moveY, editingObj.width, editingObj.height);
                 g2.setColor(new Color(138, 43, 226));
@@ -513,6 +522,9 @@ public class Graphics extends JPanel implements ActionListener {
             int origCenterY = activeEditingBlock.y + (activeEditingBlock.height / 2);
             int trigStartCenterX = activeEditingBlock.triggeredX + (activeEditingBlock.width / 2);
             int trigStartCenterY = activeEditingBlock.triggeredY + (activeEditingBlock.height / 2);
+            int trigOscEndCenterX = activeEditingBlock.triggerMoveX + (activeEditingBlock.width / 2);
+            int trigOscEndCenterY = activeEditingBlock.triggerMoveY + (activeEditingBlock.height / 2);
+
 
             int cursorCenterX = pathCursor.x + (activeEditingBlock.width / 2);
             int cursorCenterY = pathCursor.y + (activeEditingBlock.height / 2);
@@ -529,20 +541,25 @@ public class Graphics extends JPanel implements ActionListener {
             if (modeName.equals("OSCILLATION")) {
                 hoverPreviewColor = new Color(138, 43, 226); // Purple for Standard Oscillation
                 previewLabel = "Always Oscillation Target";
-                sourceLineX = origCenterX;
-                sourceLineY = origCenterY;
+                g2.drawLine(origCenterX, origCenterY, cursorCenterX, cursorCenterY);
             } else if (modeName.equals("TRIGGERED_MOVE")) {
                 hoverPreviewColor = Color.ORANGE; // Orange for Single Trigger Move Destinations
                 previewLabel = "Triggered Move Destination";
-                sourceLineX = origCenterX;
-                sourceLineY = origCenterY;
+                g2.drawLine(origCenterX, origCenterY, cursorCenterX, cursorCenterY);
+
+                boolean hasTrigOscEnd = (activeEditingBlock.triggerMoveX != activeEditingBlock.x || activeEditingBlock.triggerMoveY != activeEditingBlock.y) && (activeEditingBlock.triggerMoveX != 0);
+                if(hasTrigOscEnd){
+                    g2.setColor(Color.CYAN);
+                    g2.drawLine(cursorCenterX, cursorCenterY, trigOscEndCenterX, trigOscEndCenterY);
+                }
             } else if (modeName.equals("OSCILLATE_AFTER_TRIGGER")) {
                 hoverPreviewColor = Color.CYAN; // Cyan for Loop Paths after waking up
                 previewLabel = "Post-Trigger Oscillation Target";
                 boolean hasTrigStart = (activeEditingBlock.triggeredX != activeEditingBlock.x || activeEditingBlock.triggeredY != activeEditingBlock.y) && (activeEditingBlock.triggeredX != 0);
                 if(hasTrigStart){
-                    sourceLineX = trigStartCenterX;
-                    sourceLineY = trigStartCenterY;
+                    g2.drawLine(trigStartCenterX, trigStartCenterY, cursorCenterX, cursorCenterY);
+                }else{
+                    g2.drawLine(origCenterX, origCenterY, cursorCenterX, cursorCenterY);
                 }
             }
 
@@ -556,8 +573,8 @@ public class Graphics extends JPanel implements ActionListener {
             g2.drawRect(pathCursor.x, pathCursor.y, activeEditingBlock.width, activeEditingBlock.height);
 
             // Draw a solid alignment linking vector trace line back to origin starting points
-            g2.setStroke(new java.awt.BasicStroke(1.5f));
-            g2.drawLine(sourceLineX, sourceLineY, cursorCenterX, cursorCenterY);
+            // g2.setStroke(new java.awt.BasicStroke(1.5f));
+            // g2.drawLine(sourceLineX, sourceLineY, cursorCenterX, cursorCenterY);
             
             // Stamp a quick text indicator floating right above the cursor hover point
             g2.setFont(new Font("Arial", Font.BOLD, 11));

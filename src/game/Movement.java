@@ -9,6 +9,7 @@ public class Movement{
     private final int worldHeight;
     private final int playerSpeed;
     private final ArrayList<GameObject> objects;
+    private final ArrayList<Enemy> enemies = new ArrayList<>();
     private final int playerSize;
     private final java.util.HashSet<GameObject> savedCheckpointTriggeredObjects = new java.util.HashSet<>();
     private final java.util.HashSet<GameObject> sessionTriggeredObjects = new java.util.HashSet<>();
@@ -83,6 +84,14 @@ public class Movement{
             fps = totalframes;
             totalframes = 0;
             lastFrameCheck = System.nanoTime();
+        }
+        if(!this.isDead){
+            for(Enemy enemy : enemies){
+                if(enemy.mapID == currentMap){
+                    enemy.aiTick(objects);
+                    enemy.updatePhysics(objects);
+                }
+            }
         }
         // move(currentMap);
         //checking if on the ground
@@ -202,6 +211,7 @@ public class Movement{
             triggerDeathSequence(currentMap);
             reset = false;
         }
+        
     }
     
     private void triggerDeathSequence(int currentMap){
@@ -227,7 +237,15 @@ public class Movement{
             if(MapEditorWindow.instance != null && MapEditorWindow.instance.gameCanvas != null){
                 MapEditorWindow.instance.gameCanvas.spawnDeathExplosion(this.playerX, this.playerY);
             }
-            
+            for(Enemy enemy : enemies){
+                if(enemy.mapID == currentMap){
+                    enemy.x = enemy.startX;
+                    enemy.y = enemy.startY;
+                    enemy.velX = enemy.type.equals("PATROL") ? 1.5 : 1.0;
+                    enemy.velY = 0;
+                    enemy.isGrounded = false;
+                }
+            }
         }
     }
 
@@ -564,6 +582,15 @@ public class Movement{
                 }
             }
         }
+        
+        for(Enemy enemy : enemies){
+            if(enemy.mapID != currentMap) continue;
+
+            if(playerBounds.intersects(enemy.getBounds())){
+                triggerDeathSequence(currentMap);
+                return;
+            }
+        }
     }
     
     private void checkGroundStatus(int currentMap){
@@ -692,9 +719,13 @@ public class Movement{
     public boolean isGrounded() { return isGrounded; }
     public int getFps() { return fps; }
     public int getDeathCount(){ return this.deathCount; }
+    public void setDeathCount(int num){ this.deathCount = num;}
 
     public void resetTriggerTrackingState() {
         this.savedCheckpointTriggeredObjects.clear();
         this.sessionTriggeredObjects.clear();
+    }
+    public ArrayList<Enemy> getEnemies(){
+        return this.enemies;
     }
 }

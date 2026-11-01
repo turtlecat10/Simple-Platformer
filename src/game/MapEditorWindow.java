@@ -2,23 +2,26 @@ package src.game;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class MapEditorWindow extends JFrame{
 
     private final String externalSavePath = "src/levels.json";
+    private final String externalEnemySavePath = "src/enemies.json";
     
     public Graphics gameCanvas;
     private JPanel controlPanel;
 
-
     //making/deleting objects
     private GameObject selectedObject = null;
+    private Enemy selectedEnemy = null;
     private Point bottomLeftCorner = null;
     private Point currentHoverPoint = null;
     private Point pathHoverPoint = null;
 
     private GameObject propertyEditingObject = null;
+    private Enemy propertyEditingEnemy = null;
     private int highlightedBroadcastChannel = 0;
 
     private JDialog propertyDialog = null;
@@ -29,7 +32,7 @@ public class MapEditorWindow extends JFrame{
     private enum PathClickMode { NONE, OSCILLATION, TRIGGERED_MOVE, OSCILLATE_AFTER_TRIGGER}
     private PathClickMode currentPathClickMode = PathClickMode.NONE;
 
-
+    private String activeEnemyBrushType = "NONE";
 
     private GameObject.Type activeBrushType = GameObject.Type.solid;
     public int activeEditingMapID = 1;
@@ -108,6 +111,7 @@ public class MapEditorWindow extends JFrame{
 
         try{
             loadMapManual(externalSavePath);
+            loadEnemiesManual(externalEnemySavePath);
             gameCanvas.loadLevel(activeEditingMapID);
             currentlyLoadedMapID = activeEditingMapID;
             if(gameCanvas.getMovement() != null){
@@ -199,7 +203,30 @@ public class MapEditorWindow extends JFrame{
             controlPanel.add(Box.createVerticalStrut(5));
         }
 
-        controlPanel.add(Box.createVerticalStrut(15));
+        JButton btnEnemyBrush = new JButton("Spawn Enemy");
+        btnEnemyBrush.setMaximumSize(new Dimension(200, 32));
+        btnEnemyBrush.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        btnEnemyBrush.addActionListener(e ->{
+            String[] choices = {"CANCEL/NONE", "PATROL (walking)", "JUMPING (leaping)"};
+            String selected = (String) JOptionPane.showInputDialog(this, "Select which type of enemy", "Enemy toolkit", JOptionPane.QUESTION_MESSAGE, null, choices, choices[0]);
+            if(selected != null){
+                if(selected.contains("PATROL")){
+                    activeEnemyBrushType = "PATROL";
+                    lblBrush.setText("SelectedBrush: ENEMY [PATROL]");
+                }else if(selected.contains("JUMPING")){
+                    activeEnemyBrushType = "JUMPING";
+                    lblBrush.setText("Selected Brush: ENEMY [JUMPING]");
+                }else{
+                    activeEnemyBrushType = "NONE";
+                    lblBrush.setText("Selected Brush: none");
+                }
+            }
+        });
+        controlPanel.add(btnEnemyBrush);
+        controlPanel.add(Box.createVerticalStrut(4));
+
+        // controlPanel.add(Box.createVerticalStrut(15));
 
         btnDelete = new JButton("delete selected object");
         btnDelete.setMaximumSize(new Dimension(200,32));
@@ -212,10 +239,33 @@ public class MapEditorWindow extends JFrame{
                 selectedObject = null;
                 lblSelectedInfo.setText("selection: Delete");
                 btnDelete.setEnabled(false);
+                btnEditProperties.setEnabled(false);
+                gameCanvas.repaint();
+            }
+            if(selectedEnemy != null && gameCanvas.getMovement().getEnemies() != null){
+                gameCanvas.getMovement().getEnemies().remove(selectedEnemy);
+                selectedEnemy = null;
+                lblSelectedInfo.setText("selection: Delete");
+                btnDelete.setEnabled(false);
                 gameCanvas.repaint();
             }
         });
         controlPanel.add(btnDelete);
+        controlPanel.add(Box.createVerticalStrut(5));
+
+        btnEditProperties = new JButton("edit object properties");
+        btnEditProperties.setMaximumSize(new Dimension(200, 32));
+        btnEditProperties.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btnEditProperties.setEnabled(false);
+
+        btnEditProperties.addActionListener(e -> {
+            if(selectedObject != null){
+                this.propertyEditingObject = selectedObject;
+                showPropertyConfigDialog(selectedObject);
+                gameCanvas.repaint();
+            }
+        });
+        controlPanel.add(btnEditProperties);
         controlPanel.add(Box.createVerticalStrut(15));
 
         JPanel idPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -252,6 +302,7 @@ public class MapEditorWindow extends JFrame{
                 }
                 activeEditingMapID = Integer.parseInt(txtMapID.getText().trim());
                 loadMapManual(externalSavePath);
+                loadEnemiesManual(externalEnemySavePath);
                 gameCanvas.loadLevel(activeEditingMapID); // Updates camera references
                 currentlyLoadedMapID = activeEditingMapID;
                 JOptionPane.showMessageDialog(this, "Map " + activeEditingMapID + " loaded successfully!");
@@ -284,6 +335,7 @@ public class MapEditorWindow extends JFrame{
 
                 activeEditingMapID = targetSaveID;
                 saveMapManual(gameCanvas.getGameObjects(), externalSavePath);
+                saveEnemiesManual(gameCanvas.getMovement().getEnemies(), externalEnemySavePath);
                 JOptionPane.showMessageDialog(this, "Level "+ activeEditingMapID +" changes successfully saved");
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(this, "Error: Invalid numeric input format passed for Map ID");
@@ -313,6 +365,7 @@ public class MapEditorWindow extends JFrame{
             if (gameCanvas.getMovement() != null) {
                 gameCanvas.getMovement().resetTriggerTrackingState();
             }
+            gameCanvas.getMovement().setDeathCount(0);
             gameCanvas.setEditorMode(true);
             ArrayList<GameObject> allObjects = gameCanvas.getGameObjects();
             if(allObjects != null){
@@ -361,6 +414,7 @@ public class MapEditorWindow extends JFrame{
             gameCanvas.setCameraX(0);
             gameCanvas.setCameraY(0);
             loadMapManual(externalSavePath);
+            loadEnemiesManual(externalEnemySavePath);
             gameCanvas.loadLevel(activeEditingMapID);
             gameCanvas.repaint();
             JOptionPane.showMessageDialog(this, "New Map " + activeEditingMapID + " created succesfully");
@@ -425,6 +479,8 @@ public class MapEditorWindow extends JFrame{
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
                     bottomLeftCorner = null;
                     currentHoverPoint = null;
+                    activeEnemyBrushType = "NONE";
+                    lblBrush.setText("selectedBrush: "+ activeBrushType.name());
                     gameCanvas.repaint();
                 }
             }
@@ -474,14 +530,36 @@ public class MapEditorWindow extends JFrame{
                             
                         } else {
                             // Default Fallback
-                            propertyEditingObject.triggeredX = snapX;
-                            propertyEditingObject.triggeredY = snapY;
+                            propertyEditingObject = null;
+                            selectedObject = null;
+                            selectedEnemy = null;
+                            currentPathClickMode = PathClickMode.NONE;
+                            btnDelete.setEnabled(false);
+                            btnEditProperties.setEnabled(false);
+                            lblSelectedInfo.setText("Selection: None");
                         }
                         gameCanvas.repaint();
                         return;
                     }
                 }
                 if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
+
+                    if (!activeEnemyBrushType.equals("NONE") && gameCanvas.getMovement() != null) {
+                        ArrayList<Enemy> currentEnemyList = gameCanvas.getMovement().getEnemies();
+                        
+                        if (activeEnemyBrushType.equals("PATROL")) {
+                            currentEnemyList.add(new PatrolEnemy(snapX, snapY, activeEditingMapID));
+                        } else if (activeEnemyBrushType.equals("JUMPING")) {
+                            currentEnemyList.add(new JumpingEnemy(snapX, snapY, activeEditingMapID));
+                        }
+                        
+                        // Reset tool parameters cleanly after drop operation completes
+                        // activeEnemyBrushType = "NONE";
+                        lblBrush.setText("Selected Brush: " + activeBrushType.name().toUpperCase()); // Revert label to block brush
+                        gameCanvas.repaint();
+                        return; // Stop running default geometry box drawing loops
+                    }
+
                     if(bottomLeftCorner == null){
                         int finalY = freePlace ? snapY : (snapY + snapSize);
                         bottomLeftCorner = new Point(snapX, finalY);
@@ -504,9 +582,9 @@ public class MapEditorWindow extends JFrame{
                         if (realHeight == 0) realHeight = snapSize;
 
                         lblWidth.setText("Width Status: " + realWidth);
-                    lblHeight.setText("Height Status: " + realHeight);
-                    lblX.setText("X Offset: " + realX);
-                    lblY.setText("Y Offset: " + realY);
+                        lblHeight.setText("Height Status: " + realHeight);
+                        lblX.setText("X Offset: " + realX);
+                        lblY.setText("Y Offset: " + realY);
                     
                     if (gameCanvas.getGameObjects() != null) {
                         // Create the object configuration block
@@ -529,9 +607,13 @@ public class MapEditorWindow extends JFrame{
                         gameCanvas.repaint();
                         return;
                     }
+
                     selectedObject = null;
+                    selectedEnemy = null;
                     btnDelete.setEnabled(false);
                     lblSelectedInfo.setText("Selection: None");
+                    btnEditProperties.setEnabled(false);
+
 
                     propertyEditingObject = null;
                     highlightedBroadcastChannel = 0;
@@ -557,6 +639,21 @@ public class MapEditorWindow extends JFrame{
                                 activeBrushType = obj.type;
                                 lblBrush.setText("Selected Brush: " + obj.type.name().toUpperCase());
                                 lblSelectedInfo.setText(String.format("Selection: %s (%dx%d)", obj.type.name(), obj.width, obj.height));
+
+                                btnDelete.setEnabled(true);
+                                btnEditProperties.setEnabled(true);
+                                break;
+                            }
+                        }
+                    }
+                    ArrayList<Enemy> allEnemies = gameCanvas.getMovement().getEnemies();
+                    if(selectedEnemy == null){
+                        for(int i = allEnemies.size() - 1; i >= 0; i--){
+                            Enemy obj = allEnemies.get(i);
+                            if(obj.mapID == activeEditingMapID && gamePoint.x >= obj.x && gamePoint.x <= (obj.x + obj.width) && gamePoint.y >= obj.y && gamePoint.y <= (obj.y + obj.height)){
+                                selectedEnemy = obj;
+
+                                // lblSelectedInfo.setText(String.format("Selection: %s (%dx%d"), obj)
                                 btnDelete.setEnabled(true);
                                 break;
                             }
@@ -846,10 +943,127 @@ public class MapEditorWindow extends JFrame{
     }
 }
 
+    private void saveEnemiesManual(ArrayList<Enemy> currentEditingEnemies, String filePath){
+        ArrayList<Enemy> masterEnemyList = new ArrayList<>();
+        java.io.File file = new java.io.File(filePath);
+        String json = "";
+
+        if(file.exists()){
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
+                StringBuilder content = new StringBuilder();
+                String line;
+                while((line = reader.readLine()) != null){
+                    content.append(line);
+                }
+                json = content.toString().trim();
+            }catch (IOException e){}
+        }
+        if(!json.isEmpty()){
+            if(json.startsWith("[") && json.endsWith("]")){
+                json = json.substring(1, json.length() - 1).trim();
+            }
+            if(!json.isEmpty()){
+                String[] enemiesRaw = json.split("\\},\\s*,\\{");
+                for(String rawEnemy : enemiesRaw){
+                    rawEnemy = rawEnemy.replace("{", "").replace("}", "").trim();
+                    int x = 0, y = 0, mapID = 1;
+                    String type = "PATROL";
+                    String[] properties = rawEnemy.split(",");
+                    for(String prop : properties){
+                        String[] kv = prop.split(":");
+                        if(kv.length != 2) continue;
+                        String key = kv[0].replace("\"", "").trim();
+                        String val = kv[1].replace("\"", "").trim();
+                        switch (key){
+                            case "x": x = Integer.parseInt(val); break;
+                            case "y": y = Integer.parseInt(val); break;
+                            case "mapID": mapID = Integer.parseInt(val); break;
+                            case "type": type = val; break;
+                        }
+                    }
+                    if(type.equals("PATROL")) masterEnemyList.add(new PatrolEnemy(x, y, mapID));
+                    else if(type.equals("JUMPING")) masterEnemyList.add(new JumpingEnemy(x, y, mapID));
+                }
+            }
+        }
+        masterEnemyList.removeIf(enemy -> enemy.mapID == activeEditingMapID);
+        for(Enemy e : currentEditingEnemies){
+            if(e.mapID == activeEditingMapID){
+                masterEnemyList.add(e);
+            }
+        }
+        try(java.io.FileWriter writer = new java.io.FileWriter(filePath)){
+            writer.write("{\n");
+            for(int i = 0; i <  masterEnemyList.size(); i++){
+               Enemy e = masterEnemyList.get(i);
+               String jsonStr = String.format("{\"x\":%d, \"y\":%d, \"mapID\":%d, \"type\":\"%s\"}", e.startX, e.startY, e.mapID, e.type);
+               writer.write(" " + jsonStr);
+               if(i < masterEnemyList.size() - 1) writer.write(",\n");
+               else writer.write("\n");
+            }
+            writer.write("}");
+        }catch (java.io.IOException e){}
+    }
+
+    private void loadEnemiesManual(String filePath) {
+        ArrayList<Enemy> loadedEnemies = new ArrayList<>();
+        java.io.File file = new java.io.File(filePath);
+        String jsonStringData = "";
+
+        if (file.exists()) {
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
+                StringBuilder content = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    content.append(line);
+                }
+                jsonStringData = content.toString().trim();
+            } catch (Exception e) {}
+        }
+
+        if (!jsonStringData.isEmpty()) {
+            if (jsonStringData.startsWith("[") && jsonStringData.endsWith("]")) {
+                jsonStringData = jsonStringData.substring(1, jsonStringData.length() - 1).trim();
+            }
+            if (!jsonStringData.isEmpty()) {
+                String[] enemiesRaw = jsonStringData.split("\\},\\s*\\{");
+                for (String rawEnemy : enemiesRaw) {
+                    rawEnemy = rawEnemy.replace("{", "").replace("}", "").trim();
+                    int x = 0, y = 0, mapID = 1;
+                    String type = "PATROL";
+
+                    String[] properties = rawEnemy.split(",");
+                    for (String prop : properties) {
+                        String[] kv = prop.split(":");
+                        if (kv.length != 2) continue;
+                        String key = kv[0].replace("\"", "").trim();
+                        String val = kv[1].replace("\"", "").trim();
+                        switch (key) {
+                            case "x": x = Integer.parseInt(val); break;
+                            case "y": y = Integer.parseInt(val); break;
+                            case "mapID": mapID = Integer.parseInt(val); break;
+                            case "type": type = val; break;
+                        }
+                    }
+                    if (type.equals("PATROL")) loadedEnemies.add(new PatrolEnemy(x, y, mapID));
+                    else if (type.equals("JUMPING")) loadedEnemies.add(new JumpingEnemy(x, y, mapID));
+                }
+            }
+        }
+
+        // Drop the newly loaded array elements straight into the player's internal arraylist reference cache
+        if (gameCanvas.getMovement() != null) {
+            gameCanvas.getMovement().getEnemies().clear();
+            gameCanvas.getMovement().getEnemies().addAll(loadedEnemies);
+            gameCanvas.repaint();
+        }
+    }
+
     public void clearSelectionPoints() {
         this.bottomLeftCorner = null;
         // this.topRightCorner = null;
         this.selectedObject = null;
+        this.selectedEnemy = null;
         if (this.btnDelete != null) this.btnDelete.setEnabled(false);
         if (this.gameCanvas != null) this.gameCanvas.repaint();
     }
@@ -903,7 +1117,7 @@ public class MapEditorWindow extends JFrame{
         JButton btnSetOscillate = new JButton("Place Standard Oscillation");
         btnSetOscillate.addActionListener(e -> {
             this.currentPathClickMode = PathClickMode.OSCILLATION;
-            JOptionPane.showMessageDialog(propertyDialog, "Click on the main editor grid to set the standard home oscillation target (moveX, moveY).");
+            // JOptionPane.showMessageDialog(propertyDialog, "Click on the main editor grid to set the standard home oscillation target (moveX, moveY).");
         });
         propertyDialog.add(btnSetOscillate);
 
@@ -911,7 +1125,7 @@ public class MapEditorWindow extends JFrame{
         JButton btnSetTriggerMove = new JButton("Place Triggered Move Target");
         btnSetTriggerMove.addActionListener(e -> {
             this.currentPathClickMode = PathClickMode.TRIGGERED_MOVE;
-            JOptionPane.showMessageDialog(propertyDialog, "Click on the main editor grid to set the initial triggered arrival destination (triggerX, triggerY).");
+            // JOptionPane.showMessageDialog(propertyDialog, "Click on the main editor grid to set the initial triggered arrival destination (triggerX, triggerY).");
         });
         propertyDialog.add(btnSetTriggerMove);
 
@@ -919,7 +1133,7 @@ public class MapEditorWindow extends JFrame{
         JButton btnSetOscillateAfterTrigger = new JButton("Place Oscillation After Triggered");
         btnSetOscillateAfterTrigger.addActionListener(e -> {
             this.currentPathClickMode = PathClickMode.OSCILLATE_AFTER_TRIGGER;
-            JOptionPane.showMessageDialog(propertyDialog, "Click on the main editor grid to define the secondary looping target path AFTER the trigger wakes it up.");
+            // JOptionPane.showMessageDialog(propertyDialog, "Click on the main editor grid to define the secondary looping target path AFTER the trigger wakes it up.");
         });
         propertyDialog.add(btnSetOscillateAfterTrigger);
 
