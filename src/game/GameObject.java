@@ -1,4 +1,7 @@
 package src.game;
+
+import java.awt.Rectangle;
+
 public class GameObject {
     public enum Type{
         solid,
@@ -67,7 +70,7 @@ public class GameObject {
         this(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY, triggeredDisplay, triggeredBy, activatesChannel, 
             0, 0, GameObject.movement.never, x, y, triggeredX, triggeredY, x, y);
     }
-    public void updateMovement(){
+    public void updateMovement(int playerX, int playerY, int playerSize){
         this.lastX = this.currentX;
         this.lastY = this.currentY;
         if(this.move == movement.never){
@@ -187,7 +190,43 @@ public class GameObject {
                     this.currentY = (int) (y + (triggeredY - y) * t);
                 }
             }
+        }else if(this.move == movement.touch){
+            Rectangle blockTouched = new Rectangle(this.currentX - 1, this.currentY - 1, this.width + 2, this.height + 2);
+            Rectangle playerBox = new Rectangle(playerX, playerY, playerSize, playerSize);
+            boolean touching = blockTouched.intersects(playerBox);
+            if(touching){
+                if(this.isTriggered){
+                    // Player is touching: advance timeline linearly toward triggeredX and triggeredY
+                    if (timeElapsed < travelTime) {
+                        timeElapsed++;
+                    }
+                    double t = (double) timeElapsed / travelTime;
+                    this.currentX = (int) (triggeredX + (triggerMoveX - triggeredX) * t);
+                    this.currentY = (int) (triggeredY + (triggerMoveY - triggeredY) * t);
+                }else{
+                    if (timeElapsed < travelTime) {
+                        timeElapsed++;
+                    }
+                    double t = (double) timeElapsed / travelTime;
+                    this.currentX = (int) (x + (moveX - x) * t);
+                    this.currentY = (int) (y + (moveY - y) * t);
+                }
+            }else{
+                // Player stepped away: retract timeline linearly back toward original spawn x and y
+                if (timeElapsed > 0) {
+                    timeElapsed--;
+                }
+                double t = (double) timeElapsed / travelTime;
+                if(this.isTriggered){
+                    this.currentX = (int) (triggeredX + (triggerMoveX - triggeredX) * t);
+                    this.currentY = (int) (triggeredY + (triggerMoveY - triggeredY) * t);
+                }else{
+                    this.currentX = (int) (x + (moveX - x) * t);
+                    this.currentY = (int) (y + (moveY - y) * t);
+                }
+            }
         }
+
         this.deltaX = this.currentX - this.lastX;
         this.deltaY = this.currentY - this.lastY;
     }

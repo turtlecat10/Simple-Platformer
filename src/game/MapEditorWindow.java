@@ -4,6 +4,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
 import java.util.ArrayList;
+import src.game.EnemyRegistry;
 
 public class MapEditorWindow extends JFrame{
 
@@ -32,7 +33,7 @@ public class MapEditorWindow extends JFrame{
     private enum PathClickMode { NONE, OSCILLATION, TRIGGERED_MOVE, OSCILLATE_AFTER_TRIGGER}
     private PathClickMode currentPathClickMode = PathClickMode.NONE;
 
-    private String activeEnemyBrushType = "NONE";
+    private EnemyRegistry activeEnemyBrush = EnemyRegistry.NONE;
 
     private GameObject.Type activeBrushType = GameObject.Type.solid;
     public int activeEditingMapID = 1;
@@ -208,17 +209,13 @@ public class MapEditorWindow extends JFrame{
         btnEnemyBrush.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         btnEnemyBrush.addActionListener(e ->{
-            String[] choices = {"CANCEL/NONE", "PATROL (walking)", "JUMPING (leaping)"};
+            String[] choices = EnemyRegistry.getDisplayChoices();
             String selected = (String) JOptionPane.showInputDialog(this, "Select which type of enemy", "Enemy toolkit", JOptionPane.QUESTION_MESSAGE, null, choices, choices[0]);
             if(selected != null){
-                if(selected.contains("PATROL")){
-                    activeEnemyBrushType = "PATROL";
-                    lblBrush.setText("SelectedBrush: ENEMY [PATROL]");
-                }else if(selected.contains("JUMPING")){
-                    activeEnemyBrushType = "JUMPING";
-                    lblBrush.setText("Selected Brush: ENEMY [JUMPING]");
+                activeEnemyBrush = EnemyRegistry.fromDisplayName(selected);
+                if(activeEnemyBrush != EnemyRegistry.NONE){
+                    lblBrush.setText("Selected Brush: ENEMY [" + activeEnemyBrush.name() + "]");
                 }else{
-                    activeEnemyBrushType = "NONE";
                     lblBrush.setText("Selected Brush: none");
                 }
             }
@@ -380,7 +377,13 @@ public class MapEditorWindow extends JFrame{
                     obj.deltaY = 0;
                 }
             }
-            
+            ArrayList<Enemy> allEnemies = gameCanvas.getMovement().getEnemies();
+            if(allEnemies != null){
+                for(Enemy obj : allEnemies){
+                    obj.x = obj.startX;
+                    obj.y = obj.startY;
+                }
+            }
             // gameCanvas.setCameraX(0);
             // gameCanvas.setCameraY(0);
             btnPlay.setEnabled(true);
@@ -479,7 +482,7 @@ public class MapEditorWindow extends JFrame{
                 if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
                     bottomLeftCorner = null;
                     currentHoverPoint = null;
-                    activeEnemyBrushType = "NONE";
+                    activeEnemyBrush = EnemyRegistry.NONE;
                     lblBrush.setText("selectedBrush: "+ activeBrushType.name());
                     gameCanvas.repaint();
                 }
@@ -544,20 +547,15 @@ public class MapEditorWindow extends JFrame{
                 }
                 if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
 
-                    if (!activeEnemyBrushType.equals("NONE") && gameCanvas.getMovement() != null) {
+                    if(activeEnemyBrush != EnemyRegistry.NONE && gameCanvas.getMovement() != null){
                         ArrayList<Enemy> currentEnemyList = gameCanvas.getMovement().getEnemies();
-                        
-                        if (activeEnemyBrushType.equals("PATROL")) {
-                            currentEnemyList.add(new PatrolEnemy(snapX, snapY, activeEditingMapID));
-                        } else if (activeEnemyBrushType.equals("JUMPING")) {
-                            currentEnemyList.add(new JumpingEnemy(snapX, snapY, activeEditingMapID));
+                        Enemy newEnemy = activeEnemyBrush.create(snapX, snapY, activeEditingMapID);
+                        if(newEnemy != null){
+                            currentEnemyList.add(newEnemy);
                         }
-                        
-                        // Reset tool parameters cleanly after drop operation completes
-                        // activeEnemyBrushType = "NONE";
-                        lblBrush.setText("Selected Brush: " + activeBrushType.name().toUpperCase()); // Revert label to block brush
+                        lblBrush.setText("Selected Brush: " + activeBrushType.name().toUpperCase());
                         gameCanvas.repaint();
-                        return; // Stop running default geometry box drawing loops
+                        return;
                     }
 
                     if(bottomLeftCorner == null){
@@ -981,8 +979,9 @@ public class MapEditorWindow extends JFrame{
                             case "type": type = val; break;
                         }
                     }
-                    if(type.equals("PATROL")) masterEnemyList.add(new PatrolEnemy(x, y, mapID));
-                    else if(type.equals("JUMPING")) masterEnemyList.add(new JumpingEnemy(x, y, mapID));
+                    Enemy enemy = EnemyRegistry.createFromString(type, x, y, mapID);
+                    if (enemy != null) masterEnemyList.add(enemy);
+
                 }
             }
         }
@@ -1045,8 +1044,8 @@ public class MapEditorWindow extends JFrame{
                             case "type": type = val; break;
                         }
                     }
-                    if (type.equals("PATROL")) loadedEnemies.add(new PatrolEnemy(x, y, mapID));
-                    else if (type.equals("JUMPING")) loadedEnemies.add(new JumpingEnemy(x, y, mapID));
+                    Enemy enemy = EnemyRegistry.createFromString(type, x, y, mapID);
+                    if (enemy != null) loadedEnemies.add(enemy);
                 }
             }
         }

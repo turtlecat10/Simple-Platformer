@@ -85,15 +85,83 @@ public class Movement{
             totalframes = 0;
             lastFrameCheck = System.nanoTime();
         }
+
+
+        if(objects != null && !this.isDead){
+            for(GameObject obj : objects){
+                if(obj.mapID == currentMap){
+                    obj.updateMovement(playerX, playerY, playerSize);
+                }
+            }
+        }
+
+
+        if(objects != null && !this.isDead){
+            for(GameObject obj : objects){
+                if(obj.mapID != currentMap ||  obj.type != GameObject.Type.solid || obj.move == GameObject.movement.never) continue;
+
+                int stepX = (int) Math.round(obj.deltaX);
+                int stepY = (int) Math.round(obj.deltaY);
+                if(stepX == 0 && stepY == 0) continue;
+
+                Rectangle oldPlatBounds = new Rectangle((int) obj.lastX, (int) obj.lastY, obj.width, obj.height);
+                Rectangle newPlatBounds = new Rectangle(obj.currentX, obj.currentY, obj.width, obj.height);
+
+                boolean playerIsRidingRoof = (playerY + playerSize <= obj.currentY + 4) && (playerX + playerSize > obj.currentX) && (playerX < obj.currentX + obj.width);
+
+                if(stepX != 0 && !playerIsRidingRoof){
+                    Rectangle pBounds = new Rectangle(playerX, playerY, playerSize, playerSize);
+                    if(newPlatBounds.intersects(pBounds)){
+                        playerX += stepX;
+                        resolveStaticCollisionsAfterPush(true, stepX, obj, currentMap);
+                        playerX -= stepX;
+                        if(this.isDead || this.reset) return;
+                    }
+                    for(Enemy enemy : enemies){
+                        if(enemy.mapID == currentMap){
+                            Rectangle eBounds = enemy.getBounds();
+                            if(newPlatBounds.intersects(eBounds)){
+                                enemy.x += stepX;
+                                resolveEnemyStaticCollisionsAfterPush(enemy, true, stepX, obj, currentMap);
+                            }
+                        }
+                    }
+                }
+                if(stepY != 0){
+                    Rectangle pBounds = new Rectangle(playerX, playerY, playerSize, playerSize);
+                    boolean ceilingSlam = stepY > 0 && (playerY < newPlatBounds.y + newPlatBounds.height) && (playerY + playerSize > newPlatBounds.y + newPlatBounds.height);
+                    if(newPlatBounds.intersects(pBounds) && ceilingSlam){
+                        playerY += stepY;
+                        resolveStaticCollisionsAfterPush(false, stepY, obj, currentMap);
+                        if (this.isDead || this.reset) return;
+                    }
+                    for(Enemy enemy : enemies){
+                        if(enemy.mapID == currentMap){
+                            if("FLYING".equals(enemy.type)) continue;
+                            Rectangle eBounds = enemy.getBounds();
+                            if(newPlatBounds.intersects(eBounds)){
+                                enemy.y += stepY;
+                                enemy.isGrounded = true;
+                                resolveEnemyStaticCollisionsAfterPush(enemy, false, stepY, obj, currentMap);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         if(!this.isDead){
             for(Enemy enemy : enemies){
                 if(enemy.mapID == currentMap){
+                    if(!"FLYING".equals(enemy.type)){
+                        enemy.isGrounded = false;
+                    }
+
                     enemy.aiTick(objects);
                     enemy.updatePhysics(objects);
                 }
             }
         }
-        // move(currentMap);
         //checking if on the ground
         if(isGrounded){
             hasDoubleJumped = false;
@@ -119,7 +187,6 @@ public class Movement{
             dashDirectionY = 0;
             int currentDirY = 0;
             if(up != down) currentDirY = up ? -1 : 1;
-            // System.out.println(currentDirY);
             if(currentDirY != 0){
                 dashAble = false;
                 isDashing = true;
@@ -138,15 +205,10 @@ public class Movement{
                 if(velocityY >= 0){
                     double velocityRatio = (double) velocityY / terminalVelocity;
                     if(velocityRatio > 1.0) velocityRatio = 1.0;
-
                     double speedDampeningMultiplier = 1.0 - velocityRatio;
-
                     if(speedDampeningMultiplier < 0.05) speedDampeningMultiplier = 0.05;
-
                     double rawGravityStrength = 0.8;
-
                     velocityY += rawGravityStrength * speedDampeningMultiplier;
-
                     if(velocityY > terminalVelocity){
                         velocityY = terminalVelocity;
                     }
@@ -176,14 +238,13 @@ public class Movement{
             if(dashCounter >= dashDuration){
                 isDashing = false;
             }
-
             int dashSpeedSpeed = 16;
             this.currentVelocityX = this.dashDirectionX * dashSpeedSpeed;
-
             if(this.dashDirectionY != 0){
                 this.velocityY = this.dashDirectionY * (dashSpeedSpeed * 0.6);
             }
         }
+
         if(isDead){
             respawnTimerFrames++;
             if(respawnTimerFrames >= 15){
@@ -195,23 +256,13 @@ public class Movement{
             velocityY = 0;
             return;
         }
-        if (objects != null) {
-            for (GameObject obj : objects) {
-                if (obj.mapID == currentMap) {
-                    obj.updateMovement(); // Computes timeline positions live frame-by-frame
-                }
-            }
-        }
-        applyPlatformCarriagePhysics(currentMap);
 
         move(currentMap);
-        
         
         if(reset){
             triggerDeathSequence(currentMap);
             reset = false;
         }
-        
     }
     
     private void triggerDeathSequence(int currentMap){
@@ -331,10 +382,67 @@ public class Movement{
             moveX = (int) Math.round(currentVelocityX);
         }
 
-        //if not moving will change later
-        // if(moveX == 0 && moveY == 0){
-        //     checkGroundStatus(currentMap);
-        //     return;
+        int platformCarriageX = 0;
+        int platformCarriageY = 0;
+        boolean standingOnPlatform = false;
+        GameObject platformRidden = null;
+
+        int lookDownDistance = 4;
+
+        GameObject bestPlatformMatch = null;
+        for (GameObject obj : objects) {
+            if (obj.mapID == currentMap && obj.move != GameObject.movement.never) {
+                if (obj.type == GameObject.Type.solid || obj.type == GameObject.Type.oneWay) {
+                    int objDeltaY = (int) Math.round(obj.deltaY);
+                    // If the block is moving downward expand search depth
+                    int currentSearchDepth = Math.max(lookDownDistance, objDeltaY + 4);
+                    
+                    Rectangle dynamicFeetSensor = new Rectangle(playerX, playerY + playerSize, playerSize, currentSearchDepth);
+                    Rectangle platBounds = new Rectangle(obj.currentX, obj.currentY, obj.width, obj.height);
+                    
+                    if (dynamicFeetSensor.intersects(platBounds)) {
+                        if (bestPlatformMatch == null) {
+                            bestPlatformMatch = obj;
+                        } else {
+                            if(bestPlatformMatch.deltaY > obj.deltaY){
+                                System.out.println(bestPlatformMatch.deltaY+" "+obj.deltaY);
+                                bestPlatformMatch = obj;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if(bestPlatformMatch != null){
+            platformCarriageX = (int) Math.round(bestPlatformMatch.deltaX);
+            platformCarriageY = (int) Math.round(bestPlatformMatch.deltaY);
+            standingOnPlatform = true;
+            platformRidden = bestPlatformMatch;
+            isGrounded = true;
+        }
+
+        // if(standingOnPlatform){
+        //     int nextPlatformX = playerX + platformCarriageX;
+        //     // Validate that our passive tracking loop doesn't shift us into standard walls
+        //     ArrayList<GameObject> wallChecks = checkCornerCollision(playerX, playerY, nextPlatformX, playerY, currentMap);
+        //     boolean wallInWayOfDrift = false;
+        //     for (GameObject wall : wallChecks) {
+        //         if (wall != platformRidden && wall.type == GameObject.Type.solid) {
+        //             wallInWayOfDrift = true;
+        //             // Clamp player flush against the blocked edge boundary box
+        //             if (platformCarriageX > 0) playerX = wall.currentX - playerSize;
+        //             else playerX = wall.currentX + wall.width;
+        //             break;
+        //         }
+        //     }
+        //     if (!wallInWayOfDrift) {
+        //         playerX = nextPlatformX;
+        //     }
+        //     if(moveY == 0){
+        //         playerY = platformRidden.currentY - playerSize; // Eliminate visual floating / gaps
+        //     }else{
+        //         playerY += platformCarriageY;
+        //     }
         // }
 
         // One-Way Platform Tracking Mechanics
@@ -343,9 +451,7 @@ public class Movement{
         boolean embeddedInOneWay = false;
         for(GameObject obj : objects){
             if(obj.mapID == currentMap && obj.type == GameObject.Type.oneWay){
-                int actualX = obj.isTriggered ? obj.triggeredX : obj.x;
-                int actualY = obj.isTriggered ? obj.triggeredY : obj.y;
-                if(bodyBounds.intersects(new Rectangle(actualX, actualY, obj.width, obj.height))){
+                if(bodyBounds.intersects(new Rectangle(obj.currentX, obj.currentY, obj.width, obj.height))){
                     embeddedInOneWay = true;
                     break;
                 }
@@ -356,96 +462,143 @@ public class Movement{
         }
         boolean allowOneWayCollision = falling && !down && !embeddedInOneWay && !isDroppingThrough;
 
-        //horizontal movement
-        if(moveX != 0 || moveX == 0){
-            int targetX = playerX + moveX;
+        //vertical movement
+        if(moveY != 0 || moveY == 0 || platformCarriageY != 0){
+            int targetY = playerY + moveY + platformCarriageY; 
 
-            if(targetX < 0) {
-                targetX = 0;
+            if(standingOnPlatform && moveY == 0 && platformCarriageY <= 0){
+                playerY = platformRidden.currentY - playerSize;
+                velocityY = 0;
+                isGrounded = true;
+                dashAble = true;
+                hasDoubleJumped = false;
+            }else{
+                if(targetY < 0) {
+                    targetY = 0;
+                    jumpCounter = maxJumpHoldTime;
+                    isJumping = false;
+                    velocityY = 1;
+                }
+
+                ArrayList<GameObject> hitsY = checkCornerCollision(playerX, playerY, playerX, targetY, currentMap);
+                final int currentPY = playerY;
+                hitsY.sort((a, b) -> Integer.compare(Math.abs(a.y - currentPY), Math.abs(b.y - currentPY)));
+
+                boolean collidedY = false;
+                for (GameObject obj : hitsY) {
+                    if(standingOnPlatform && obj == platformRidden) continue;
+
+                    if (obj.type == GameObject.Type.solid) {
+                        int actualY = obj.currentY;
+                        if (moveY >= 0) {
+                            playerY = actualY - playerSize;
+                            isGrounded = true;
+                            dashAble = true;
+                            hasDoubleJumped = false;         
+                        } else {
+                            playerY = actualY + obj.height;
+                            isJumping = false; 
+                        }
+                        velocityY = 0;
+                        collidedY = true;
+                        break;
+                    }
+
+                    if (obj.type == GameObject.Type.oneWay && allowOneWayCollision) {
+                        int actualY = obj.currentY;
+                        if (playerY + playerSize <= actualY) { 
+                            playerY = actualY - playerSize;
+                            dashAble = true;
+                            isGrounded = true;
+                            hasDoubleJumped = false;         
+                            velocityY = 0;
+                            collidedY = true;
+                            break;
+                        }
+                    }
+                }
+                if (!collidedY) {
+                    if (targetY > worldHeight - playerSize) {
+                        respawnPlayer(spawnX, spawnY);
+                        return;
+                    }
+                    if(targetY < 0){
+                        isJumping = false;
+                    }
+                    playerY = targetY; 
+                    if(!standingOnPlatform && platformCarriageY == 0){
+                        isGrounded = false;
+                    }
+                }
+            }
+        }
+        //horizontal movement
+        if(moveX != 0 || moveX == 0 || platformCarriageX != 0){
+            int targetXWithoutPlatform = playerX + moveX;
+
+            if(targetXWithoutPlatform < 0){
+                targetXWithoutPlatform = 0;
                 currentVelocityX = 0;
             }
             
-            ArrayList<GameObject> hitsX = checkCornerCollision(playerX, playerY, targetX, playerY, currentMap);
-            //sort
+            ArrayList<GameObject> hitsX = checkCornerCollision(playerX, playerY, targetXWithoutPlatform, playerY, currentMap);
             final int currentPX = playerX;
             hitsX.sort((a, b) -> Integer.compare(Math.abs(a.x - currentPX), Math.abs(b.x - currentPX)));
 
             boolean collidedX = false;
             for (GameObject obj : hitsX) {
                 if (obj.type == GameObject.Type.solid) {
+                    if(standingOnPlatform && obj == platformRidden){
+                        continue;
+                    }
                     int actualX = obj.currentX;
-                    if (moveX > 0) playerX = actualX - playerSize;
+                    if ((moveX) > 0) playerX = actualX - playerSize;
                     else playerX = actualX + obj.width;
                     collidedX = true;
                     currentVelocityX = 0;
-                    break; // Stop evaluating immediately upon striking a wall
+                    break; 
                 }
             }
 
             if (!collidedX) {
-                playerX = targetX; // Safe to move
-            }
-        }
-        //vertical movement
-        if(moveY != 0 || moveY == 0){
-            int targetY = playerY + moveY;
+                int finalTargetX = targetXWithoutPlatform + platformCarriageX;
 
-            if(targetY < 0) {
-                targetY = 0;
-                // System.out.println("What!");
-                jumpCounter = maxJumpHoldTime;
-                isJumping = false;
-                velocityY = 1;
-            }
+                ArrayList<GameObject> driftChecks = checkCornerCollision(playerX, playerY, finalTargetX, playerY, currentMap);
+                boolean wallInWay = false;
 
-            ArrayList<GameObject> hitsY = checkCornerCollision(playerX, playerY, playerX, targetY, currentMap);
-            
-            final int currentPY = playerY;
-            hitsY.sort((a, b) -> Integer.compare(Math.abs(a.y - currentPY), Math.abs(b.y - currentPY)));
-
-            boolean collidedY = false;
-            for (GameObject obj : hitsY) {
-                if (obj.type == GameObject.Type.solid) {
-                    int actualY = obj.currentY;
-                    if (falling) {
-                        playerY = actualY - playerSize;
-                        isGrounded = true;
-                        dashAble = true;
-                        hasDoubleJumped = false;         
-                    } else {
-                        playerY = actualY + obj.height;
-                        isJumping = false; // Cancel jump hold
-                    }
-                    velocityY = 0;
-                    collidedY = true;
-                    break;
-                }
-
-                if (obj.type == GameObject.Type.oneWay && allowOneWayCollision) {
-                    int actualY = obj.isTriggered ? obj.triggeredY : obj.y;
-                    if (playerY + playerSize <= actualY) {
-                        playerY = actualY - playerSize;
-                        dashAble = true;
-                        isGrounded = true;
-                        hasDoubleJumped = false;         
-                        velocityY = 0;
-                        collidedY = true;
+                for(GameObject wall : driftChecks){
+                    if(wall.type == GameObject.Type.solid && wall != platformRidden){
+                        wallInWay = true;
+                        if(platformCarriageX > 0){
+                            playerX = wall.currentX - playerSize;
+                        }else{
+                            playerX = wall.currentX + wall.width;
+                        }
+                        currentVelocityX = 0;
                         break;
                     }
                 }
-            }
-            if (!collidedY) {
-                // trigger pit death
-                if (targetY > worldHeight - playerSize) {
-                    respawnPlayer(spawnX, spawnY);
-                    return;
+                if(!wallInWay){
+                    playerX = finalTargetX;
                 }
-                if(targetY < 0){
-                    isJumping = false;
+            }else{
+                int platformOnlyTargetX = playerX + platformCarriageX;
+                ArrayList<GameObject> carriageOnlyChecks = checkCornerCollision(playerX, playerY, platformOnlyTargetX, playerY, currentMap);
+                boolean carriageBlocked = false;
+
+                for(GameObject wall : carriageOnlyChecks){
+                    if(wall.type == GameObject.Type.solid && wall != platformRidden){
+                        carriageBlocked = true;
+                        if(platformCarriageX > 0) playerX = wall.currentX - playerSize;
+                        else playerX = wall.currentX + wall.width;
+                        break;
+                    }
                 }
-                playerY = targetY; // Safe to move 
-                isGrounded = false;
+                if(!carriageBlocked){
+                    playerX = platformOnlyTargetX;
+                }
             }
+            if(playerX < 0) playerX = 0;
         }
         checkTriggerObjects(playerX, playerY, currentMap);
         checkGroundStatus(currentMap);
@@ -699,6 +852,56 @@ public class Movement{
                         velocityY = 0;
                     }
                 }
+            }
+        }
+    }
+    
+    private void resolveStaticCollisionsAfterPush(boolean isHorizontal, int step, GameObject platform, int currentMap){
+        Rectangle pBounds = new Rectangle(playerX, playerY, playerSize, playerSize);
+        for(GameObject obj : objects){
+            if(obj == platform || obj.mapID != currentMap || obj.type != GameObject.Type.solid) continue;
+
+            Rectangle block = new Rectangle(obj.currentX, obj.currentY, obj.width, obj.height);
+            if(pBounds.intersects(block)){
+                if(isHorizontal){
+                    if(step > 0) playerX = obj.currentX - playerSize;
+                    else playerX = obj.currentX + obj.width;
+                    triggerDeathSequence(currentMap);
+                }else{
+                    if(step > 0){
+                        playerY = obj.currentY - playerSize;
+                        isGrounded = true;
+                    }else{
+                        playerY = obj.currentY + obj.height;
+                    }
+                    triggerDeathSequence(currentMap);
+                }
+                break;
+            }
+        }
+    }
+    
+    private void resolveEnemyStaticCollisionsAfterPush(Enemy enemy, boolean isHorizontal, int step, GameObject platform, int currentMap){
+        Rectangle eBounds = enemy.getBounds();
+        for(GameObject obj : objects){
+            if (obj == platform || obj.mapID != currentMap || obj.type != GameObject.Type.solid) continue;
+
+            Rectangle block = new Rectangle(obj.currentX, obj.currentY, obj.width, obj.height);
+            if(eBounds.intersects(block)){
+                if(isHorizontal){
+                    if (step > 0) enemy.x = obj.currentX - enemy.width;
+                    else enemy.x = obj.currentX + obj.width;
+                    enemy.handleWallBump();
+                }else{
+                    if(step > 0){
+                        enemy.y = obj.currentY - enemy.height;
+                        enemy.isGrounded = true;
+                    }else{
+                        enemy.y = obj.currentY + obj.height;
+                    }
+                }
+                enemy.y = 9999;
+                break;
             }
         }
     }

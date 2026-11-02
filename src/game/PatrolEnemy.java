@@ -17,7 +17,7 @@ public class PatrolEnemy extends Enemy{
     public void aiTick(ArrayList<GameObject> objects){
         if(!isGrounded) return;
 
-        int lookAheadCheckX = (velX > 0) ? (x + width + 4) : (x - 8);
+        int lookAheadCheckX = (velX > 0) ? (x + width + 4) : (x - 4);
         int lookAheadCheckY = y + height + 4;
         Rectangle edgeSensorBox = new Rectangle(lookAheadCheckX, lookAheadCheckY, 4, 4);
 
@@ -42,7 +42,8 @@ public class PatrolEnemy extends Enemy{
     protected void handleWallBump(){
         velX = -velX;
     }
-    @Override public void draw(Graphics2D g2){
+    @Override 
+    public void draw(Graphics2D g2){
         g2.setColor(new Color(139, 0, 0));
         g2.fillRect(x, y, width, height);
         g2.setColor(Color.BLACK);
