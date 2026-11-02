@@ -1,7 +1,3 @@
 {
- {"x":1104, "y":144, "mapID":5, "type":"FLYING"},
- {"x":816, "y":144, "mapID":5, "type":"FLYING"},
- {"x":720, "y":624, "mapID":5, "type":"PATROL"},
- {"x":912, "y":624, "mapID":5, "type":"PATROL"},
  {"x":1056, "y":576, "mapID":5, "type":"PATROL"}
 }
