@@ -70,7 +70,7 @@ public class GameObject {
         this(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY, triggeredDisplay, triggeredBy, activatesChannel, 
             0, 0, GameObject.movement.never, x, y, triggeredX, triggeredY, x, y);
     }
-    public void updateMovement(int playerX, int playerY, int playerSize){
+    public void updateMovement(double playerX, double playerY, int playerSize){
         this.lastX = this.currentX;
         this.lastY = this.currentY;
         if(this.move == movement.never){
@@ -192,7 +192,7 @@ public class GameObject {
             }
         }else if(this.move == movement.touch){
             Rectangle blockTouched = new Rectangle(this.currentX - 1, this.currentY - 1, this.width + 2, this.height + 2);
-            Rectangle playerBox = new Rectangle(playerX, playerY, playerSize, playerSize);
+            Rectangle playerBox = new Rectangle((int)playerX, (int)playerY, playerSize, playerSize);
             boolean touching = blockTouched.intersects(playerBox);
             if(touching){
                 if(this.isTriggered){

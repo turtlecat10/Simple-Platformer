@@ -4,9 +4,8 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.util.ArrayList;
 
-
 public abstract class Enemy {
-    public int x, y;
+    public int x, y; // bottom-left corner
     public int startX, startY;
     public int width, height;
     public double velX, velY;
@@ -37,23 +36,25 @@ public abstract class Enemy {
         }
         int moveY = (int) Math.round(velY);
         if(moveY != 0){
-            y+= moveY;
+            y += moveY;
             isGrounded = false;
-            Rectangle eBounds = getBounds();
+            Rectangle eBounds = getBounds(); // Uses y as bottom-left
             
             for(GameObject obj : objects){
                 if(obj.mapID != this.mapID) continue;
                 if(obj.isTriggered && !obj.triggeredDisplay) continue;
                 if(obj.type != GameObject.Type.solid) continue;
 
-                int actualY = obj.currentY;
-                Rectangle blockBounds = new Rectangle(obj.currentX, actualY, obj.width, obj.height);
+                int objTop = obj.currentY - obj.height;
+                int objBottom = obj.currentY;
+                Rectangle blockBounds = new Rectangle(obj.currentX, objTop, obj.width, obj.height);
+                
                 if(eBounds.intersects(blockBounds)){
                     if(moveY > 0){
-                        y = actualY - height;
+                        y = objTop; // land feet on top of block
                         isGrounded = true;
                     }else{
-                        y = actualY + obj.height;
+                        y = objBottom + height; // hit ceiling from below
                     }
                     velY = 0;
                     break;
@@ -70,7 +71,8 @@ public abstract class Enemy {
                 if(obj.isTriggered && !obj.triggeredDisplay) continue;
                 if(obj.type != GameObject.Type.solid) continue;
 
-                Rectangle blockBounds = new Rectangle(obj.currentX, obj.currentY, obj.width, obj.height);
+                int objTop = obj.currentY - obj.height;
+                Rectangle blockBounds = new Rectangle(obj.currentX, objTop, obj.width, obj.height);
 
                 if(eBounds.intersects(blockBounds)){
                     if(moveX > 0){
@@ -88,6 +90,7 @@ public abstract class Enemy {
 
     }
     public Rectangle getBounds(){
-        return new Rectangle(x, y, width, height);
+        // y is bottom-left, so top-left for Rectangle is y - height
+        return new Rectangle(x, y - height, width, height);
     }
 }

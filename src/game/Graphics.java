@@ -50,7 +50,6 @@ public class Graphics extends JPanel implements ActionListener {
         this.setDoubleBuffered(true);
 
         this.gameObjects = new ArrayList<>();
-        // initializeAllLevels();
         this.display = new Display(tileSize,screenWidth,screenHeight);
 
         this.movement = new Movement(tileSize, worldWidth, worldHeight, gameObjects, startGridX, startGridY, speed);
@@ -97,8 +96,6 @@ public class Graphics extends JPanel implements ActionListener {
 
         if(targetCamX < 0) targetCamX = 0;
         if(targetCamY < 0) targetCamY = 0;
-        // if(targetCamX > worldWidth - screenWidth) targetCamX = worldWidth - screenWidth;
-        // if(targetCamY > worldHeight - screenHeight) targetCamY = worldHeight - screenHeight;
 
         this.cameraX = targetCamX;
         this.cameraY = targetCamY;
@@ -122,7 +119,6 @@ public class Graphics extends JPanel implements ActionListener {
         am.put("pLeft", new AbstractAction() {
             public void actionPerformed(ActionEvent e){
                 if (isEditorMode) {
-                    // Inform MapEditorWindow container shell to pan camera left
                     Container parent = getTopLevelAncestor();
                     if (parent instanceof MapEditorWindow) ((MapEditorWindow)parent).setCamLeft(true);
                 } else {
@@ -202,7 +198,7 @@ public class Graphics extends JPanel implements ActionListener {
             } 
         });
 
-        // --- CORE MODIFIERS (Z & X Keys remain active during gameplay) ---
+        // --- CORE MODIFIERS ---
         im.put(KeyStroke.getKeyStroke("Z"), "pShift");
         am.put("pShift", new AbstractAction(){
             public void actionPerformed(ActionEvent e){
@@ -242,7 +238,6 @@ public class Graphics extends JPanel implements ActionListener {
             }
         });
         
-
         im.put(KeyStroke.getKeyStroke("ESCAPE"), "clearEditorSelection");
         am.put("clearEditorSelection", new AbstractAction() {
             @Override
@@ -259,7 +254,6 @@ public class Graphics extends JPanel implements ActionListener {
     protected void paintComponent(java.awt.Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
-
 
         drawLevelCanvas(g2, currentMap, true, getWidth(), getHeight());
 
@@ -286,14 +280,12 @@ public class Graphics extends JPanel implements ActionListener {
         }
         g2.setTransform(oldTransform);
 
-
         g2.setFont(new Font("Arial", Font.BOLD, 14));
 
-        // If editor mode is engaged, lay down the alignment grid lines
         if (isEditorMode) {
             g2.setColor(Color.GREEN);
             g2.drawString(String.format("✏ MAP CANVAS EDITOR ACTIVE [Cam: %d, %d]", this.cameraX, this.cameraY), 15, 25);
-        }else{
+        } else {
             if(movement != null){
                 g2.setColor(new Color(0, 0, 0, 160));
                 g2.fillRect(8, 8, 120, 24);
@@ -316,7 +308,6 @@ public class Graphics extends JPanel implements ActionListener {
     }
 
     public void drawLevelCanvas(Graphics2D g2, int mapID, boolean drawPlayer, int panelWidth, int panelHeight){
-
         java.awt.geom.AffineTransform oldTransform = g2.getTransform();
 
         double scaleX = (double) panelWidth / virtualWidth;
@@ -328,22 +319,18 @@ public class Graphics extends JPanel implements ActionListener {
 
         g2.translate(offsetX, offsetY);
         g2.scale(scale, scale);
-
         g2.translate(-this.cameraX, -this.cameraY);
-
 
         for(GameObject obj : gameObjects){
             if(obj.mapID != mapID) continue;
-            // if(obj.type == GameObject.Type.spawnPoint) continue;
-            if(obj.isTriggered && !obj.triggeredDisplay){
-                continue;
-            }
+            if(obj.isTriggered && !obj.triggeredDisplay) continue;
+
             int renderX = obj.currentX;
-            int renderY = obj.currentY;
+            int renderY = obj.currentY - obj.height; // Convert bottom-left Y to top-left Y for rendering
 
             switch(obj.type){
                 case solid: g2.setColor(Color.GREEN); break;
-                case oneWay :g2.setColor(new Color(147, 112, 219)); break;
+                case oneWay: g2.setColor(new Color(147, 112, 219)); break;
                 case death: g2.setColor(Color.RED); break;
                 case respawn: g2.setColor(Color.BLUE); break;
                 case spawnPoint: g2.setColor(Color.YELLOW); break;
@@ -356,6 +343,7 @@ public class Graphics extends JPanel implements ActionListener {
             g2.setColor(Color.black);
             g2.drawRect(renderX, renderY, obj.width, obj.height);
         }
+
         if(movement != null && movement.getEnemies() != null){
             for(Enemy enemy : movement.getEnemies()){
                 if(enemy.mapID == mapID){
@@ -363,43 +351,41 @@ public class Graphics extends JPanel implements ActionListener {
                 }
             }
         }
+
         if(drawPlayer && movement != null){
             if(!movement.isDead){
                 g2.setColor(Color.WHITE);
-                g2.fillRect(movement.getPlayerX(), movement.getPlayerY(), playerSize, playerSize);
+                g2.fillRect(movement.getPlayerX(), movement.getPlayerY() - playerSize, playerSize, playerSize);
                 g2.setColor(Color.BLUE);
-                g2.drawRect(movement.getPlayerX(), movement.getPlayerY(), playerSize, playerSize);
+                g2.drawRect(movement.getPlayerX(), movement.getPlayerY() - playerSize, playerSize, playerSize);
             }
         }
-        if (this.isEditorMode && drawPlayer) {
-            g2.setColor(new Color(255, 255, 255, 30)); // Faint transparent white grid
 
-            // Draw vertical grid lines aligned with current camera view space bounds
+        if (this.isEditorMode && drawPlayer) {
+            g2.setColor(new Color(255, 255, 255, 30));
+
             for (int x = this.cameraX; x < this.cameraX + virtualWidth + tileSize; x += tileSize) {
                 int snapGridX = (x / tileSize) * tileSize;
                 g2.drawLine(snapGridX, this.cameraY, snapGridX, this.cameraY + virtualHeight);
             }
             
-            // Draw horizontal grid lines
             for (int y = this.cameraY; y < this.cameraY + virtualHeight + tileSize; y += tileSize) {
                 int snapGridY = (y / tileSize) * tileSize;
                 g2.drawLine(this.cameraX, snapGridY, this.cameraX + virtualWidth, snapGridY);
             }
-
 
             java.awt.Point anchor = MapEditorWindow.instance.getBottomLeftCorner();
             java.awt.Point hover = MapEditorWindow.instance.getCurrentHoverPoint();
             GameObject.Type brush = MapEditorWindow.instance.getActiveBrushType();
             if (anchor != null && hover != null) {
                 int previewX = Math.min(anchor.x, hover.x);
-                int previewY = Math.min(anchor.y, hover.y);
+                int previewY = Math.max(anchor.y, hover.y); // Bottom-left coordinate anchor
                 int previewWidth = Math.abs(hover.x - anchor.x);
-                int previewHeight = Math.abs(anchor.y - hover.y);
+                int previewHeight = Math.abs(hover.y - anchor.y);
 
                 if (previewWidth == 0) previewWidth = tileSize;
                 if (previewHeight == 0) previewHeight = tileSize;
 
-                // Pick standard color structures matching brush definitions
                 Color previewColor;
                 switch (brush) {
                     case solid: previewColor = Color.GREEN; break;
@@ -413,38 +399,37 @@ public class Graphics extends JPanel implements ActionListener {
                     default: previewColor = Color.GRAY; break;
                 }
 
-                // Alpha level set to 100 out of 255 for a beautiful transparent look
+                int renderPreviewY = previewY - previewHeight;
                 g2.setColor(new Color(previewColor.getRed(), previewColor.getGreen(), previewColor.getBlue(), 100));
-                g2.fillRect(previewX, previewY, previewWidth, previewHeight);
+                g2.fillRect(previewX, renderPreviewY, previewWidth, previewHeight);
 
-                // Draw clean solid structural dashed lines framing bounds
                 g2.setColor(previewColor);
                 g2.setStroke(new java.awt.BasicStroke(2f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
-                g2.drawRect(previewX, previewY, previewWidth, previewHeight);
+                g2.drawRect(previewX, renderPreviewY, previewWidth, previewHeight);
             }
         }
+
         int activeChannel = MapEditorWindow.instance.getHighlightedBroadcastChannel();
         GameObject activeTriggerObj = MapEditorWindow.instance.getPropertyEditingObject();
         GameObject editingObj = MapEditorWindow.instance.getPropertyEditingObject();
 
         if(this.isEditorMode && activeChannel > 0 && activeTriggerObj != null && activeTriggerObj.mapID == mapID){
             int triggerCenterX = activeTriggerObj.x + (activeTriggerObj.width / 2);
-            int triggerCenterY = activeTriggerObj.y + (activeTriggerObj.height / 2);
+            int triggerCenterY = (activeTriggerObj.y - activeTriggerObj.height) + (activeTriggerObj.height / 2);
 
             for (GameObject obj : gameObjects) {
                 if (obj.mapID == mapID && obj.triggeredBy == activeChannel) {
-                    // Draw a vibrant Cyan translucent backing card over receiver targets
+                    int objTopY = obj.y - obj.height;
                     g2.setColor(new Color(0, 255, 255, 60));
-                    g2.fillRect(obj.x, obj.y, obj.width, obj.height);
+                    g2.fillRect(obj.x, objTopY, obj.width, obj.height);
                     
                     g2.setColor(Color.CYAN);
                     g2.setStroke(new java.awt.BasicStroke(2.0f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
-                    g2.drawRect(obj.x, obj.y, obj.width, obj.height);
+                    g2.drawRect(obj.x, objTopY, obj.width, obj.height);
 
                     int targetCenterX = obj.x + (obj.width / 2);
-                    int targetCenterY = obj.y + (obj.height / 2);
+                    int targetCenterY = objTopY + (obj.height / 2);
 
-                    // Draw linking solid wires joining triggers directly with receiver channels
                     g2.setStroke(new java.awt.BasicStroke(1.5f));
                     g2.drawLine(triggerCenterX, triggerCenterY, targetCenterX, targetCenterY);
                     g2.fillOval(targetCenterX - 4, targetCenterY - 4, 8, 8);
@@ -454,96 +439,86 @@ public class Graphics extends JPanel implements ActionListener {
 
         if (this.isEditorMode && editingObj != null && editingObj.mapID == mapID) {
             int origCenterX = editingObj.x + (editingObj.width / 2);
-            int origCenterY = editingObj.y + (editingObj.height / 2);
+            int origCenterY = (editingObj.y - editingObj.height) + (editingObj.height / 2);
             
             int trigStartCenterX = editingObj.triggeredX + (editingObj.width / 2);
-            int trigStartCenterY = editingObj.triggeredY + (editingObj.height / 2);
+            int trigStartCenterY = (editingObj.triggeredY - editingObj.height) + (editingObj.height / 2);
             
             int oscCenterX = editingObj.moveX + (editingObj.width / 2);
-            int oscCenterY = editingObj.moveY + (editingObj.height / 2);
+            int oscCenterY = (editingObj.moveY - editingObj.height) + (editingObj.height / 2);
             
             int trigOscEndCenterX = editingObj.triggerMoveX + (editingObj.width / 2);
-            int trigOscEndCenterY = editingObj.triggerMoveY + (editingObj.height / 2);
+            int trigOscEndCenterY = (editingObj.triggerMoveY - editingObj.height) + (editingObj.height / 2);
 
             boolean hasTrigStart = (editingObj.triggeredX != editingObj.x || editingObj.triggeredY != editingObj.y) && (editingObj.triggeredX != 0);
             boolean hasNormalOsc = (editingObj.moveX != editingObj.x || editingObj.moveY != editingObj.y) && (editingObj.moveX != 0);
             boolean hasTrigOscEnd = (editingObj.triggerMoveX != editingObj.x || editingObj.triggerMoveY != editingObj.y) && (editingObj.triggerMoveX != 0);
 
-            // 1. Draw standard background pre-trigger oscillation pathing if active
             if (hasNormalOsc) {
+                int topY = editingObj.moveY - editingObj.height;
                 g2.setColor(new Color(138, 43, 226, 40));
-                g2.fillRect(editingObj.moveX, editingObj.moveY, editingObj.width, editingObj.height);
+                g2.fillRect(editingObj.moveX, topY, editingObj.width, editingObj.height);
                 g2.setColor(new Color(138, 43, 226));
                 g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
-                g2.drawRect(editingObj.moveX, editingObj.moveY, editingObj.width, editingObj.height);
+                g2.drawRect(editingObj.moveX, topY, editingObj.width, editingObj.height);
 
                 g2.setStroke(new java.awt.BasicStroke(1.5f));
                 g2.drawLine(origCenterX, origCenterY, oscCenterX, oscCenterY);
             }
 
-            // 2. Draw Triggered Start destination block profile (Orange)
             if (hasTrigStart) {
+                int topY = editingObj.triggeredY - editingObj.height;
                 g2.setColor(new Color(255, 140, 0, 50));
-                g2.fillRect(editingObj.triggeredX, editingObj.triggeredY, editingObj.width, editingObj.height);
+                g2.fillRect(editingObj.triggeredX, topY, editingObj.width, editingObj.height);
                 g2.setColor(Color.ORANGE);
                 g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{6f}, 0.0f));
-                g2.drawRect(editingObj.triggeredX, editingObj.triggeredY, editingObj.width, editingObj.height);
+                g2.drawRect(editingObj.triggeredX, topY, editingObj.width, editingObj.height);
 
-                // Connect Original -> Triggered Start Position
                 g2.setStroke(new java.awt.BasicStroke(1.5f));
                 g2.drawLine(origCenterX, origCenterY, trigStartCenterX, trigStartCenterY);
             }
 
-            // 3. Draw Post-Trigger Oscillation End destination block profile (Cyan)
             if (hasTrigOscEnd && hasTrigStart) {
+                int topY = editingObj.triggerMoveY - editingObj.height;
                 g2.setColor(new Color(0, 255, 255, 40));
-                g2.fillRect(editingObj.triggerMoveX, editingObj.triggerMoveY, editingObj.width, editingObj.height);
+                g2.fillRect(editingObj.triggerMoveX, topY, editingObj.width, editingObj.height);
                 g2.setColor(Color.CYAN);
                 g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
-                g2.drawRect(editingObj.triggerMoveX, editingObj.triggerMoveY, editingObj.width, editingObj.height);
+                g2.drawRect(editingObj.triggerMoveX, topY, editingObj.width, editingObj.height);
 
-                // Sequential Connect: Triggered Start -> Post-Trigger Oscillation End Node
                 g2.setStroke(new java.awt.BasicStroke(1.5f));
                 g2.drawLine(trigStartCenterX, trigStartCenterY, trigOscEndCenterX, trigOscEndCenterY);
                 
-                // Draw a linking vertex anchor dot
                 g2.setColor(Color.ORANGE);
                 g2.fillOval(trigStartCenterX - 3, trigStartCenterY - 3, 6, 6);
             }
         }
+
         GameObject activeEditingBlock = MapEditorWindow.instance.getPropertyEditingObject();
         Point pathCursor = MapEditorWindow.instance.getPathHoverPoint();
         
         if (this.isEditorMode && activeEditingBlock != null && pathCursor != null && activeEditingBlock.mapID == mapID) {
             String modeName = MapEditorWindow.instance.getCurrentPathClickModeName();
             
-            // Base starting core origins of our source shape block
             int origCenterX = activeEditingBlock.x + (activeEditingBlock.width / 2);
-            int origCenterY = activeEditingBlock.y + (activeEditingBlock.height / 2);
+            int origCenterY = (activeEditingBlock.y - activeEditingBlock.height) + (activeEditingBlock.height / 2);
             int trigStartCenterX = activeEditingBlock.triggeredX + (activeEditingBlock.width / 2);
-            int trigStartCenterY = activeEditingBlock.triggeredY + (activeEditingBlock.height / 2);
+            int trigStartCenterY = (activeEditingBlock.triggeredY - activeEditingBlock.height) + (activeEditingBlock.height / 2);
             int trigOscEndCenterX = activeEditingBlock.triggerMoveX + (activeEditingBlock.width / 2);
-            int trigOscEndCenterY = activeEditingBlock.triggerMoveY + (activeEditingBlock.height / 2);
-
+            int trigOscEndCenterY = (activeEditingBlock.triggerMoveY - activeEditingBlock.height) + (activeEditingBlock.height / 2);
 
             int cursorCenterX = pathCursor.x + (activeEditingBlock.width / 2);
-            int cursorCenterY = pathCursor.y + (activeEditingBlock.height / 2);
-
-            int sourceLineX = origCenterX;
-            int sourceLineY = origCenterY;
+            int cursorCenterY = (pathCursor.y - activeEditingBlock.height) + (activeEditingBlock.height / 2);
 
             Color hoverPreviewColor = Color.WHITE;
             String previewLabel = "";
 
-
-
-            //shift colors based on which specific path button is currently pressed
             if (modeName.equals("OSCILLATION")) {
-                hoverPreviewColor = new Color(138, 43, 226); // Purple for Standard Oscillation
+                hoverPreviewColor = new Color(138, 43, 226);
                 previewLabel = "Always Oscillation Target";
                 g2.drawLine(origCenterX, origCenterY, cursorCenterX, cursorCenterY);
             } else if (modeName.equals("TRIGGERED_MOVE")) {
-                hoverPreviewColor = Color.ORANGE; // Orange for Single Trigger Move Destinations
+                hoverPreviewColor = Color.ORANGE;
                 previewLabel = "Triggered Move Destination";
                 g2.drawLine(origCenterX, origCenterY, cursorCenterX, cursorCenterY);
 
@@ -553,7 +528,7 @@ public class Graphics extends JPanel implements ActionListener {
                     g2.drawLine(cursorCenterX, cursorCenterY, trigOscEndCenterX, trigOscEndCenterY);
                 }
             } else if (modeName.equals("OSCILLATE_AFTER_TRIGGER")) {
-                hoverPreviewColor = Color.CYAN; // Cyan for Loop Paths after waking up
+                hoverPreviewColor = Color.CYAN;
                 previewLabel = "Post-Trigger Oscillation Target";
                 boolean hasTrigStart = (activeEditingBlock.triggeredX != activeEditingBlock.x || activeEditingBlock.triggeredY != activeEditingBlock.y) && (activeEditingBlock.triggeredX != 0);
                 if(hasTrigStart){
@@ -563,32 +538,26 @@ public class Graphics extends JPanel implements ActionListener {
                 }
             }
 
-            // Draw a translucent preview box beneath cursor matching the target object's dimensions
+            int cursorTopY = pathCursor.y - activeEditingBlock.height;
             g2.setColor(new Color(hoverPreviewColor.getRed(), hoverPreviewColor.getGreen(), hoverPreviewColor.getBlue(), 60));
-            g2.fillRect(pathCursor.x, pathCursor.y, activeEditingBlock.width, activeEditingBlock.height);
+            g2.fillRect(pathCursor.x, cursorTopY, activeEditingBlock.width, activeEditingBlock.height);
 
-            // Draw structural thick dashed border around the cursor snapping location
             g2.setColor(hoverPreviewColor);
             g2.setStroke(new java.awt.BasicStroke(2.0f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{5f}, 0.0f));
-            g2.drawRect(pathCursor.x, pathCursor.y, activeEditingBlock.width, activeEditingBlock.height);
-
-            // Draw a solid alignment linking vector trace line back to origin starting points
-            // g2.setStroke(new java.awt.BasicStroke(1.5f));
-            // g2.drawLine(sourceLineX, sourceLineY, cursorCenterX, cursorCenterY);
+            g2.drawRect(pathCursor.x, cursorTopY, activeEditingBlock.width, activeEditingBlock.height);
             
-            // Stamp a quick text indicator floating right above the cursor hover point
             g2.setFont(new Font("Arial", Font.BOLD, 11));
-            g2.setColor(Color.BLACK); // Shadow background text drop
-            g2.drawString(previewLabel, pathCursor.x + 2, pathCursor.y - 4);
+            g2.setColor(Color.BLACK);
+            g2.drawString(previewLabel, pathCursor.x + 2, cursorTopY - 4);
             g2.setColor(hoverPreviewColor);
-            g2.drawString(previewLabel, pathCursor.x + 1, pathCursor.y - 5);
+            g2.drawString(previewLabel, pathCursor.x + 1, cursorTopY - 5);
         }
         
         g2.setTransform(oldTransform);
     }
 
     public int getTileSize(){return this.tileSize;}
-    public int getPlayerSize() {return (int) (this.tileSize * .75);}
+    public int getPlayerSize() {return (int) (this.tileSize * 0.75);}
     public ArrayList<GameObject> getGameObjects(){return this.gameObjects;}
     public boolean getOriginalEditorModeStatus(){return this.isEditorMode;}
     public boolean isEditorMode(){return this.isEditorMode;}

@@ -1,10 +1,8 @@
 package src.game;
 
-import java.util.function.TriFunction;
-
 public enum EnemyRegistry {
     NONE("CANCEL/NONE", null),
-    PATROL("PATROL (walking", PatrolEnemy::new),
+    PATROL("PATROL (walking)", PatrolEnemy::new),
     JUMPING("JUMPING (leaping)", JumpingEnemy::new),
     FLYING("FLYING (oscillating)", FlyingEnemy::new);
 

@@ -17,16 +17,17 @@ public class PatrolEnemy extends Enemy{
     public void aiTick(ArrayList<GameObject> objects){
         if(!isGrounded) return;
 
-        int lookAheadCheckX = (velX > 0) ? (x + width + 4) : (x - 4);
-        int lookAheadCheckY = y + height + 4;
-        Rectangle edgeSensorBox = new Rectangle(lookAheadCheckX, lookAheadCheckY, 4, 4);
+        int lookAheadCheckX = (velX > 0) ? (int) (x + width + velX) : (int)(x - velX);
+        int lookAheadCheckY = y + 4; // y is bottom-left
+        Rectangle edgeSensorBox = new Rectangle(lookAheadCheckX, lookAheadCheckY, (int) Math.abs(velX), 8);
 
         boolean solidGroundAhead = false;
         for(GameObject obj: objects){
             if (obj.mapID != this.mapID) continue;
             if (obj.isTriggered && !obj.triggeredDisplay) continue;
             if (obj.type == GameObject.Type.solid) {
-                Rectangle blockBounds = new Rectangle(obj.currentX, obj.currentY, obj.width, obj.height);
+                int objTop = obj.currentY - obj.height;
+                Rectangle blockBounds = new Rectangle(obj.currentX, objTop, obj.width, obj.height);
                 if(edgeSensorBox.intersects(blockBounds)){
                     solidGroundAhead = true;
                     break;
@@ -44,9 +45,10 @@ public class PatrolEnemy extends Enemy{
     }
     @Override 
     public void draw(Graphics2D g2){
+        int renderY = y - height;
         g2.setColor(new Color(139, 0, 0));
-        g2.fillRect(x, y, width, height);
+        g2.fillRect(x, renderY, width, height);
         g2.setColor(Color.BLACK);
-        g2.drawRect(x, y, width, height);
+        g2.drawRect(x, renderY, width, height);
     }
 }

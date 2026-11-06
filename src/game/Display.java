@@ -19,13 +19,13 @@ public class Display {
         AffineTransform oldTransform = g2.getTransform();
         double scaleX = (double) panelWidth / virtualWidth;
         double scaleY = (double) panelHeight / virtualHeight;
-        double scale = Math.min(scaleX,scaleY);
+        double scale = Math.min(scaleX, scaleY);
 
         int offsetX = (int) ((panelWidth - (virtualWidth * scale)) / 2);
         int offsetY = (int) ((panelHeight - (virtualHeight * scale)) / 2);
 
-        g2.translate(offsetX,offsetY);
-        g2.scale(scale,scale);
+        g2.translate(offsetX, offsetY);
+        g2.scale(scale, scale);
 
         for(GameObject obj : objects){
             if(obj.mapID != currentMap){
@@ -44,14 +44,15 @@ public class Display {
             }else{
                 g2.setColor(Color.GRAY);
             }
-            g2.fillRect( obj.x - cameraX, obj.y - cameraY, obj.width, obj.height);
+            int renderX = obj.currentX - cameraX;
+            int renderY = (obj.currentY - obj.height) - cameraY;
+            g2.fillRect(renderX, renderY, obj.width, obj.height);
         }
         g2.setColor(Color.WHITE);
         int playerScreenX = playerX - cameraX;
-        int playerScreenY = playerY - cameraY;
-        g2.fillRect(playerScreenX,playerScreenY,tileSize,tileSize);
+        int playerScreenY = (playerY - tileSize) - cameraY; // playerY is bottom-left, shift up by tileSize for top-left draw
+        g2.fillRect(playerScreenX, playerScreenY, tileSize, tileSize);
 
         g2.setTransform(oldTransform);
     }
-
 }

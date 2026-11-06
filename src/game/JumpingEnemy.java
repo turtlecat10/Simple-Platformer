@@ -36,9 +36,10 @@ public class JumpingEnemy extends Enemy{
     }
     @Override 
     public void draw(Graphics2D g2){
+        int renderY = y - height;
         g2.setColor(new Color(255, 69, 0));
-        g2.fillRect(x, y, width, height);
+        g2.fillRect(x, renderY, width, height);
         g2.setColor(Color.BLACK);
-        g2.drawRect(x, y, width, height);
+        g2.drawRect(x, renderY, width, height);
     }
 }

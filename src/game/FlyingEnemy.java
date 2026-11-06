@@ -18,7 +18,6 @@ public class FlyingEnemy extends Enemy{
 
     private final double returnHomeSpeed = 0.05;
 
-
     public FlyingEnemy(int x, int y, int mapID){
         super(x, y, 32, 32, mapID);
         this.type = "FLYING";
@@ -51,9 +50,10 @@ public class FlyingEnemy extends Enemy{
     }
     @Override 
     public void draw(Graphics2D g2){
+        int renderY = y - height;
         g2.setColor(new Color(0, 139, 0));
-        g2.fillRect(x, y, width, height);
+        g2.fillRect(x, renderY, width, height);
         g2.setColor(Color.BLACK);
-        g2.drawRect(x, y, width, height);
+        g2.drawRect(x, renderY, width, height);
     }
 }
