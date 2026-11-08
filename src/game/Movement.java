@@ -326,13 +326,13 @@ public class Movement {
                     Rectangle platBounds = new Rectangle(obj.currentX, obj.currentY - obj.height, obj.width, obj.height);
                     
                     if (dynamicFeetSensor.intersects(platBounds)) {
-                        System.out.println("Colliding");
-                        System.out.println(playerY+" "+(objTop - obj.deltaY));
+                        // System.out.println("Colliding");
+                        // System.out.println(playerY+" "+(objTop - obj.deltaY));
                         if (playerY == (objTop - obj.deltaY)) {
                             if(bestPlatformMatch != null){
-                            System.out.println(obj.currentY+" "+bestPlatformMatch.currentY);
+                            // System.out.println(obj.currentY+" "+bestPlatformMatch.currentY);
                             }
-                            if (bestPlatformMatch == null || obj.currentY < bestPlatformMatch.currentY) {
+                            if (bestPlatformMatch == null || obj.deltaY < bestPlatformMatch.deltaY || (obj.deltaY == bestPlatformMatch.deltaY && Math.abs(obj.deltaX) > Math.abs(bestPlatformMatch.deltaX))) {
                                 bestPlatformMatch = obj;
                                 // System.out.println("diff");
                             }
@@ -348,7 +348,7 @@ public class Movement {
         boolean standingOnPlatform = false;
 
         if(platformRidden != null){
-            System.out.println("null");
+            // System.out.println("null");
             platformCarriageX = platformRidden.deltaX;
             platformCarriageY = platformRidden.deltaY;
             standingOnPlatform = true;
@@ -376,6 +376,10 @@ public class Movement {
         
         // --- MOVING PLATFORM CRUSH & PUSH RESOLUTION ---
         if(objects != null && !this.isDead){
+            if(platformRidden != null){
+                resolveSafePlatformPush(platformRidden, currentMap);
+                if(this.isDead) return;
+            }
             for(GameObject obj : objects){
                 if(obj.mapID != currentMap || obj.type != GameObject.Type.solid || obj.move == GameObject.movement.never || (obj.isTriggered && !obj.triggeredDisplay)) continue;
                 if(obj == platformRidden) continue;
@@ -394,7 +398,7 @@ public class Movement {
         
         // --- HORIZONTAL MOVEMENT & PLATFORM CARRIAGE ---
         int totalMoveX = (int) (moveX);
-        if(totalMoveX != 0 || platformCarriageX != 0){
+        if(totalMoveX != 0 || platformCarriageX != 0 || true){
             double targetX = playerX + totalMoveX + platformCarriageX;
             if(targetX < 0) {
                 targetX = 0;
@@ -412,7 +416,7 @@ public class Movement {
             for (GameObject obj : hitsX) {
                 if (obj.type == GameObject.Type.solid) {
 
-                    if(standingOnPlatform && obj == platformRidden) {System.out.println("Continuing"); continue;}
+                    if(standingOnPlatform && obj == platformRidden) {/*System.out.println("Continuing");*/ continue;}
 
                     int objLeft = obj.currentX;
                     int objRight = obj.currentX + obj.width;
@@ -421,8 +425,10 @@ public class Movement {
 
                     boolean verticalOverlap = (playerY > objTop) && ((playerY - playerSize) < objBottom);
                     
-                    if(verticalOverlap){//System.out.println(verticalOverlap+" "+Math.random());
-                        if(targetX > playerX){
+                    if(verticalOverlap){
+                        int distLeft = (int) (objLeft - (playerX + playerSize));
+                        int distRight = (int) (objRight - playerX);
+                        if(Math.abs(distLeft) < Math.abs(distRight)){
                             playerX = objLeft - playerSize;
                         }else{
                             playerX = objRight;
@@ -440,15 +446,8 @@ public class Movement {
         }
 
         // --- VERTICAL MOVEMENT & PLATFORM CARRIAGE ---
-        if(standingOnPlatform && moveY == 0){
-            playerY = platformRidden.currentY - platformRidden.height;
-            velocityY = 0;
-            isGrounded = true;
-            dashAble = true;
-            hasDoubleJumped = false;
-            // System.out.println("?");
-        } else {
-            // System.out.println(platformCarriageY);
+        if(moveY != 0 || platformCarriageY != 0 || true) {
+            // System.out.println(platformCarriageY);s
             int totalMoveY = (int)(moveY + platformCarriageY);
             // System.out.println(totalMoveY+" "+Math.random());
             double targetY = playerY + totalMoveY;
@@ -458,8 +457,10 @@ public class Movement {
                 isJumping = false;
                 velocityY = 1;
             }
+            // System.out.println("Checking for objects");
 
             ArrayList<GameObject> hitsY = checkCornerCollision((int)playerX, (int)playerY, (int)playerX, (int)targetY, currentMap);
+            // System.out.println(hitsY);
             
             if(moveY >= 0 && standingOnPlatform && platformRidden != null && !hitsY.contains(platformRidden)){
                 hitsY.add(platformRidden);
@@ -474,6 +475,7 @@ public class Movement {
             for (GameObject obj : hitsY) {
                 if(obj == platformRidden && moveY < 0) continue;
                 if(standingOnPlatform && obj == platformRidden && moveY == 0) continue;
+                // System.out.println(obj);
 
 
                 int objTop = obj.currentY - obj.height;
@@ -524,7 +526,260 @@ public class Movement {
     }
 
     private void resolveSafePlatformPush(GameObject movingPlatform, int currentMap){
+        int playerLeft = (int) Math.round(playerX);
+        int playerRight = (int) Math.round(playerX + playerSize);
+        int playerBottom = (int) Math.round(playerY);
+        int playerTop = (int) Math.round(playerY - playerSize);
 
+        int prevLeft = (int) Math.round(movingPlatform.currentX - movingPlatform.deltaX);
+        int left = (int) Math.round(movingPlatform.currentX);
+        int prevRight = (int) Math.round(movingPlatform.currentX + movingPlatform.width - movingPlatform.deltaX);
+        int right = (int) Math.round(movingPlatform.currentX + movingPlatform.width);
+        
+        int prevTop = (int) Math.round(movingPlatform.currentY - movingPlatform.height - movingPlatform.deltaY);
+        int top = (int) Math.round(movingPlatform.currentY - movingPlatform.height);
+        int prevBottom = (int) Math.round(movingPlatform.currentY - movingPlatform.deltaY);
+        int bottom = (int) Math.round(movingPlatform.currentY);
+
+        if(movingPlatform == platformRidden){
+            if(movingPlatform.deltaY < 0){
+                for(GameObject obj : objects){
+                    if(obj.mapID != currentMap || obj.type != GameObject.Type.solid || movingPlatform == obj || (obj.isTriggered && !obj.triggeredDisplay)) continue;
+                    int objLeft = (int) (obj.currentX);
+                    int objRight = (int) (obj.currentX + obj.width);
+                    int objBottomPrev = (int) (obj.currentY - obj.deltaY);
+                    int objBottom = (int) (obj.currentY);
+                    if(playerRight > objLeft && playerLeft < objRight){
+                        if((prevTop - objBottomPrev >= playerSize) && (top - objBottom < playerSize)){
+                            triggerDeathSequence(currentMap);
+                            break;
+                        }
+                    }
+                }
+            }
+        }else{
+            for(GameObject obj : objects){
+                if(obj.mapID != currentMap || obj.type != GameObject.Type.solid || movingPlatform == obj || (obj.isTriggered && !obj.triggeredDisplay)) continue;
+                int prevLeftObj = (int) (obj.currentX - obj.deltaX);
+                int leftObj = (int) (obj.currentX);
+                int prevRightObj = (int) (obj.currentX + obj.width - obj.deltaX);
+                int rightObj = (int) (obj.currentX + obj.width);
+                int prevBottomObj = (int) (obj.currentY - obj.deltaY);
+                int bottomObj = (int) (obj.currentY);
+                int prevTopObj = (int) (obj.currentY - obj.height - obj.deltaY);
+                int topObj = (int) (obj.currentY - obj.height);
+                if(movingPlatform.deltaX > 0){
+                    System.out.println(playerBottom+" "+top+" "+playerTop+" "+bottom+" "+playerBottom+" "+topObj+" "+playerTop+" "+bottomObj);
+                    System.out.println((prevLeftObj - prevRight)+" "+playerSize+" "+(leftObj - right) +" "+playerSize);
+                    System.out.println(playerLeft+" "+prevRight+" "+playerRight+" "+leftObj);
+                    if(playerBottom > top && playerTop < bottom && playerBottom > topObj && playerTop < bottomObj){
+                        if ((prevLeftObj - prevRight >= playerSize) && (leftObj - right < playerSize)) {
+                            if (playerLeft >= prevRight && playerRight <= leftObj) {
+                                triggerDeathSequence(currentMap);
+                                break;
+                            }
+                        }
+                    }
+                }else if(movingPlatform.deltaX < 0){
+                    System.out.println(playerBottom+" "+top+" "+playerTop+" "+bottom+" "+playerBottom+" "+topObj+" "+playerTop+" "+bottomObj);
+                    System.out.println((prevLeft - rightObj)+" "+playerSize+" "+(left - rightObj) +" "+playerSize);
+                    System.out.println(playerLeft+" "+rightObj+" "+playerRight+" "+left);
+                    System.out.println(isGrounded);
+                    if(playerBottom > top && playerTop < bottom && playerBottom > topObj && playerTop < bottomObj){
+                        if ((prevLeft - prevRightObj >= playerSize) && (left - rightObj < playerSize)) {
+                            if (playerLeft >= rightObj && playerRight <= prevLeft) {
+                                triggerDeathSequence(currentMap);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if(movingPlatform.deltaY > 0){
+                    if (playerRight > left && playerLeft < right && playerRight > leftObj && playerLeft < rightObj) {
+                        if ((prevTopObj - prevBottom >= playerSize) && (topObj - bottom < playerSize)) {
+                            triggerDeathSequence(currentMap);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private void resolveSafePlatformPush3(GameObject movingPlatform, int currentMap){
+        if(movingPlatform == null) return;
+
+        double dX = movingPlatform.deltaX;
+        double dY = movingPlatform.deltaX;
+
+        double rideDeltaX = (platformRidden != null) ? platformRidden.deltaX : 0;
+        double rideDeltaY = (platformRidden != null) ? platformRidden.deltaY : 0;
+
+        int predictedX = (int) (playerX + rideDeltaX);
+        int predictedY = (int) (playerY + rideDeltaY);
+
+        if(platformRidden != movingPlatform){
+
+            int platLeft = movingPlatform.currentX;
+            int platRight = movingPlatform.currentX + movingPlatform.width;
+            int platBottom = movingPlatform.currentY;
+            int platTop = movingPlatform.currentY - movingPlatform.height;
+
+            Rectangle currentPlayerBox = new Rectangle(predictedX, predictedY - playerSize, playerSize, playerSize);
+            Rectangle nextPlatBox = new Rectangle(platLeft, platTop, movingPlatform.width, movingPlatform.height);
+
+            if(nextPlatBox.intersects(currentPlayerBox)){
+                if(dX > 0){
+                    int overlapX = platRight - predictedX;
+                    if(overlapX > 0) predictedX += overlapX;
+                }else if(dX < 0){
+                    int overlapX = (predictedX + playerSize) - platLeft;
+                    if(overlapX > 0) predictedX -= overlapX;
+                }
+                if(dY > 0){
+                    int overlapY = platBottom - (predictedY - playerSize);
+                    if(overlapY > 0) predictedY += overlapY;
+                }else if(dY < 0){
+                    int overlapY = predictedY - platTop;
+                    if(overlapY > 0) predictedY -= overlapY;
+                }
+            }
+        }
+
+        Rectangle pBounds = new Rectangle(predictedX, predictedY - playerSize, playerSize, playerSize);
+
+        for(GameObject obj : objects){
+            if(obj == movingPlatform || obj.mapID != currentMap || obj.type != GameObject.Type.solid) continue;
+            if(obj.isTriggered && !obj.triggeredDisplay) continue;
+            if(obj == platformRidden) continue;
+
+            int blockLeft = obj.currentX;
+            int blockRight = obj.currentX + obj.width;
+            int blockBottom = obj.currentY;
+            int blockTop = obj.currentY - obj.height;
+
+            Rectangle block = new Rectangle(blockLeft, blockTop, obj.width, obj.height);
+
+            if(pBounds.intersects(block)){
+                boolean pinchedHorizontal = false;
+                boolean pinchedVertical = false;
+
+                boolean isSideWall = (blockTop < pBounds.y + pBounds.height) && (blockBottom > pBounds.y);
+                boolean isVerticalWall = (blockLeft < pBounds.x + pBounds.width) && (blockRight > pBounds.x);
+
+                if(isSideWall && movingPlatform != platformRidden && dX != 0){
+                    int platRight = movingPlatform.currentX + movingPlatform.width;
+                    int platLeft = movingPlatform.currentX;
+
+                    if(dX > 0 && platRight >= blockLeft && blockLeft <= pBounds.x + pBounds.width){
+                        Rectangle rightWallSensor = new Rectangle(pBounds.x + pBounds.width - 2, pBounds.y, 4, pBounds.height);
+                        for(GameObject wall : objects){
+                            if (wall != movingPlatform && wall != obj && wall.mapID == currentMap && wall.type == GameObject.Type.solid) {
+                                if (rightWallSensor.intersects(new Rectangle(wall.currentX, wall.currentY - wall.height, wall.width, wall.height))) {
+                                    System.out.println("Pinched Right Side");
+                                    pinchedHorizontal = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else if(dX < 0 && platLeft <= blockRight && blockRight >= pBounds.x){
+                        Rectangle leftWallSensor = new Rectangle(pBounds.x - 2, pBounds.y, 4, pBounds.height);
+                        for(GameObject wall : objects){
+                            if (wall != movingPlatform && wall != obj && wall.mapID == currentMap && wall.type == GameObject.Type.solid) {
+                                if(leftWallSensor.intersects(new Rectangle(wall.currentX, wall.currentY - wall.height, wall.width, wall.height))){
+                                    System.out.println("Pinched Left side");
+                                    pinchedHorizontal = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if(isVerticalWall){
+                    Rectangle ceilingSensor = new Rectangle(pBounds.x, pBounds.y - playerSize, pBounds.width, 6);
+
+                    for(GameObject wall : objects){
+                        if(wall != movingPlatform && wall != obj && wall.mapID == currentMap && wall.type == GameObject.Type.solid && (wall.isTriggered && wall.triggeredDisplay || !wall.isTriggered)){
+                            Rectangle wallBounds = new Rectangle(wall.currentX, wall.currentY - wall.height, wall.width, wall.height);
+
+                            if(ceilingSensor.intersects(wallBounds)){
+                                double wallDeltaY = (wall.move != GameObject.movement.never) ? wall.deltaY : 0;
+
+                                if(wallDeltaY > 0){
+                                    System.out.println("falling");
+                                    pinchedVertical = true;
+                                    break;
+                                }
+                                if(platformRidden != null && rideDeltaY < 0){
+                                    if(rideDeltaY < wallDeltaY){
+                                        pinchedVertical = true;
+                                        break;
+                                    }
+                                }
+                                double totalUpwardMovement = velocityY + rideDeltaY;
+                                if(totalUpwardMovement < 0){
+                                    pinchedVertical = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                if(pinchedHorizontal || pinchedVertical){
+                    triggerDeathSequence(currentMap);
+                    return;
+                }
+            }
+        }
+    }
+
+    private void resolveSafePlatformPush2(GameObject movingPlatform, int currentMap){
+        if(movingPlatform == platformRidden){
+            if(movingPlatform.deltaY == 0) return;
+            int newX = (int) (playerX + movingPlatform.deltaX);
+            int newY = (int) (playerY + movingPlatform.deltaY);
+            Rectangle predictBox = new Rectangle(newX, (newY - playerSize), playerSize, 2);
+            Rectangle sideCheckLeft = new Rectangle(newX, (newY - playerSize/2), 2, playerSize/2);
+            Rectangle sideCheckRight = new Rectangle(newX + playerSize - 2, newY - playerSize/2, 2, playerSize/2);
+            for(GameObject obj : objects){
+                if(obj.mapID != currentMap || obj.type != GameObject.Type.solid || movingPlatform == obj || (obj.isTriggered && obj.triggeredDisplay)) continue;
+                Rectangle objBox = new Rectangle(obj.currentX, obj.currentY - obj.height, obj.width, obj.height);
+                if(objBox.intersects(predictBox) && (!objBox.intersects(sideCheckLeft) || !objBox.intersects(sideCheckRight))){
+                    triggerDeathSequence(currentMap);
+                    break;
+                }
+            }
+        }else{
+            int newX = (int) (playerX + movingPlatform.deltaX);
+            int newY = (int) (playerY + movingPlatform.deltaY);
+            if(movingPlatform.deltaX > 0){
+                Rectangle predictBoxRight = new Rectangle(newX + playerSize - 2, (newY - playerSize), 2, playerSize);
+                Rectangle topCheck = new Rectangle(newX, newY - playerSize, playerSize/2, 2);
+                Rectangle bottomCheck = new Rectangle(newX, newY - 2, playerSize/2, 2);
+                for(GameObject obj : objects){
+                    if(obj.mapID != currentMap || obj.type != GameObject.Type.solid || movingPlatform == obj || (obj.isTriggered && obj.triggeredDisplay)) continue;
+                    Rectangle objBox = new Rectangle(obj.currentX, obj.currentY - obj.height, obj.width, obj.height);
+                    if(objBox.intersects(predictBoxRight) && (!objBox.intersects(topCheck) || !objBox.intersects(bottomCheck))){
+                        triggerDeathSequence(currentMap);
+                        break;
+                    }
+                }
+            }else if(movingPlatform.deltaX < 0){
+                Rectangle predictBoxLeft = new Rectangle(newX, (newY - playerSize), 2, playerSize);
+                Rectangle topCheck = new Rectangle(newX + playerSize/2, newY - playerSize, playerSize/2, 2);
+                Rectangle bottomCheck = new Rectangle(newX + playerSize/2, newY - 2, playerSize/2, 2);
+                for(GameObject obj : objects){
+                    if(obj.mapID != currentMap || obj.type != GameObject.Type.solid || movingPlatform == obj || (obj.isTriggered && obj.triggeredDisplay)) continue;
+                    Rectangle objBox = new Rectangle(obj.currentX, obj.currentY - obj.height, obj.width, obj.height);
+                    if(objBox.intersects(predictBoxLeft) && (!objBox.intersects(topCheck) || !objBox.intersects(bottomCheck))){
+                        triggerDeathSequence(currentMap);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     public void setInitialSpawn(int x, int y){
