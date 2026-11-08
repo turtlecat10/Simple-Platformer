@@ -229,5 +229,6 @@ public class GameObject {
 
         this.deltaX = this.currentX - this.lastX;
         this.deltaY = this.currentY - this.lastY;
+        // System.out.println(this.deltaY);
     }
 }
