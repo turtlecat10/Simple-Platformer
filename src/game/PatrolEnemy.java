@@ -10,16 +10,19 @@ public class PatrolEnemy extends Enemy{
     public PatrolEnemy(int x, int y, int mapID){
         super(x, y, 32, 32, mapID);
         this.type = "PATROL";
-        this.velX = 4.5;
+        this.velX = 8.5;
     }
 
     @Override 
     public void aiTick(ArrayList<GameObject> objects){
-        if(!isGrounded) return;
+        System.out.println(this.velX);
+        if(!this.isGrounded){
+           this.velY += 0.5;
+        }
 
-        int lookAheadCheckX = (velX > 0) ? (int) (x + width + velX) : (int)(x - velX);
-        int lookAheadCheckY = y + 4; // y is bottom-left
-        Rectangle edgeSensorBox = new Rectangle(lookAheadCheckX, lookAheadCheckY, (int) Math.abs(velX), 8);
+        int lookAheadCheckX = (this.velX > 0) ? (int) (this.x + this.width + this.velX) : (int)(this.x - this.velX);
+        int lookAheadCheckY = this.y + 4; // y is bottom-left
+        Rectangle edgeSensorBox = new Rectangle(lookAheadCheckX, lookAheadCheckY, (int) Math.abs(this.velX), 8);
 
         boolean solidGroundAhead = false;
         for(GameObject obj: objects){
@@ -35,20 +38,21 @@ public class PatrolEnemy extends Enemy{
             }
         }
         if(!solidGroundAhead){
-            velX = -velX;
+            this.velX = -this.velX;
         }
+        updatePhysics(objects);
     }
 
     @Override
     protected void handleWallBump(){
-        velX = -velX;
+        this.velX = -this.velX;
     }
     @Override 
     public void draw(Graphics2D g2){
-        int renderY = y - height;
+        int renderY = this.y - this.height;
         g2.setColor(new Color(139, 0, 0));
-        g2.fillRect(x, renderY, width, height);
+        g2.fillRect(this.x, renderY, this.width, this.height);
         g2.setColor(Color.BLACK);
-        g2.drawRect(x, renderY, width, height);
+        g2.drawRect(this.x, renderY, this.width, this.height);
     }
 }

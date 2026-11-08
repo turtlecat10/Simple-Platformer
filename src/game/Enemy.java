@@ -30,14 +30,14 @@ public abstract class Enemy {
     public abstract void draw(Graphics2D g2);
 
     public void updatePhysics(ArrayList<GameObject> objects){
-        if(!isGrounded){
-            velY += 0.4;
-            if(velY > 12) velY = 12;
+        if(!this.isGrounded){
+            this.velY += 0.4;
+            if(this.velY > 12) this.velY = 12;
         }
-        int moveY = (int) Math.round(velY);
+        int moveY = (int) Math.round(this.velY);
         if(moveY != 0){
-            y += moveY;
-            isGrounded = false;
+            this.y += moveY;
+            this.isGrounded = false;
             Rectangle eBounds = getBounds(); // Uses y as bottom-left
             
             for(GameObject obj : objects){
@@ -51,19 +51,19 @@ public abstract class Enemy {
                 
                 if(eBounds.intersects(blockBounds)){
                     if(moveY > 0){
-                        y = objTop; // land feet on top of block
-                        isGrounded = true;
+                        this.y = objTop; // land feet on top of block
+                        this.isGrounded = true;
                     }else{
-                        y = objBottom + height; // hit ceiling from below
+                        this.y = objBottom + this.height; // hit ceiling from below
                     }
-                    velY = 0;
+                    this.velY = 0;
                     break;
                 }
             }
         }
-        int moveX = (int) Math.round(velX);
+        int moveX = (int) Math.round(this.velX);
         if(moveX != 0){
-            x += moveX;
+            this.x += moveX;
             Rectangle eBounds = getBounds();
 
             for(GameObject obj : objects){
@@ -76,9 +76,9 @@ public abstract class Enemy {
 
                 if(eBounds.intersects(blockBounds)){
                     if(moveX > 0){
-                        x = obj.currentX - width;
+                        this.x = obj.currentX - this.width;
                     }else{
-                        x = obj.currentX + obj.width;
+                        this.x = obj.currentX + obj.width;
                     }
                     handleWallBump();
                     break;
@@ -91,6 +91,6 @@ public abstract class Enemy {
     }
     public Rectangle getBounds(){
         // y is bottom-left, so top-left for Rectangle is y - height
-        return new Rectangle(x, y - height, width, height);
+        return new Rectangle(this.x, this.y - this.height, this.width, this.height);
     }
 }

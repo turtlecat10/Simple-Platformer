@@ -140,7 +140,6 @@ public class Movement {
                 if(enemy.mapID == currentMap){
                     enemy.x = enemy.startX;
                     enemy.y = enemy.startY;
-                    enemy.velX = enemy.type.equals("PATROL") ? 1.5 : 1.0;
                     enemy.velY = 0;
                     enemy.isGrounded = false;
                 }
@@ -198,6 +197,13 @@ public class Movement {
                 if(obj.mapID == currentMap){
                     obj.updateMovement((int)playerX, (int)playerY, playerSize);
                     // System.out.println(obj.deltaY);
+                }
+            }
+        }
+        if(enemies != null && !this.isDead){
+            for(Enemy enemy : enemies){
+                if(enemy.mapID == currentMap){
+                    enemy.aiTick(objects);
                 }
             }
         }

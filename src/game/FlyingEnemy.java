@@ -13,8 +13,8 @@ public class FlyingEnemy extends Enemy{
 
     private final double xRange = 64.0;
     private final double yRange = 32.0;
-    private final double xSpeed = 0.04;
-    private final double ySpeed = 0.06;
+    private final double xSpeed = 0.1;
+    private final double ySpeed = 0.15;
 
     private final double returnHomeSpeed = 0.05;
 
@@ -30,23 +30,24 @@ public class FlyingEnemy extends Enemy{
     public void aiTick(ArrayList<GameObject> objects){
         this.isGrounded = true;
 
-        if(homeX != startX) homeX += (startX - homeX) * returnHomeSpeed;
-        if(homeY != startY) homeY += (startY - homeY) * returnHomeSpeed;
+        if(this.homeX != this.startX) this.homeX += (this.startX - this.homeX) * this.returnHomeSpeed;
+        if(this.homeY != this.startY) this.homeY += (this.startY - this.homeY) * this.returnHomeSpeed;
 
-        angle += 1.0;
+        this.angle += 1.0;
 
-        double targetX = homeX + Math.sin(angle * xSpeed) * xRange;
-        double targetY = homeY + Math.cos(angle * ySpeed) * yRange;
+        double targetX = this.homeX + Math.sin(this.angle * this.xSpeed) * this.xRange;
+        double targetY = this.homeY + Math.cos(this.angle * this.ySpeed) * this.yRange;
 
         this.velX = (targetX - this.x) * 0.4;
         this.velY = (targetY - this.y) * 0.4;
+        updatePhysics(objects);
     }
     @Override 
     protected void handleWallBump(){
         this.angle = -this.angle;
 
-        this.homeX = this.x - Math.sin(angle * xSpeed) * xRange;
-        this.homeY = this.y - Math.cos(angle * ySpeed) * yRange;
+        this.homeX = this.x - Math.sin(this.angle * this.xSpeed) * this.xRange;
+        this.homeY = this.y - Math.cos(this.angle * this.ySpeed) * this.yRange;
     }
     @Override 
     public void draw(Graphics2D g2){

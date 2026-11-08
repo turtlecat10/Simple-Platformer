@@ -19,27 +19,28 @@ public class JumpingEnemy extends Enemy{
     }
     @Override
     public void aiTick(ArrayList<GameObject> objects){
-        if(x <= 0) velX = Math.abs(velX);
+        if(this.x <= 0) this.velX = Math.abs(this.velX);
 
-        if(isGrounded){
-            jumpTimerFrames++;
-            if(jumpTimerFrames >= nextJumpInterval){
+        if(this.isGrounded){
+            this.jumpTimerFrames++;
+            if(this.jumpTimerFrames >= this.nextJumpInterval){
                 this.velY = -15.5;
                 this.isGrounded = false;
                 resetJumpInterval();
             }
         }
+        updatePhysics(objects);
     }
     @Override 
     protected void handleWallBump(){
-        velX = -velX;
+        this.velX = -this.velX;
     }
     @Override 
     public void draw(Graphics2D g2){
-        int renderY = y - height;
+        int renderY = this.y - height;
         g2.setColor(new Color(255, 69, 0));
-        g2.fillRect(x, renderY, width, height);
+        g2.fillRect(this.x, renderY, this.width, this.height);
         g2.setColor(Color.BLACK);
-        g2.drawRect(x, renderY, width, height);
+        g2.drawRect(this.x, renderY, this.width, this.height);
     }
 }
