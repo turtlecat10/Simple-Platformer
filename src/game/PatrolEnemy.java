@@ -15,7 +15,6 @@ public class PatrolEnemy extends Enemy{
 
     @Override 
     public void aiTick(ArrayList<GameObject> objects){
-        System.out.println(this.velX);
         if(!this.isGrounded){
            this.velY += 0.5;
         }
