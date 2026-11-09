@@ -57,7 +57,7 @@ public class Graphics extends JPanel implements ActionListener {
         setupKeyBindings();
         loadLevel(1);
 
-        this.gameTimer = new Timer(32, this);
+        this.gameTimer = new Timer(16, this);
         if(!isEditorMode){
             this.gameTimer.start();
         }

@@ -570,16 +570,18 @@ public class MapEditorWindow extends JFrame{
                 if(SwingUtilities.isMiddleMouseButton(e)){
                     if(propertyEditingObject != null){
                         try {
-                            propertyEditingObject.triggeredBy = Integer.parseInt(txtTriggeredBy.getText().trim());
-                            if (propertyEditingObject.type == GameObject.Type.trigger) {
-                                propertyEditingObject.activatesChannel = Integer.parseInt(txtActivatesChannel.getText().trim());
+                            if(txtTriggeredBy != null){
+                                propertyEditingObject.triggeredBy = Integer.parseInt(txtTriggeredBy.getText().trim());
+                                if (propertyEditingObject.type == GameObject.Type.trigger) {
+                                    propertyEditingObject.activatesChannel = Integer.parseInt(txtActivatesChannel.getText().trim());
+                                }
+                                propertyEditingObject.triggeredDisplay = btnToggleDisplay.isSelected();
+                                propertyEditingObject.time = Integer.parseInt(txtTimeLimit.getText().trim());
+                                
+                                propertyEditingObject = null;
+                                currentPathClickMode = PathClickMode.NONE;
+                                propertyDialog.dispose();
                             }
-                            propertyEditingObject.triggeredDisplay = btnToggleDisplay.isSelected();
-                            propertyEditingObject.time = Integer.parseInt(txtTimeLimit.getText().trim());
-                            
-                            propertyEditingObject = null;
-                            currentPathClickMode = PathClickMode.NONE;
-                            propertyDialog.dispose();
                             gameCanvas.repaint();
                         } catch (NumberFormatException ex) {
                             JOptionPane.showMessageDialog(propertyDialog, "Please verify all numerical text entries are clean integer values.");
