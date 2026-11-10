@@ -13,7 +13,7 @@ public abstract class Enemy {
     public boolean isGrounded;
     public String type;
 
-    public Enemy(int x, int y, int width, int height, int mapID){
+    public Enemy(int x, int y, int width, int height, int mapID, double velX){
         this.x = x;
         this.y = y;
         this.startX = x;
@@ -21,10 +21,11 @@ public abstract class Enemy {
         this.width = width;
         this.height = height;
         this.mapID = mapID;
-        this.velX = 0;
+        this.velX = velX;
         this.velY = 0;
         this.isGrounded = false;
     }
+    
     public abstract void aiTick(ArrayList<GameObject> objects);
 
     public abstract void draw(Graphics2D g2);

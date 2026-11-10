@@ -7,10 +7,14 @@ import java.awt.Rectangle;
 
 public class PatrolEnemy extends Enemy{
 
-    public PatrolEnemy(int x, int y, int mapID){
-        super(x, y, 32, 32, mapID);
+    public PatrolEnemy(int x, int y, int width, int height, int mapID, double velX){
+        super(x, y, width, height, mapID, velX);
         this.type = "PATROL";
-        this.velX = 8.5;
+        if(this.velX != 0){
+            this.velX = velX;
+        }else{
+            this.velX = 8.5;
+        }
     }
 
     @Override 

@@ -7,10 +7,14 @@ import java.util.ArrayList;
 public class JumpingEnemy extends Enemy{
     private int jumpTimerFrames = 0;
     private int nextJumpInterval;
-    public JumpingEnemy(int x, int y, int mapID){
-        super(x, y, 32, 32, mapID);
+    public JumpingEnemy(int x, int y, int width, int height, int mapID, double velX){
+        super(x, y, width, height, mapID, velX);
         this.type = "JUMPING";
-        this.velX = 3.0;
+        if(velX != 0){
+            this.velX = velX;
+        }else{
+            this.velX = 3.0;
+        }
         resetJumpInterval();
     }
     private void resetJumpInterval(){

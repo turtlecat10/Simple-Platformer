@@ -13,19 +13,20 @@ public enum EnemyRegistry {
         this.displayName = displayName;
         this.creator = creator;
     }
+
     public String getDisplayName(){return displayName;}
-    public Enemy create(int x, int y, int mapID){
+    public Enemy create(int x, int y, int width, int height, int mapID, double velX){
         if(creator == null) return null;
-        return creator.create(x, y, mapID);
+        return creator.create(x, y, width, height, mapID, velX);
     }
     @FunctionalInterface 
     public interface EnemyCreator{
-        Enemy create(int x, int y, int mapID);
+        Enemy create(int x, int y, int width, int height, int mapID, double velX);
     }
 
-    public static Enemy createFromString(String type, int x, int y, int mapID){
+    public static Enemy createFromString(String type, int x, int y, int width, int height, int mapID, double velX){
         try{
-            return EnemyRegistry.valueOf(type.toUpperCase()).create(x, y, mapID);
+            return EnemyRegistry.valueOf(type.toUpperCase()).create(x, y, width, height, mapID, velX);
         }catch(IllegalArgumentException e){
             return null;
         }

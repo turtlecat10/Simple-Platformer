@@ -1,9 +1,9 @@
 [
- {"x":1056, "y":576, "mapID":5, "type":"PATROL"},
- {"x":960, "y":192, "mapID":5, "type":"FLYING"},
- {"x":816, "y":528, "mapID":5, "type":"JUMPING"},
- {"x":864, "y":528, "mapID":5, "type":"JUMPING"},
- {"x":912, "y":576, "mapID":5, "type":"JUMPING"},
- {"x":960, "y":624, "mapID":5, "type":"JUMPING"},
- {"x":864, "y":624, "mapID":5, "type":"JUMPING"}
+ {"x":1056, "y":576, "width":36, "height":36, "velX":8.5000, "mapID":5, "type":"PATROL"},
+ {"x":960, "y":192, "width":36, "height":36, "velX":0.0000, "mapID":5, "type":"FLYING"},
+ {"x":816, "y":528, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"JUMPING"},
+ {"x":864, "y":528, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"JUMPING"},
+ {"x":912, "y":576, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"JUMPING"},
+ {"x":960, "y":624, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"CANCEL/NONE"},
+ {"x":864, "y":624, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"JUMPING"}
 ]

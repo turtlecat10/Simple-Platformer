@@ -28,6 +28,11 @@ public class MapEditorWindow extends JFrame{
     private JTextField txtTriggeredBy, txtActivatesChannel;
     private JToggleButton btnToggleDisplay;
 
+    private JDialog enemyProperty = null;
+    private JTextField txtSpeed, txtWidth, txtHeight;
+    private JComboBox<String> enemyTypeDropdown;
+    private JOptionPane enemyTypes;
+
     private JTextField txtTimeLimit;
     private enum PathClickMode { NONE, OSCILLATION, TRIGGERED_MOVE, OSCILLATE_AFTER_TRIGGER}
     private PathClickMode currentPathClickMode = PathClickMode.NONE;
@@ -40,7 +45,6 @@ public class MapEditorWindow extends JFrame{
 
     private JLabel lblX, lblY, lblWidth, lblHeight, lblBrush, lblSelectedInfo, lblFreePlace;
     private JTextField txtMapID;
-    private JButton btnDelete;
     private JButton btnEditProperties;
 
     private JPanel mainContentCardContainer;
@@ -48,6 +52,7 @@ public class MapEditorWindow extends JFrame{
     private JPanel levelGridMenuPanel;
 
     private boolean freePlace;
+    private JButton btnDelete = new JButton("delete");
     private JButton btnPlay = new JButton("Play");
     private JButton btnExit = new JButton("Exit to Editor");
     private JButton btnSave = new JButton("Save Level");
@@ -214,7 +219,7 @@ public class MapEditorWindow extends JFrame{
         controlPanel.add(btnEnemyBrush);
         controlPanel.add(Box.createVerticalStrut(4));
 
-        btnDelete = new JButton("delete selected object");
+        // btnDelete = new JButton("delete selected object");
         btnDelete.setMaximumSize(new Dimension(200,32));
         btnDelete.setAlignmentX(Component.LEFT_ALIGNMENT);
         btnDelete.setEnabled(false);
@@ -248,6 +253,10 @@ public class MapEditorWindow extends JFrame{
             if(selectedObject != null){
                 this.propertyEditingObject = selectedObject;
                 showPropertyConfigDialog(selectedObject);
+                gameCanvas.repaint();
+            }else if(selectedEnemy != null){
+                this.propertyEditingEnemy = selectedEnemy;
+                showEnemyConfigDialog(propertyEditingEnemy);
                 gameCanvas.repaint();
             }
         });
@@ -520,7 +529,7 @@ public class MapEditorWindow extends JFrame{
                 if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
                     if(activeEnemyBrush != EnemyRegistry.NONE && gameCanvas.getMovement() != null){
                         ArrayList<Enemy> currentEnemyList = gameCanvas.getMovement().getEnemies();
-                        Enemy newEnemy = activeEnemyBrush.create(snapX, snapY, activeEditingMapID);
+                        Enemy newEnemy = activeEnemyBrush.create(snapX, snapY, 36, 36, activeEditingMapID, 0);
                         if(newEnemy != null){
                             currentEnemyList.add(newEnemy);
                         }
@@ -640,6 +649,7 @@ public class MapEditorWindow extends JFrame{
                             if(obj.mapID == activeEditingMapID && gamePoint.x >= obj.x && gamePoint.x <= (obj.x + obj.width) && gamePoint.y >= objTop && gamePoint.y <= obj.y){
                                 selectedEnemy = obj;
                                 btnDelete.setEnabled(true);
+                                btnEditProperties.setEnabled(true);
                                 break;
                             }
                         }
@@ -930,7 +940,8 @@ public class MapEditorWindow extends JFrame{
                 String[] enemiesRaw = json.split("\\},\\s*\\{");
                 for(String rawEnemy : enemiesRaw){
                     rawEnemy = rawEnemy.replace("{", "").replace("}", "").trim();
-                    int x = 0, y = 0, mapID = 1;
+                    int x = 0, y = 0, mapID = 1, width = 36, height = 36;
+                    double velX = 0;
                     String type = "PATROL";
                     String[] properties = rawEnemy.split(",");
                     for(String prop : properties){
@@ -941,11 +952,14 @@ public class MapEditorWindow extends JFrame{
                         switch (key){
                             case "x": x = Integer.parseInt(val); break;
                             case "y": y = Integer.parseInt(val); break;
-                            case "mapID": mapID = Integer.parseInt(val); break;
+                            case "width" : width = Integer.parseInt(val); break;
+                            case "height" : height = Integer.parseInt(val); break;
+                            case "mapID" : mapID = Integer.parseInt(val); break;
+                            case "velX" : velX = Double.parseDouble(val); break;
                             case "type": type = val; break;
                         }
                     }
-                    Enemy enemy = EnemyRegistry.createFromString(type, x, y, mapID);
+                    Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
                     if (enemy != null) masterEnemyList.add(enemy);
                 }
             }
@@ -960,7 +974,7 @@ public class MapEditorWindow extends JFrame{
             writer.write("[\n");
             for(int i = 0; i < masterEnemyList.size(); i++){
                Enemy e = masterEnemyList.get(i);
-               String jsonStr = String.format("{\"x\":%d, \"y\":%d, \"mapID\":%d, \"type\":\"%s\"}", e.startX, e.startY, e.mapID, e.type);
+               String jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"mapID\":%d, \"type\":\"%s\"}", e.startX, e.startY, e.width, e.height, e.velX, e.mapID, e.type);
                writer.write(" " + jsonStr);
                if(i < masterEnemyList.size() - 1) writer.write(",\n");
                else writer.write("\n");
@@ -993,7 +1007,8 @@ public class MapEditorWindow extends JFrame{
                 String[] enemiesRaw = jsonStringData.split("\\},\\s*\\{");
                 for (String rawEnemy : enemiesRaw) {
                     rawEnemy = rawEnemy.replace("{", "").replace("}", "").trim();
-                    int x = 0, y = 0, mapID = 1;
+                    int x = 0, y = 0, mapID = 1, width = 36, height = 36;
+                    double velX = 0.1;
                     String type = "PATROL";
 
                     String[] properties = rawEnemy.split(",");
@@ -1005,11 +1020,14 @@ public class MapEditorWindow extends JFrame{
                         switch (key) {
                             case "x": x = Integer.parseInt(val); break;
                             case "y": y = Integer.parseInt(val); break;
+                            case "width": width = Integer.parseInt(val); break;
+                            case "height": height = Integer.parseInt(val); break;
+                            case "velX": velX = Double.parseDouble(val); break;
                             case "mapID": mapID = Integer.parseInt(val); break;
                             case "type": type = val; break;
                         }
                     }
-                    Enemy enemy = EnemyRegistry.createFromString(type, x, y, mapID);
+                    Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
                     if (enemy != null) loadedEnemies.add(enemy);
                 }
             }
@@ -1033,9 +1051,11 @@ public class MapEditorWindow extends JFrame{
     public void updateMapIDField(String text){
         if(txtMapID != null) txtMapID.setText(text);
     }
+    
     public void setCurrentlyLoadedMapID(int id){
         this.currentlyLoadedMapID = id;
     }
+    
     public void restoreGameView(){
         if(windowLayoutSwitcher != null && mainContentCardContainer != null){
             btnPlay.setEnabled(true);
@@ -1127,7 +1147,7 @@ public class MapEditorWindow extends JFrame{
                 propertyDialog.dispose();
                 gameCanvas.repaint();
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(propertyDialog, "Please verify all numerical text entries are clean integer values.");
+                JOptionPane.showMessageDialog(propertyDialog, "Please verify all numerical text entries are clean integer values");
             }
         });
         propertyDialog.add(btnConfirm);
@@ -1137,6 +1157,89 @@ public class MapEditorWindow extends JFrame{
         propertyDialog.setVisible(true);
     }
 
+    private void showEnemyConfigDialog(Enemy enemy){
+        this.propertyEditingEnemy = enemy;
+        
+        enemyProperty = new JDialog(this, "Configure Enemy Properties", false);
+        enemyProperty.setLayout(new GridLayout(6, 2, 10, 10));
+        enemyProperty.getRootPane().setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+        enemyProperty.add(new JLabel("Speed"));
+        double initialSpeed = enemy.velX;
+        if(enemy instanceof FlyingEnemy){
+            initialSpeed = ((FlyingEnemy) enemy).getXSpeed();
+        }
+        txtSpeed = new JTextField(String.valueOf(initialSpeed));
+        enemyProperty.add(txtSpeed);
+
+        enemyProperty.add(new JLabel("Size (width): "));
+        txtWidth = new JTextField(String.valueOf(enemy.width));
+        enemyProperty.add(txtWidth);
+
+        enemyProperty.add(new JLabel("Size (height)"));
+        txtHeight = new JTextField(String.valueOf(enemy.height));
+        enemyProperty.add(txtHeight);
+
+        String[] choices = EnemyRegistry.getDisplayChoices();
+        enemyTypeDropdown = new JComboBox<>(choices);
+
+        for(EnemyRegistry reg : EnemyRegistry.values()){
+            if(reg.name().equalsIgnoreCase(enemy.type)){
+                enemyTypeDropdown.setSelectedItem(reg.getDisplayName());
+                break;
+            }
+        }
+        enemyProperty.add(new JLabel("Enemy Type"));
+        enemyProperty.add(enemyTypeDropdown);
+
+        enemyProperty.add(new JLabel(""));
+        JButton confirm = new JButton("Confirm");
+        confirm.addActionListener(e -> {
+            try{
+                double newVelX = Double.parseDouble(txtSpeed.getText().trim());
+                int newWidth = Integer.parseInt(txtWidth.getText().trim());
+                int newHeight = Integer.parseInt(txtHeight.getText().trim());
+
+                String selectedDisplayName = (String) enemyTypeDropdown.getSelectedItem();
+                EnemyRegistry selectedRegistry = EnemyRegistry.fromDisplayName(selectedDisplayName);
+
+                ArrayList<Enemy> enemiesList = gameCanvas.getMovement().getEnemies();
+                int index = enemiesList.indexOf(propertyEditingEnemy);
+                if(selectedRegistry != null && index != -1){
+                    Enemy updatedEnemy = selectedRegistry.create(
+                        propertyEditingEnemy.x,
+                        propertyEditingEnemy.y,
+                        newWidth,
+                        newHeight,
+                        propertyEditingEnemy.mapID,
+                        newVelX
+                    );
+                    if(updatedEnemy != null){
+                        enemiesList.set(index, updatedEnemy);
+                        selectedEnemy = updatedEnemy;
+                    }
+                }else if(propertyEditingEnemy != null){
+                    propertyEditingEnemy.velX = newVelX;
+                    propertyEditingEnemy.width = newWidth;
+                    propertyEditingEnemy.height = newHeight;
+                }
+
+                this.propertyEditingEnemy = null;
+                enemyProperty.dispose();
+                btnDelete.setEnabled(false);
+                btnEditProperties.setEnabled(false);
+                gameCanvas.repaint();
+            }catch (NumberFormatException ex){
+                JOptionPane.showMessageDialog(enemyProperty, "Please verify all numerical text entries are clean integer values");
+            }
+        });
+        enemyProperty.add(confirm);
+
+        enemyProperty.pack();
+        enemyProperty.setLocationRelativeTo(this);
+        enemyProperty.setVisible(true);
+    }
+    
     public int getNextUnusedMapID(){
         int highestID = 1;
         boolean found = false;
@@ -1170,4 +1273,6 @@ public class MapEditorWindow extends JFrame{
     public Point getPathHoverPoint() { return this.pathHoverPoint; }
     public String getCurrentPathClickModeName() { return this.currentPathClickMode.name(); }
     public boolean isSettingPathMode() { return this.currentPathClickMode != PathClickMode.NONE; }
+
+    public Enemy getSelectedEnemy(){ return this.selectedEnemy;}
 }

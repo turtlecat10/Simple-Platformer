@@ -320,6 +320,9 @@ public class Graphics extends JPanel implements ActionListener {
         g2.translate(offsetX, offsetY);
         g2.scale(scale, scale);
         g2.translate(-this.cameraX, -this.cameraY);
+        // for(Enemy enemy : movement.enemies()){
+
+        // }
 
         for(GameObject obj : gameObjects){
             if(obj.mapID != mapID) continue;
@@ -343,12 +346,38 @@ public class Graphics extends JPanel implements ActionListener {
             g2.setColor(Color.black);
             g2.drawRect(renderX, renderY, obj.width, obj.height);
         }
-
+        
         if(movement != null && movement.getEnemies() != null){
             for(Enemy enemy : movement.getEnemies()){
                 if(enemy.mapID == mapID){
                     enemy.draw(g2);
                 }
+            }
+        }
+        Enemy currentSelected = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.getSelectedEnemy() : null;
+        if(this.isEditorMode && currentSelected instanceof FlyingEnemy && currentSelected.mapID == mapID){
+            FlyingEnemy fe = (FlyingEnemy) currentSelected;
+
+            g2.setColor(new Color(0, 191, 255, 150));
+            g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
+
+            int prevX = -1;
+            int prevY = -1;
+
+            for(int t = 0; t <= 300; t += 5){
+                double simAngle = fe.getAngle() + t;
+
+                double targetX = fe.getHomeX() + Math.sin(simAngle * fe.getXSpeed()) * fe.getXRange();
+                double targetY = fe.getHomeY() + Math.cos(simAngle * fe.getYSpeed()) * fe.getYRange();
+
+                int currX = (int) Math.round(targetX) + (fe.width / 2);
+                int currY = (int) Math.round(targetY) - (fe.height / 2);
+
+                if(prevX != -1 && prevY != -1){
+                    g2.drawLine(prevX, prevY, currX, currY);
+                }
+                prevX = currX;
+                prevY = currY;
             }
         }
 

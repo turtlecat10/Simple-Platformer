@@ -13,17 +13,22 @@ public class FlyingEnemy extends Enemy{
 
     private final double xRange = 64.0;
     private final double yRange = 32.0;
-    private final double xSpeed = 0.1;
-    private final double ySpeed = 0.15;
+    private double xSpeed = 0.1;
+    private double ySpeed = 0.15;
 
     private final double returnHomeSpeed = 0.05;
 
-    public FlyingEnemy(int x, int y, int mapID){
-        super(x, y, 32, 32, mapID);
+    public FlyingEnemy(int x, int y, int width, int height, int mapID, double velX){
+        super(x, y, width, height, mapID, velX);
         this.type = "FLYING";
         this.isGrounded = true;
         this.homeX = x;
         this.homeY = y;
+        if(velX != 0){
+            this.xSpeed = velX;
+            this.ySpeed = velX * 1.5;
+        }
+        
     }
 
     @Override 
@@ -57,4 +62,11 @@ public class FlyingEnemy extends Enemy{
         g2.setColor(Color.BLACK);
         g2.drawRect(x, renderY, width, height);
     }
+    public double getAngle() {return this.angle;}
+    public double getHomeX(){return this.homeX;}
+    public double getHomeY(){ return this.homeY;}
+    public double getXRange(){ return this.xRange;}
+    public double getYRange(){return this.yRange;}
+    public double getXSpeed(){return this.xSpeed;}
+    public double getYSpeed(){return this.ySpeed;}
 }
