@@ -7,6 +7,9 @@ import java.util.ArrayList;
 public class JumpingEnemy extends Enemy{
     private int jumpTimerFrames = 0;
     private int nextJumpInterval;
+    private double jumpHeight = -15.5;
+    private int intervalMax = 180;
+    private int intervalMin = 60;
     public JumpingEnemy(int x, int y, int width, int height, int mapID, double velX){
         super(x, y, width, height, mapID, velX);
         this.type = "JUMPING";
@@ -18,7 +21,7 @@ public class JumpingEnemy extends Enemy{
         resetJumpInterval();
     }
     private void resetJumpInterval(){
-        this.nextJumpInterval = (int) (Math.random() * 120) + 60;
+        this.nextJumpInterval = (int) (Math.random() * (this.intervalMax-this.intervalMin)) + this.intervalMin;
         this.jumpTimerFrames = 0;
     }
     @Override
@@ -28,7 +31,7 @@ public class JumpingEnemy extends Enemy{
         if(this.isGrounded){
             this.jumpTimerFrames++;
             if(this.jumpTimerFrames >= this.nextJumpInterval){
-                this.velY = -15.5;
+                this.velY = jumpHeight;
                 this.isGrounded = false;
                 resetJumpInterval();
             }
@@ -47,4 +50,11 @@ public class JumpingEnemy extends Enemy{
         g2.setColor(Color.BLACK);
         g2.drawRect(this.x, renderY, this.width, this.height);
     }
+
+    public double getJumpHeight(){return this.jumpHeight;}
+    public void setJumpHeight(double height){this.jumpHeight = height;}
+    public int getIntervalMax(){ return this.intervalMax;}
+    public void setIntervalMax(int max){this.intervalMax = max;}
+    public int getIntervalMin(){return this.intervalMin;}
+    public void setIntervalMin(int min){this.intervalMin = min;}
 }

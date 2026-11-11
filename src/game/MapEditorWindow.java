@@ -941,8 +941,12 @@ public class MapEditorWindow extends JFrame{
                 for(String rawEnemy : enemiesRaw){
                     rawEnemy = rawEnemy.replace("{", "").replace("}", "").trim();
                     int x = 0, y = 0, mapID = 1, width = 36, height = 36;
+                    double jumpHeight = -15.5;
+                    int intervalMin = 60, intervalMax = 180;
                     double velX = 0;
+                    double xRange = 64.0, yRange = 32.0;
                     String type = "PATROL";
+
                     String[] properties = rawEnemy.split(",");
                     for(String prop : properties){
                         String[] kv = prop.split(":");
@@ -956,10 +960,24 @@ public class MapEditorWindow extends JFrame{
                             case "height" : height = Integer.parseInt(val); break;
                             case "mapID" : mapID = Integer.parseInt(val); break;
                             case "velX" : velX = Double.parseDouble(val); break;
+                            case "xRange" : xRange = Double.parseDouble(val); break;
+                            case "yRange" : yRange = Double.parseDouble(val); break;
+                            case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
+                            case "intervalMin": intervalMin = Integer.parseInt(val); break;
+                            case "intervalMax": intervalMax = Integer.parseInt(val); break;
                             case "type": type = val; break;
                         }
                     }
                     Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
+                    if(enemy instanceof FlyingEnemy){
+                        ((FlyingEnemy) enemy).setXRange(xRange);
+                        ((FlyingEnemy) enemy).setYRange(yRange);
+                    }
+                    if(enemy instanceof JumpingEnemy){
+                        ((JumpingEnemy) enemy).setJumpHeight(jumpHeight);
+                        ((JumpingEnemy) enemy).setIntervalMax(intervalMax);
+                        ((JumpingEnemy) enemy).setIntervalMin(intervalMin);
+                    }
                     if (enemy != null) masterEnemyList.add(enemy);
                 }
             }
@@ -973,11 +991,22 @@ public class MapEditorWindow extends JFrame{
         try(java.io.FileWriter writer = new java.io.FileWriter(filePath)){
             writer.write("[\n");
             for(int i = 0; i < masterEnemyList.size(); i++){
-               Enemy e = masterEnemyList.get(i);
-               String jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"mapID\":%d, \"type\":\"%s\"}", e.startX, e.startY, e.width, e.height, e.velX, e.mapID, e.type);
-               writer.write(" " + jsonStr);
-               if(i < masterEnemyList.size() - 1) writer.write(",\n");
-               else writer.write("\n");
+                Enemy e = masterEnemyList.get(i);
+                String jsonStr;
+                if(e instanceof FlyingEnemy){
+                    FlyingEnemy fe = (FlyingEnemy) e;
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"mapID\":%d, \"type\":\"%s\"}", 
+                       e.startX, e.startY, e.width, e.height, e.velX, fe.getXRange(), fe.getYRange(), e.mapID, e.type);
+                }else if(e instanceof JumpingEnemy){
+                    JumpingEnemy je = (JumpingEnemy) e;
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"mapID\":%d, \"type\":\"%s\"}", 
+                       e.startX, e.startY, e.width, e.height, e.velX, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.mapID, e.type);
+                }else{
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"mapID\":%d, \"type\":\"%s\"}", e.startX, e.startY, e.width, e.height, e.velX, e.mapID, e.type);
+                }
+                writer.write(" " + jsonStr);
+                if(i < masterEnemyList.size() - 1) writer.write(",\n");
+                else writer.write("\n");
             }
             writer.write("]");
         }catch (java.io.IOException e){}
@@ -1009,6 +1038,10 @@ public class MapEditorWindow extends JFrame{
                     rawEnemy = rawEnemy.replace("{", "").replace("}", "").trim();
                     int x = 0, y = 0, mapID = 1, width = 36, height = 36;
                     double velX = 0.1;
+                    double jumpHeight = -15.5;
+                    int intervalMax = 180, intervalMin = 60;
+                    double xRange = 64.0;
+                    double yRange = 32.0;
                     String type = "PATROL";
 
                     String[] properties = rawEnemy.split(",");
@@ -1023,11 +1056,25 @@ public class MapEditorWindow extends JFrame{
                             case "width": width = Integer.parseInt(val); break;
                             case "height": height = Integer.parseInt(val); break;
                             case "velX": velX = Double.parseDouble(val); break;
+                            case "xRange": xRange = Double.parseDouble(val); break;
+                            case "yRange": yRange = Double.parseDouble(val); break;
+                            case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
+                            case "intervalMin": intervalMin = Integer.parseInt(val); break;
+                            case "intervalMax": intervalMax = Integer.parseInt(val); break;
                             case "mapID": mapID = Integer.parseInt(val); break;
                             case "type": type = val; break;
                         }
                     }
                     Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
+                    if(enemy instanceof FlyingEnemy){
+                        ((FlyingEnemy) enemy).setXRange(xRange);
+                        ((FlyingEnemy) enemy).setYRange(yRange);
+                    }
+                    if(enemy instanceof JumpingEnemy){
+                        ((JumpingEnemy)enemy).setJumpHeight(jumpHeight);
+                        ((JumpingEnemy)enemy).setIntervalMax(intervalMax);
+                        ((JumpingEnemy)enemy).setIntervalMin(intervalMin);
+                    }
                     if (enemy != null) loadedEnemies.add(enemy);
                 }
             }
@@ -1161,24 +1208,26 @@ public class MapEditorWindow extends JFrame{
         this.propertyEditingEnemy = enemy;
         
         enemyProperty = new JDialog(this, "Configure Enemy Properties", false);
-        enemyProperty.setLayout(new GridLayout(6, 2, 10, 10));
+        enemyProperty.setLayout(new BorderLayout());
         enemyProperty.getRootPane().setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        enemyProperty.add(new JLabel("Speed"));
+        JPanel formPanel = new JPanel(new GridLayout(4, 2, 10, 10));
+
+        formPanel.add(new JLabel("Speed"));
         double initialSpeed = enemy.velX;
         if(enemy instanceof FlyingEnemy){
             initialSpeed = ((FlyingEnemy) enemy).getXSpeed();
         }
         txtSpeed = new JTextField(String.valueOf(initialSpeed));
-        enemyProperty.add(txtSpeed);
+        formPanel.add(txtSpeed);
 
-        enemyProperty.add(new JLabel("Size (width): "));
+        formPanel.add(new JLabel("Size (width): "));
         txtWidth = new JTextField(String.valueOf(enemy.width));
-        enemyProperty.add(txtWidth);
+        formPanel.add(txtWidth);
 
-        enemyProperty.add(new JLabel("Size (height)"));
+        formPanel.add(new JLabel("Size (height)"));
         txtHeight = new JTextField(String.valueOf(enemy.height));
-        enemyProperty.add(txtHeight);
+        formPanel.add(txtHeight);
 
         String[] choices = EnemyRegistry.getDisplayChoices();
         enemyTypeDropdown = new JComboBox<>(choices);
@@ -1189,8 +1238,69 @@ public class MapEditorWindow extends JFrame{
                 break;
             }
         }
-        enemyProperty.add(new JLabel("Enemy Type"));
-        enemyProperty.add(enemyTypeDropdown);
+        formPanel.add(new JLabel("Enemy Type"));
+        formPanel.add(enemyTypeDropdown);
+
+        JPanel flyingFieldsPanel = new JPanel(new GridLayout(2, 2, 10, 10));
+        flyingFieldsPanel.setBorder(BorderFactory.createTitledBorder("Flying Properties"));
+
+        flyingFieldsPanel.add(new JLabel("X Range:"));
+        JTextField txtXRange = new JTextField(enemy instanceof FlyingEnemy ? String.valueOf(((FlyingEnemy)enemy).getXRange()) : "64.0");
+        flyingFieldsPanel.add(txtXRange);
+
+        flyingFieldsPanel.add(new JLabel("Y Range:"));
+        JTextField txtYRange = new JTextField(enemy instanceof FlyingEnemy ? String.valueOf(((FlyingEnemy)enemy).getYRange()) : "32.0");
+        flyingFieldsPanel.add(txtYRange);
+
+        JPanel conditionalPanelFlying = new JPanel(new BorderLayout());
+        conditionalPanelFlying.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        conditionalPanelFlying.add(flyingFieldsPanel, BorderLayout.CENTER);
+
+        conditionalPanelFlying.setVisible(enemy instanceof FlyingEnemy);
+
+        enemyTypeDropdown.addActionListener(e -> {
+            String selectedDisplayName = (String) enemyTypeDropdown.getSelectedItem();
+            EnemyRegistry reg = EnemyRegistry.fromDisplayName(selectedDisplayName);
+            boolean isFlying = (reg == EnemyRegistry.FLYING);
+            conditionalPanelFlying.setVisible(isFlying);
+            enemyProperty.pack();
+        });
+        
+        JPanel jumpingFieldsPanel = new JPanel(new GridLayout(3, 2, 10, 10));
+        jumpingFieldsPanel.setBorder(BorderFactory.createTitledBorder("Jumping Properties"));
+
+        jumpingFieldsPanel.add(new JLabel("Jump height:"));
+        JTextField txtJumpHeight = new JTextField(enemy instanceof JumpingEnemy ? String.valueOf(((JumpingEnemy)enemy).getJumpHeight()) : "-15.5");
+        jumpingFieldsPanel.add(txtJumpHeight);
+
+        jumpingFieldsPanel.add(new JLabel("Min Jump Interval"));
+        JTextField txtIntervalMin = new JTextField(enemy instanceof JumpingEnemy ? String.valueOf(((JumpingEnemy)enemy).getIntervalMin()) : "60");
+        jumpingFieldsPanel.add(txtIntervalMin);
+
+        jumpingFieldsPanel.add(new JLabel("Max Jump Interval"));
+        JTextField txtIntervalMax = new JTextField(enemy instanceof JumpingEnemy ? String.valueOf(((JumpingEnemy)enemy).getIntervalMax()) : "180");
+        jumpingFieldsPanel.add(txtIntervalMax);
+
+        JPanel conditionalPanelJumping = new JPanel(new BorderLayout());
+        conditionalPanelJumping.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        conditionalPanelJumping.add(jumpingFieldsPanel, BorderLayout.CENTER);
+
+        conditionalPanelJumping.setVisible(enemy instanceof JumpingEnemy);
+
+        enemyTypeDropdown.addActionListener(e -> {
+            String selectedDisplayName = (String) enemyTypeDropdown.getSelectedItem();
+            EnemyRegistry reg = EnemyRegistry.fromDisplayName(selectedDisplayName);
+            boolean jumpingEnemy = (reg == EnemyRegistry.JUMPING);
+            conditionalPanelJumping.setVisible(jumpingEnemy);
+            enemyProperty.pack();
+        });
+
+
+        JPanel contentWrapper = new JPanel();
+        contentWrapper.setLayout(new BoxLayout(contentWrapper, BoxLayout.Y_AXIS));
+        contentWrapper.add(formPanel);
+        contentWrapper.add(conditionalPanelFlying);
+        contentWrapper.add(conditionalPanelJumping);
 
         enemyProperty.add(new JLabel(""));
         JButton confirm = new JButton("Confirm");
@@ -1215,6 +1325,19 @@ public class MapEditorWindow extends JFrame{
                         newVelX
                     );
                     if(updatedEnemy != null){
+                        if(updatedEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
+                            try{
+                                ((FlyingEnemy)updatedEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
+                                ((FlyingEnemy)updatedEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
+                            }catch (NumberFormatException ex){}
+                        }
+                        if(updatedEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
+                            try{
+                                ((JumpingEnemy)updatedEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
+                                ((JumpingEnemy)updatedEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
+                                ((JumpingEnemy)updatedEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
+                            }catch(NumberFormatException ex){}
+                        }
                         enemiesList.set(index, updatedEnemy);
                         selectedEnemy = updatedEnemy;
                     }
@@ -1222,6 +1345,20 @@ public class MapEditorWindow extends JFrame{
                     propertyEditingEnemy.velX = newVelX;
                     propertyEditingEnemy.width = newWidth;
                     propertyEditingEnemy.height = newHeight;
+                    if(propertyEditingEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
+                        try{
+                            ((FlyingEnemy)propertyEditingEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
+                            ((FlyingEnemy)propertyEditingEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
+                        }catch (NumberFormatException ex){
+                        }
+                    }
+                    if(propertyEditingEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
+                        try{
+                            ((JumpingEnemy)propertyEditingEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
+                            ((JumpingEnemy)propertyEditingEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
+                            ((JumpingEnemy)propertyEditingEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
+                        }catch(NumberFormatException ex){}
+                    }
                 }
 
                 this.propertyEditingEnemy = null;
@@ -1233,7 +1370,12 @@ public class MapEditorWindow extends JFrame{
                 JOptionPane.showMessageDialog(enemyProperty, "Please verify all numerical text entries are clean integer values");
             }
         });
-        enemyProperty.add(confirm);
+        JPanel bottomPanel = new JPanel();
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        bottomPanel.add(confirm);
+
+        enemyProperty.add(contentWrapper, BorderLayout.CENTER);
+        enemyProperty.add(bottomPanel, BorderLayout.SOUTH);
 
         enemyProperty.pack();
         enemyProperty.setLocationRelativeTo(this);
@@ -1254,7 +1396,20 @@ public class MapEditorWindow extends JFrame{
                 }
             }
         }
-        return highestID;
+        int highestEnemyID = 1;
+        found = false;
+        if(gameCanvas.getMovement().getEnemies() != null){
+            while(!found){
+                found = true;
+                for(Enemy obj : gameCanvas.getMovement().getEnemies()){
+                    if(obj.mapID == highestEnemyID){
+                        found = false;
+                        highestEnemyID++;
+                    }
+                }
+            }
+        }
+        return Math.max(highestEnemyID, highestID);
     }
     
     public int getCameraX(){return this.cameraX;}

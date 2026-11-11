@@ -11,8 +11,8 @@ public class FlyingEnemy extends Enemy{
 
     private double angle = 0;
 
-    private final double xRange = 64.0;
-    private final double yRange = 32.0;
+    private double xRange = 64.0;
+    private double yRange = 32.0;
     private double xSpeed = 0.1;
     private double ySpeed = 0.15;
 
@@ -66,7 +66,9 @@ public class FlyingEnemy extends Enemy{
     public double getHomeX(){return this.homeX;}
     public double getHomeY(){ return this.homeY;}
     public double getXRange(){ return this.xRange;}
+    public void setXRange(double xRange){ this.xRange = xRange;}
     public double getYRange(){return this.yRange;}
+    public void setYRange(double yRange){ this.yRange = yRange;}
     public double getXSpeed(){return this.xSpeed;}
     public double getYSpeed(){return this.ySpeed;}
 }

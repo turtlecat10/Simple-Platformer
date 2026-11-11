@@ -364,7 +364,7 @@ public class Graphics extends JPanel implements ActionListener {
             int prevX = -1;
             int prevY = -1;
 
-            for(int t = 0; t <= 300; t += 5){
+            for(int t = 0; t <= 300; t += 1){
                 double simAngle = fe.getAngle() + t;
 
                 double targetX = fe.getHomeX() + Math.sin(simAngle * fe.getXSpeed()) * fe.getXRange();

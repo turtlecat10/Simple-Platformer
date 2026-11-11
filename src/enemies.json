@@ -1,9 +1,7 @@
 [
+ {"x":0, "y":432, "width":36, "height":36, "velX":-44.4208, "xRange":640.00, "yRange":320.00, "mapID":3, "type":"FLYING"},
  {"x":1056, "y":576, "width":36, "height":36, "velX":8.5000, "mapID":5, "type":"PATROL"},
- {"x":960, "y":192, "width":36, "height":36, "velX":0.0000, "mapID":5, "type":"FLYING"},
- {"x":816, "y":528, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"JUMPING"},
- {"x":864, "y":528, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"JUMPING"},
- {"x":912, "y":576, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"JUMPING"},
- {"x":960, "y":624, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"CANCEL/NONE"},
- {"x":864, "y":624, "width":36, "height":36, "velX":3.0000, "mapID":5, "type":"JUMPING"}
+ {"x":960, "y":192, "width":36, "height":36, "velX":-6.1971, "xRange":64.00, "yRange":32.00, "mapID":5, "type":"FLYING"},
+ {"x":960, "y":528, "width":36, "height":36, "velX":3.0000, "jumpHeight":-15.5000, "intervalMax":0, "intervalMin":0, "mapID":5, "type":"JUMPING"},
+ {"x":816, "y":528, "width":36, "height":36, "velX":3.0000, "jumpHeight":-15.5000, "intervalMax":180, "intervalMin":60, "mapID":5, "type":"JUMPING"}
 ]
