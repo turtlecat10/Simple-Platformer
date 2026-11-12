@@ -1,5 +1,6 @@
 package src.game;
 
+import java.util.ArrayList;
 import java.awt.Rectangle;
 
 public class GameObject {
@@ -32,10 +33,23 @@ public class GameObject {
     public movement move;
     public int triggerMoveX, triggerMoveY;
     public int currentX, currentY;
+
+    public ArrayList<Integer> pathX = new ArrayList<>();
+    public ArrayList<Integer> pathY = new ArrayList<>();
+    public ArrayList<Double> pathSpeed = new ArrayList<>();
+    public ArrayList<Boolean> pathSpeedIsSpeed = new ArrayList<>();
+
+    public ArrayList<Integer> triggeredPathX = new ArrayList<>();
+    public ArrayList<Integer> triggeredPathY = new ArrayList<>();
+    public ArrayList<Double> triggeredPathSpeed = new ArrayList<>();
+    public ArrayList<Boolean> triggeredPathSpeedIsSpeed = new ArrayList<>();
     
-    public GameObject(int x, int y, int width, int height, Type type, int mapID, boolean isTriggered, 
+    public GameObject(int x, int y, int width, int height, Type type, int mapID, boolean isTriggered,
         int triggeredX, int triggeredY, boolean triggeredDisplay, int triggeredBy, int activatesChannel,
-         int time, int timeElapsed, movement move, int moveX, int moveY, int triggerMoveX, int triggerMoveY, int currentX, int currentY){
+        int time, int timeElapsed, movement move, int moveX, int moveY, int triggerMoveX, int triggerMoveY, int currentX, int currentY,
+        ArrayList<Integer> pathX, ArrayList<Integer> pathY, ArrayList<Double> pathSpeed, ArrayList<Boolean> pathSpeedIsSpeed,
+        ArrayList<Integer> triggeredPathX, ArrayList<Integer> triggeredPathY, ArrayList<Double> triggeredPathSpeed, ArrayList<Boolean> triggeredPathSpeedIsSpeed){
+        
         this.x = x;
         this.y = y;
         this.width = width;
@@ -61,173 +75,111 @@ public class GameObject {
         this.lastY = y;
         this.deltaX = 0;
         this.deltaY = 0;
+
+        if(pathX != null) this.pathX.addAll(pathX);
+        if(pathY != null) this.pathY.addAll(pathY);
+        if(pathSpeed != null) this.pathSpeed.addAll(pathSpeed);
+        if(pathSpeedIsSpeed != null) this.pathSpeedIsSpeed.addAll(pathSpeedIsSpeed);
+
+        if(triggeredPathX != null) this.triggeredPathX.addAll(triggeredPathX);
+        if(triggeredPathY != null) this.triggeredPathY.addAll(triggeredPathY);
+        if(triggeredPathSpeed != null) this.triggeredPathSpeed.addAll(triggeredPathSpeed);
+        if(triggeredPathSpeedIsSpeed != null) this.triggeredPathSpeedIsSpeed.addAll(triggeredPathSpeedIsSpeed);
     }
     public GameObject(int x, int y, int width, int height, Type type, int mapID){
-        this(x, y, width, height, type, mapID, false, x, y, true, 0, 0, 0, 0, GameObject.movement.never, x, y, x, y, x, y);
-    }
-    public GameObject(int x, int y, int width, int height, Type type, int mapID, boolean isTriggered, int triggeredX, int triggeredY, boolean triggeredDisplay, 
-        int triggeredBy, int activatesChannel){
-        this(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY, triggeredDisplay, triggeredBy, activatesChannel, 
-            0, 0, GameObject.movement.never, x, y, triggeredX, triggeredY, x, y);
+    this(x, y, width, height, type, mapID, false, x, y, true, 0, 0, 0, 0, GameObject.movement.never, x, y, x, y, x, y, 
+        new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), 
+        new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
     }
     public void updateMovement(double playerX, double playerY, int playerSize){
         this.lastX = this.currentX;
         this.lastY = this.currentY;
         if(this.move == movement.never){
-            this.currentX = isTriggered ? triggeredX : x;
-            this.currentY = isTriggered ? triggeredY : y;
+            this.currentX = isTriggered ? (triggeredPathX.isEmpty() ? triggeredX : triggeredPathX.get(0)) : x;
+            this.currentY = isTriggered ? (triggeredPathY.isEmpty() ? triggeredY : triggeredPathY.get(0)) : y;
             this.deltaX = this.currentX - this.lastX;
             this.deltaY = this.currentY - this.lastY;
             return;
         }
-        int startPointX, endPointX;
-        int startPointY, endPointY;
 
-        int travelTime = Math.max(1, this.time);
 
-        if(this.move == movement.always){
-            if (this.isTriggered) {
-                // STATE B: Trigger is ACTIVE. Switch immediately to loop 
-                // between triggeredX/Y and triggerMoveX/Y!
-                timeElapsed++;
-                int fullCycle = travelTime * 4;
-                int phase = timeElapsed % fullCycle;
+        ArrayList<Integer> pX = isTriggered ? triggeredPathX : pathX;
+        ArrayList<Integer> pY = isTriggered ? triggeredPathY : pathY;
+        ArrayList<Double> pSpd = isTriggered ? triggeredPathSpeed : pathSpeed;
+        ArrayList<Boolean> pIsSpd = isTriggered ? triggeredPathSpeedIsSpeed : pathSpeedIsSpeed;
 
-                if (phase < travelTime) {
-                    double t = (double) phase / travelTime;
-                    this.currentX = (int) Math.round(triggeredX + (triggerMoveX - triggeredX) * t);
-                    this.currentY = (int) Math.round(triggeredY + (triggerMoveY - triggeredY) * t);
-                } else if (phase < travelTime * 2) {
-                    this.currentX = triggerMoveX;
-                    this.currentY = triggerMoveY;
-                } else if (phase < travelTime * 3) {
-                    double t = (double) (phase - (travelTime * 2)) / travelTime;
-                    this.currentX = (int) Math.round(triggerMoveX + (triggeredX - triggerMoveX) * t);
-                    this.currentY = (int) Math.round(triggerMoveY + (triggeredY - triggerMoveY) * t);
-                } else {
-                    this.currentX = triggeredX;
-                    this.currentY = triggeredY;
-                }
-                
-            } else {
-                // STATE A: Default state / Trigger is INACTIVE. 
-                // Continuously run standard oscillation between x/y and moveX/Y!
-                timeElapsed++;
-                int fullCycle = travelTime * 4;
-                int phase = timeElapsed % fullCycle;
+        ArrayList<PointD> points = new ArrayList<>();
+        double startX = isTriggered ? (triggeredPathX.isEmpty() ? x : triggeredX) : x;
+        double startY = isTriggered ? (triggeredPathY.isEmpty() ? y : triggeredY) : y;
+        points.add(new PointD(startX, startY));
 
-                if (phase < travelTime) {
-                    double t = (double) phase / travelTime;
-                    this.currentX = (int) Math.round(x + (moveX - x) * t);
-                    this.currentY = (int) Math.round(y + (moveY - y) * t);
-                } else if (phase < travelTime * 2) {
-                    this.currentX = moveX;
-                    this.currentY = moveY;
-                } else if (phase < travelTime * 3) {
-                    double t = (double) (phase - (travelTime * 2)) / travelTime;
-                    this.currentX = (int) Math.round(moveX + (x - moveX) * t);
-                    this.currentY = (int) Math.round(moveY + (y - moveY) * t);
-                } else {
-                    this.currentX = x;
-                    this.currentY = y;
-                }
-            }
-        }else if(this.move == movement.trigger){
-            // int travelTime = Math.max(1, this.time);
-
-            if (isTriggered) {
-                // Check if a secondary post-trigger oscillation point has been assigned away from home
-                boolean hasOscillatePath = (this.triggerMoveX != this.triggeredX && this.triggerMoveX != 0) || (this.triggerMoveY != this.triggeredY && this.triggerMoveY != 0);
-
-                if (hasOscillatePath) {
-                    // MULTI-STAGE: First slide from (x, y) to triggeredX/Y, then oscillate between triggeredX/Y and triggerMoveX/Y!
-                    timeElapsed++;
-                    int fullCycle = travelTime * 4;
-                    int phase = timeElapsed % fullCycle;
-
-                    if (phase < travelTime) {
-                        double t = (double) phase / travelTime;
-                        this.currentX = (int) (triggeredX + (triggerMoveX - triggeredX) * t);
-                        this.currentY = (int) (triggeredY + (triggerMoveY - triggeredY) * t);
-                    } else if (phase < travelTime * 2) {
-                        this.currentX = triggerMoveX;
-                        this.currentY = triggerMoveY;
-                    } else if (phase < travelTime * 3) {
-                        double t = (double) (phase - (travelTime * 2)) / travelTime;
-                        this.currentX = (int) (triggerMoveX + (triggeredX - triggerMoveX) * t);
-                        this.currentY = (int) (triggerMoveY + (triggeredY - triggerMoveY) * t);
-                    } else {
-                        this.currentX = triggeredX;
-                        this.currentY = triggeredY;
-                    }
-                } else {
-                    // Standard Single Move Target: Glide smoothly from base origin (x, y) to triggeredX/Y position
-                    if (timeElapsed < travelTime) {
-                        timeElapsed++;
-                    }
-                    double t = (double) timeElapsed / travelTime;
-                    this.currentX = (int) (x + (triggeredX - x) * t);
-                    this.currentY = (int) (y + (triggeredY - y) * t);
-                }
-            } else {
-                // Trigger is off: Slide backward towards starting coordinates (x, y)
-                if (timeElapsed > 0) {
-                    timeElapsed--;
-                }
-                double t = (double) timeElapsed / travelTime;
-                
-                boolean hasOscillatePath = (this.triggerMoveX != this.triggeredX && this.triggerMoveX != 0) || (this.triggerMoveY != this.triggeredY && this.triggerMoveY != 0);
-                
-                if (hasOscillatePath) {
-                    // Return tracking loop for post-trigger oscillating items back down to clean origins
-                    double speed = 3.0;
-                    if (currentX < x) currentX = (int) Math.min(currentX + speed, x);
-                    else if (currentX > x) currentX = (int) Math.max(currentX - speed, x);
-                    if (currentY < y) currentY = (int) Math.min(currentY + speed, y);
-                    else if (currentY > y) currentY = (int) Math.max(currentY - speed, y);
-                } else {
-                    this.currentX = (int) (x + (triggeredX - x) * t);
-                    this.currentY = (int) (y + (triggeredY - y) * t);
-                }
-            }
-        }else if(this.move == movement.touch){
-            Rectangle blockTouched = new Rectangle(this.currentX - 1, this.currentY - 1, this.width + 2, this.height + 2);
-            Rectangle playerBox = new Rectangle((int)playerX, (int)playerY, playerSize, playerSize);
-            boolean touching = blockTouched.intersects(playerBox);
-            if(touching){
-                if(this.isTriggered){
-                    // Player is touching: advance timeline linearly toward triggeredX and triggeredY
-                    if (timeElapsed < travelTime) {
-                        timeElapsed++;
-                    }
-                    double t = (double) timeElapsed / travelTime;
-                    this.currentX = (int) (triggeredX + (triggerMoveX - triggeredX) * t);
-                    this.currentY = (int) (triggeredY + (triggerMoveY - triggeredY) * t);
-                }else{
-                    if (timeElapsed < travelTime) {
-                        timeElapsed++;
-                    }
-                    double t = (double) timeElapsed / travelTime;
-                    this.currentX = (int) (x + (moveX - x) * t);
-                    this.currentY = (int) (y + (moveY - y) * t);
-                }
-            }else{
-                // Player stepped away: retract timeline linearly back toward original spawn x and y
-                if (timeElapsed > 0) {
-                    timeElapsed--;
-                }
-                double t = (double) timeElapsed / travelTime;
-                if(this.isTriggered){
-                    this.currentX = (int) (triggeredX + (triggerMoveX - triggeredX) * t);
-                    this.currentY = (int) (triggeredY + (triggerMoveY - triggeredY) * t);
-                }else{
-                    this.currentX = (int) (x + (moveX - x) * t);
-                    this.currentY = (int) (y + (moveY - y) * t);
-                }
+        if(pX != null){
+            for(int i = 0; i < pX.size(); i++){
+                points.add(new PointD(pX.get(i), pY.get(i)));
             }
         }
 
+        if(points.size() <= 1){
+            this.currentX = (int) points.get(0).x;
+            this.currentY = (int)points.get(0).y;
+            this.deltaX = this.currentX - this.lastX;
+            this.deltaY = this.currentY - this.lastY;
+            return;
+        }
+
+        ArrayList<Double> segmentDurations = new ArrayList<>();
+        double totalDuration = 0;
+        for(int i = 0; i < points.size(); i++){
+            PointD p1 = points.get(i);
+            PointD p2 = points.get((i+1) % points.size());
+            double dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+
+            double speedVal = (pSpd != null && i < pSpd.size()) ? pSpd.get(i) : 2.0;
+            boolean isSpeed = (pIsSpd != null && i < pIsSpd.size()) ? pIsSpd.get(i) : true;
+
+            double duration;
+            if(isSpeed){
+                double spd = Math.max(0.1,speedVal);
+                duration = dist / spd;
+            }else{
+                duration = Math.max(1.0, speedVal);
+            }
+            segmentDurations.add(duration);
+            totalDuration += duration;
+        }
+
+        if(totalDuration <= 0) totalDuration = 1;
+
+        timeElapsed++;
+        double currentCycleTime = timeElapsed % totalDuration;
+
+        double accumulated = 0;
+        int activeSegment = 0;
+        double segmentProgress = 0;
+
+        for(int i = 0; i < segmentDurations.size(); i++){
+            double dur = segmentDurations.get(i);
+            if(currentCycleTime <= accumulated + dur){
+                activeSegment = i;
+                segmentProgress = (currentCycleTime - accumulated) / dur;
+                break;
+            }
+            accumulated += dur;
+        }
+        
+        PointD startPt = points.get(activeSegment);
+        PointD endPt = points.get((activeSegment + 1) % points.size());
+
+        this.currentX = (int) Math.round(startPt.x + (endPt.x - startPt.x) * segmentProgress);
+        this.currentY = (int) Math.round(startPt.y + (endPt.y - startPt.y) * segmentProgress);
+
         this.deltaX = this.currentX - this.lastX;
         this.deltaY = this.currentY - this.lastY;
+
     }
+    private static class PointD{
+        public double x, y;
+        public PointD(double x, double y){this.x = x; this.y = y;}
+    }
+
 }

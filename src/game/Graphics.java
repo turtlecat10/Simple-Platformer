@@ -354,6 +354,7 @@ public class Graphics extends JPanel implements ActionListener {
                 }
             }
         }
+        
         Enemy currentSelected = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.getSelectedEnemy() : null;
         if(this.isEditorMode && currentSelected instanceof FlyingEnemy && currentSelected.mapID == mapID){
             FlyingEnemy fe = (FlyingEnemy) currentSelected;
@@ -466,60 +467,11 @@ public class Graphics extends JPanel implements ActionListener {
             }
         }
 
-        if (this.isEditorMode && editingObj != null && editingObj.mapID == mapID) {
-            int origCenterX = editingObj.x + (editingObj.width / 2);
-            int origCenterY = (editingObj.y - editingObj.height) + (editingObj.height / 2);
-            
-            int trigStartCenterX = editingObj.triggeredX + (editingObj.width / 2);
-            int trigStartCenterY = (editingObj.triggeredY - editingObj.height) + (editingObj.height / 2);
-            
-            int oscCenterX = editingObj.moveX + (editingObj.width / 2);
-            int oscCenterY = (editingObj.moveY - editingObj.height) + (editingObj.height / 2);
-            
-            int trigOscEndCenterX = editingObj.triggerMoveX + (editingObj.width / 2);
-            int trigOscEndCenterY = (editingObj.triggerMoveY - editingObj.height) + (editingObj.height / 2);
-
-            boolean hasTrigStart = (editingObj.triggeredX != editingObj.x || editingObj.triggeredY != editingObj.y) && (editingObj.triggeredX != 0);
-            boolean hasNormalOsc = (editingObj.moveX != editingObj.x || editingObj.moveY != editingObj.y) && (editingObj.moveX != 0);
-            boolean hasTrigOscEnd = (editingObj.triggerMoveX != editingObj.x || editingObj.triggerMoveY != editingObj.y) && (editingObj.triggerMoveX != 0);
-
-            if (hasNormalOsc) {
-                int topY = editingObj.moveY - editingObj.height;
-                g2.setColor(new Color(138, 43, 226, 40));
-                g2.fillRect(editingObj.moveX, topY, editingObj.width, editingObj.height);
-                g2.setColor(new Color(138, 43, 226));
-                g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
-                g2.drawRect(editingObj.moveX, topY, editingObj.width, editingObj.height);
-
-                g2.setStroke(new java.awt.BasicStroke(1.5f));
-                g2.drawLine(origCenterX, origCenterY, oscCenterX, oscCenterY);
-            }
-
-            if (hasTrigStart) {
-                int topY = editingObj.triggeredY - editingObj.height;
-                g2.setColor(new Color(255, 140, 0, 50));
-                g2.fillRect(editingObj.triggeredX, topY, editingObj.width, editingObj.height);
-                g2.setColor(Color.ORANGE);
-                g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{6f}, 0.0f));
-                g2.drawRect(editingObj.triggeredX, topY, editingObj.width, editingObj.height);
-
-                g2.setStroke(new java.awt.BasicStroke(1.5f));
-                g2.drawLine(origCenterX, origCenterY, trigStartCenterX, trigStartCenterY);
-            }
-
-            if (hasTrigOscEnd && hasTrigStart) {
-                int topY = editingObj.triggerMoveY - editingObj.height;
-                g2.setColor(new Color(0, 255, 255, 40));
-                g2.fillRect(editingObj.triggerMoveX, topY, editingObj.width, editingObj.height);
-                g2.setColor(Color.CYAN);
-                g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
-                g2.drawRect(editingObj.triggerMoveX, topY, editingObj.width, editingObj.height);
-
-                g2.setStroke(new java.awt.BasicStroke(1.5f));
-                g2.drawLine(trigStartCenterX, trigStartCenterY, trigOscEndCenterX, trigOscEndCenterY);
-                
-                g2.setColor(Color.ORANGE);
-                g2.fillOval(trigStartCenterX - 3, trigStartCenterY - 3, 6, 6);
+        if(MapEditorWindow.instance != null && isEditorMode){
+            GameObject selectedObj = MapEditorWindow.instance.getPropertyEditingObject();
+            if(selectedObj != null && selectedObj.mapID == mapID){
+                renderSelectedObjectPath(g2, selectedObj, false);
+                renderSelectedObjectPath(g2, selectedObj, true);
             }
         }
 
@@ -583,6 +535,70 @@ public class Graphics extends JPanel implements ActionListener {
         }
         
         g2.setTransform(oldTransform);
+    }
+
+    private void renderSelectedObjectPath(Graphics2D g2, GameObject obj, boolean triggered){
+        ArrayList<Integer> px = triggered ? obj.triggeredPathX : obj.pathX;
+        ArrayList<Integer> py = triggered ? obj.triggeredPathY : obj.pathY;
+        if(px == null || px.isEmpty()) return;
+
+        int startX = triggered ? obj.triggeredX : obj.x;
+        int startY = triggered ? obj.triggeredX : obj.x;
+
+        ArrayList<Point> points = new ArrayList<>();
+        points.add(new Point(startX, startY));
+        for(int i = 0; i < px.size(); i++){
+            points.add(new Point(px.get(i), py.get(i)));
+        }
+
+        Color wayPointOutlineColor = triggered ? Color.BLACK : Color.WHITE;
+        int activeIndex = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.selectedWaypointIndex : -1;
+
+        Color objColor;
+        switch(obj.type){
+            case solid: objColor = Color.GREEN; break;
+            case oneWay: objColor = new Color(147, 112, 219); break;
+            case death: objColor = Color.RED; break;
+            case respawn: objColor = Color.BLUE; break;
+            case spawnPoint: objColor = Color.YELLOW; break;
+            case ladder: objColor = new Color(150, 75, 0); break;
+            case win: objColor = new Color(212, 175, 55); break;
+            case trigger: objColor = Color.ORANGE; break;
+            default: objColor = Color.GRAY; break;
+        }
+
+        for(int i = 0; i < points.size() - 1; i++){
+            Point p1 = points.get(i);
+            Point p2 = points.get(i + 1);
+
+            int p1CenterX = p1.x + obj.width / 2;
+            int p1CenterY = (p1.y - obj.height) + obj.height / 2;
+            int p2CenterX = p2.x + obj.width / 2;
+            int p2CenterY = (p2.y - obj.height) + obj.height / 2;
+
+            g2.setColor(Color.MAGENTA);
+            g2.setStroke(new java.awt.BasicStroke(3f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{8f}, 0f));
+            g2.drawLine(p1CenterX, p1CenterY, p2CenterX, p2CenterY);
+
+            g2.setColor(wayPointOutlineColor);
+            g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0f));
+            g2.drawLine(p1CenterX, p1CenterY, p2CenterX, p2CenterY);
+
+            int waypointIdx = i;
+            int renderTopY = p2.y - obj.height;
+
+            g2.setColor(new Color(objColor.getRed(), objColor.getGreen(), objColor.getBlue(), 120));
+            g2.fillRect(p2.x, renderTopY, obj.width, obj.height);
+
+            if (waypointIdx == activeIndex) {
+                g2.setColor(Color.CYAN);
+                g2.setStroke(new java.awt.BasicStroke(2.5f));
+            } else {
+                g2.setColor(wayPointOutlineColor);
+                g2.setStroke(new java.awt.BasicStroke(1.5f));
+            }
+            g2.drawRect(p2.x, renderTopY, obj.width, obj.height);
+        }
     }
 
     public int getTileSize(){return this.tileSize;}

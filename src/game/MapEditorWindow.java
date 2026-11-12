@@ -10,7 +10,6 @@ public class MapEditorWindow extends JFrame{
     private final String externalSavePath = "src/levels.json";
     private final String externalEnemySavePath = "src/enemies.json";
 
-    
     public Graphics gameCanvas;
     private JPanel controlPanel;
 
@@ -19,6 +18,14 @@ public class MapEditorWindow extends JFrame{
     private Point bottomLeftCorner = null;
     private Point currentHoverPoint = null;
     private Point pathHoverPoint = null;
+
+    public int selectedWaypointIndex = -1;
+    private boolean isDraggingWaypoint = false;
+    private int activeDraggedWaypointIndex = -1;
+    private boolean activeDraggedIsTriggered = false;
+    private JTextField dialogTxtX, dialogTxtY, dialogTxtSpeedVal;
+    private JComboBox<String> dialogCmbSpeedorTime;
+    private JComboBox<String> dialogSegmentDropdown;
 
     private GameObject propertyEditingObject = null;
     private Enemy propertyEditingEnemy = null;
@@ -495,36 +502,49 @@ public class MapEditorWindow extends JFrame{
                     snapY = gamePoint.y;
                 }
 
-                if(propertyEditingObject != null){
-                    if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
-                        if (currentPathClickMode == PathClickMode.OSCILLATION) {
-                            propertyEditingObject.moveX = snapX;
-                            propertyEditingObject.moveY = snapY;
-                            currentPathClickMode = PathClickMode.NONE;
-                            JOptionPane.showMessageDialog(propertyDialog, "Standard Oscillation Target set to: (" + snapX + ", " + snapY + ")");
-                        } else if (currentPathClickMode == PathClickMode.TRIGGERED_MOVE) {
-                            propertyEditingObject.triggeredX = snapX;
-                            propertyEditingObject.triggeredY = snapY;
-                            currentPathClickMode = PathClickMode.NONE;
-                            JOptionPane.showMessageDialog(propertyDialog, "Triggered Movement Target set to: (" + snapX + ", " + snapY + ")");
-                        } else if (currentPathClickMode == PathClickMode.OSCILLATE_AFTER_TRIGGER) {
-                            propertyEditingObject.triggerMoveX = snapX;
-                            propertyEditingObject.triggerMoveY = snapY;
-                            currentPathClickMode = PathClickMode.NONE;
-                            JOptionPane.showMessageDialog(propertyDialog, "Post-Trigger Oscillation Target set to: (" + snapX + ", " + snapY + ")");
-                        }/* else {
-                            propertyEditingObject = null;
-                            selectedObject = null;
-                            selectedEnemy = null;
-                            currentPathClickMode = PathClickMode.NONE;
-                            btnDelete.setEnabled(false);
-                            btnEditProperties.setEnabled(false);
-                            lblSelectedInfo.setText("Selection: None");
-                        }*/
-                        gameCanvas.repaint();
-                        return;
+                if (propertyEditingObject != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))) {
+                    // boolean triggered = propertyEditingObject.isTriggered;
+                    ArrayList<ArrayList<Integer>> pathListsX = new ArrayList<>();
+                    ArrayList<ArrayList<Integer>> pathListsY = new ArrayList<>();
+                    ArrayList<Boolean> isTrigList = new ArrayList<>();
+                    pathListsX.add(propertyEditingObject.pathX);
+                    pathListsY.add(propertyEditingObject.pathY);
+                    isTrigList.add(false);
+
+                    pathListsX.add(propertyEditingObject.triggeredPathX);
+                    pathListsY.add(propertyEditingObject.triggeredPathY);
+                    isTrigList.add(true);
+
+                    // Check if clicking near an existing waypoint to drag it
+                    int clickedIdx = -1;
+                    boolean foundTriggered= false;
+                    for(int listIdx = 0; listIdx < pathListsX.size(); listIdx++){
+                        ArrayList<Integer> px = pathListsX.get(listIdx);
+                        ArrayList<Integer> py = pathListsY.get(listIdx);
+                        for (int i = 0; i < px.size(); i++) {
+                            Rectangle wpRect = new Rectangle(px.get(i), py.get(i) - propertyEditingObject.height, propertyEditingObject.width, propertyEditingObject.height);
+                            if (wpRect.contains(gamePoint)) {
+                                clickedIdx = i;
+                                foundTriggered = isTrigList.get(listIdx);
+                                break;
+                            }
+                        }
+                        if(clickedIdx != -1) break;
                     }
+
+                    if (clickedIdx != -1) {
+                        isDraggingWaypoint = true;
+                        activeDraggedWaypointIndex = clickedIdx;
+                        activeDraggedIsTriggered = foundTriggered;
+                        selectedWaypointIndex = clickedIdx;
+                        if(dialogSegmentDropdown != null && dialogSegmentDropdown.getItemCount() > clickedIdx){
+                            dialogSegmentDropdown.setSelectedIndex(clickedIdx);
+                        }
+                    } 
+                    gameCanvas.repaint();
+                    return;
                 }
+
 
                 if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
                     if(activeEnemyBrush != EnemyRegistry.NONE && gameCanvas.getMovement() != null){
@@ -658,8 +678,38 @@ public class MapEditorWindow extends JFrame{
                     return;
                 }
             }
+            @Override 
+            public void mouseReleased(MouseEvent e){
+                if(isDraggingWaypoint && propertyEditingObject != null){
+                    isDraggingWaypoint = false;
+                    if (propertyEditingObject != null && selectedWaypointIndex >= 0) {
+                        updatePropertyDialogTextFields();
+                    }
+                    gameCanvas.repaint();
+                }
+            }
         });
         gameCanvas.addMouseMotionListener(new MouseMotionAdapter(){
+            @Override 
+            public void mouseDragged(MouseEvent e){
+                if (isDraggingWaypoint && propertyEditingObject != null && activeDraggedWaypointIndex >= 0) {
+                    Point gamePoint = getTransformedGamePoint(e);
+                    int snapSize = gameCanvas.getTileSize();
+                    int snapX = freePlace ? gamePoint.x : Math.floorDiv(gamePoint.x, snapSize) * snapSize;
+                    int snapY = freePlace ? gamePoint.y : Math.floorDiv(gamePoint.y, snapSize) * snapSize;
+
+                    ArrayList<Integer> px = activeDraggedIsTriggered ? propertyEditingObject.triggeredPathX : propertyEditingObject.pathX;
+                    ArrayList<Integer> py = activeDraggedIsTriggered ? propertyEditingObject.triggeredPathY : propertyEditingObject.pathY;
+
+                    if (activeDraggedWaypointIndex < px.size()) {
+                        px.set(activeDraggedWaypointIndex, snapX);
+                        py.set(activeDraggedWaypointIndex, snapY);
+                        updatePropertyDialogTextFields();
+                    }
+                    gameCanvas.repaint();
+                }
+            }
+
             @Override 
             public void mouseMoved(MouseEvent e){
                 int panelWidth = gameCanvas.getWidth();
@@ -748,13 +798,23 @@ public class MapEditorWindow extends JFrame{
                     GameObject.Type type = GameObject.Type.solid;
                     GameObject.movement move = GameObject.movement.never;
 
+                    ArrayList<Integer> pX = new ArrayList<>();
+                    ArrayList<Integer> pY = new ArrayList<>();
+                    ArrayList<Double> pSpd = new ArrayList<>();
+                    ArrayList<Boolean> pIsSpd = new ArrayList<>();
+
+                    ArrayList<Integer> tPX = new ArrayList<>();
+                    ArrayList<Integer> tPY = new ArrayList<>();
+                    ArrayList<Double> tPSpd = new ArrayList<>();
+                    ArrayList<Boolean> tPIsSpd = new ArrayList<>();
+
                     String[] properties = rawObj.split(",");
                     for(String prop : properties){
-                        String[] kv = prop.split(":");
-                        if(kv.length != 2) continue;
+                        int colonIdx = prop.indexOf(":");
+                        if(colonIdx == -1) continue;
 
-                        String key = kv[0].replace("\"", "").trim();
-                        String val = kv[1].replace("\"", "").trim();
+                        String key = prop.substring(0, colonIdx).replace("\"", "").trim();
+                        String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
                         switch(key){
                             case "x": x = Integer.parseInt(val); break;
                             case "y": y = Integer.parseInt(val); break;
@@ -775,6 +835,30 @@ public class MapEditorWindow extends JFrame{
                             case "moveY": moveY = Integer.parseInt(val); break;
                             case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
                             case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
+                            case "PathX":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pX.add(Integer.parseInt(s.trim()));
+                                break;
+                            case "pathY":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pY.add(Integer.parseInt(s.trim()));
+                                break;
+                            case "pathSpeed":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pSpd.add(Double.parseDouble(s.trim()));
+                                break;
+                            case "pathSpeedIsSpeed":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pIsSpd.add(Boolean.parseBoolean(s.trim()));
+                                break;
+                            case "triggeredPathX":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPX.add(Integer.parseInt(s.trim()));
+                                break;
+                            case "triggeredpathY":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPY.add(Integer.parseInt(s.trim()));
+                                break;
+                            case "triggeredPathSpeed":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPSpd.add(Double.parseDouble(s.trim()));
+                                break;
+                            case "triggeredSpeedIsSpeed":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPIsSpd.add(Boolean.parseBoolean(s.trim()));
+                                break;
                         }
                     }
                     if(triggeredX == -1 && triggeredY == -1){ triggeredX = x; triggeredY = y; }
@@ -782,7 +866,8 @@ public class MapEditorWindow extends JFrame{
                     if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
 
                     masterList.add(new GameObject(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY, 
-                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, moveX, moveY, triggerMoveX, triggerMoveY, x, y));
+                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, moveX, moveY, triggerMoveX, triggerMoveY, x, y,
+                        pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
                 }
             }
         }
@@ -801,10 +886,14 @@ public class MapEditorWindow extends JFrame{
                 String jsonStr = String.format(
                     "{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"type\":\"%s\", \"mapID\":%d, \"isTriggered\":%b, " +
                     "\"triggeredX\":%d, \"triggeredY\":%d, \"triggeredDisplay\":%b, \"triggeredBy\":%d, \"activatesChannel\":%d, " +
-                    "\"time\":%d, \"timeElapsed\":%d, \"move\":\"%s\", \"moveX\":%d, \"moveY\":%d, \"triggerMoveX\":%d, \"triggerMoveY\":%d}", 
+                    "\"time\":%d, \"timeElapsed\":%d, \"move\":\"%s\", \"moveX\":%d, \"moveY\":%d, \"triggerMoveX\":%d, \"triggerMoveY\":%d, " +
+                    "\"pathX\":%s, \"pathY\":%s, \"pathSpeed\":%s, \"pathSpeedIsSpeed\":%s, " +
+                    "\"triggeredPathX\":%s, \"triggeredPathY\":%s, \"triggeredPathSpeed\":%s, \"triggeredPathSpeedIsSpeed\":%s}", 
                     obj.x, obj.y, obj.width, obj.height, obj.type.name(), obj.mapID, obj.isTriggered, 
                     obj.triggeredX, obj.triggeredY, obj.triggeredDisplay, obj.triggeredBy, obj.activatesChannel,
-                    obj.time, obj.timeElapsed, obj.move.name(), obj.moveX, obj.moveY, obj.triggerMoveX, obj.triggerMoveY
+                    obj.time, obj.timeElapsed, obj.move.name(), obj.moveX, obj.moveY, obj.triggerMoveX, obj.triggerMoveY,
+                    obj.pathX.toString(), obj.pathY.toString(), obj.pathSpeed.toString(), obj.pathSpeedIsSpeed.toString(),
+                    obj.triggeredPathX.toString(), obj.triggeredPathY.toString(), obj.triggeredPathSpeed.toString(), obj.triggeredPathSpeedIsSpeed.toString()
                 );
                 writer.write(" "+ jsonStr);
                 if(i < masterList.size() - 1){
@@ -863,6 +952,16 @@ public class MapEditorWindow extends JFrame{
                     GameObject.Type type = GameObject.Type.solid;
                     GameObject.movement move = GameObject.movement.never;
 
+                    ArrayList<Integer> pX = new ArrayList<>();
+                    ArrayList<Integer> pY = new ArrayList<>();
+                    ArrayList<Double> pSpd = new ArrayList<>();
+                    ArrayList<Boolean> pIsSpd = new ArrayList<>();
+
+                    ArrayList<Integer> tPX = new ArrayList<>();
+                    ArrayList<Integer> tPY = new ArrayList<>();
+                    ArrayList<Double> tPSpd = new ArrayList<>();
+                    ArrayList<Boolean> tPIsSpd = new ArrayList<>();
+
                     String[] properties = rawObj.split(",");
                     for (String prop : properties) {
                         String[] kv = prop.split(":");
@@ -890,13 +989,39 @@ public class MapEditorWindow extends JFrame{
                             case "moveY": moveY = Integer.parseInt(val); break;
                             case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
                             case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
+                            case "PathX":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pX.add(Integer.parseInt(s.trim()));
+                                break;
+                            case "pathY":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pY.add(Integer.parseInt(s.trim()));
+                                break;
+                            case "pathSpeed":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pSpd.add(Double.parseDouble(s.trim()));
+                                break;
+                            case "pathSpeedIsSpeed":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pIsSpd.add(Boolean.parseBoolean(s.trim()));
+                                break;
+                            case "triggeredPathX":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPX.add(Integer.parseInt(s.trim()));
+                                break;
+                            case "triggeredpathY":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPY.add(Integer.parseInt(s.trim()));
+                                break;
+                            case "triggeredPathSpeed":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPSpd.add(Double.parseDouble(s.trim()));
+                                break;
+                            case "triggeredSpeedIsSpeed":
+                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPIsSpd.add(Boolean.parseBoolean(s.trim()));
+                                break;
                         }
                     }
                     if (triggeredX == -1 && triggeredY == -1) { triggeredX = x; triggeredY = y; }
                     if (moveX == 0 && moveY == 0) { moveX = x; moveY = y; }
                     if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
+                    
                     loadedObjects.add(new GameObject(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY,
-                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, moveX, moveY, triggerMoveX, triggerMoveY, x, y));
+                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, moveX, moveY, triggerMoveX, triggerMoveY, x, y,
+                        pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
                 }
             }
         }
@@ -1117,6 +1242,210 @@ public class MapEditorWindow extends JFrame{
     }
     
     private void showPropertyConfigDialog(GameObject obj){
+        this.propertyEditingObject = obj;
+        JDialog propDialog = new JDialog(this, "Configure Object Path & Properties", false);
+        propDialog.setLayout(new BorderLayout());
+        propDialog.getRootPane().setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        
+        JPanel formPanel = new JPanel(new GridLayout(0, 2, 10, 10));
+
+        final boolean[] editingTriggeredPath = {false};
+
+        JCheckBox chkIsTriggered = new JCheckBox("Edit trigggered Path", editingTriggeredPath[0]);
+        formPanel.add(new JLabel("Path Mode:"));
+        formPanel.add(chkIsTriggered);
+
+        formPanel.add(new JLabel("Triggered By Channel ID:"));
+        JTextField txtTriggeredBy = new JTextField(String.valueOf(obj.triggeredBy));
+        formPanel.add(txtTriggeredBy);
+
+        formPanel.add(new JLabel("Activates Channel ID:"));
+        JTextField txtActivatesChannel = new JTextField(String.valueOf(obj.activatesChannel));
+        txtActivatesChannel.setEnabled(obj.type == GameObject.Type.trigger);
+        formPanel.add(txtActivatesChannel);
+
+        formPanel.add(new JLabel("Triggered Start X:"));
+        JTextField txtTriggeredX = new JTextField(String.valueOf(obj.triggeredX));
+        formPanel.add(txtTriggeredX);
+
+        formPanel.add(new JLabel("Triggered Start Y:"));
+        JTextField txtTriggeredY = new JTextField(String.valueOf(obj.triggeredY));
+        formPanel.add(txtTriggeredY);
+
+        dialogSegmentDropdown = new JComboBox<>();
+        formPanel.add(new JLabel("Target Segment:"));
+        formPanel.add(dialogSegmentDropdown);
+
+        dialogTxtX = new JTextField();
+        dialogTxtY = new JTextField();
+        dialogTxtSpeedVal = new JTextField();
+        dialogCmbSpeedorTime = new JComboBox<>(new String[]{"Speed (pixels/frame)", "Time (frames)"});
+    
+        formPanel.add(new JLabel("Waypoint X;"));
+        formPanel.add(dialogTxtX);
+        formPanel.add(new JLabel("Waypoint Y:"));
+        formPanel.add(dialogTxtY);
+        formPanel.add(new JLabel("Speed / Time Value:"));
+        formPanel.add(dialogTxtSpeedVal);
+        formPanel.add(new JLabel("Value Type:"));
+        formPanel.add(dialogCmbSpeedorTime);
+
+        JButton btnAddPoint = new JButton("Add new Waypoint");
+        JButton btnRemovePoint = new JButton("Remove current Waypoint");
+        formPanel.add(btnAddPoint);
+        formPanel.add(btnRemovePoint);
+
+        Runnable[] refreshDropdowns = new Runnable[1];
+        refreshDropdowns[0] = () -> {
+            dialogSegmentDropdown.removeAllItems();
+            boolean triggered = editingTriggeredPath[0];
+            ArrayList<Integer> px = triggered ? obj.triggeredPathX : obj.pathX;
+
+            for(int i = 0; i < px.size(); i++){
+                int fromIdx = i;
+                dialogSegmentDropdown.addItem("Segment " + (fromIdx + 1) + " (Point " + (i + 1) + ")");
+            }
+            if(px.isEmpty()){
+                dialogSegmentDropdown.addItem("No Waypoints (Click Canvas to Add)");
+            }
+        };
+        Runnable loadSelectedSegmentData = () -> {
+            boolean triggered = editingTriggeredPath[0];
+            ArrayList<Integer> px = triggered ? obj.triggeredPathX : obj.pathX;
+            ArrayList<Integer> py = triggered ? obj.triggeredPathY : obj.pathY;
+            ArrayList<Double> pSpd = triggered ? obj.triggeredPathSpeed : obj.pathSpeed;
+            ArrayList<Boolean> pIsSpd = triggered ? obj.triggeredPathSpeedIsSpeed : obj.pathSpeedIsSpeed;
+
+            int idx = dialogSegmentDropdown.getSelectedIndex();
+            if(idx >= 0 && idx < px.size()){
+                dialogTxtX.setText(String.valueOf(px.get(idx)));
+                dialogTxtY.setText(String.valueOf(py.get(idx)));
+                dialogTxtSpeedVal.setText(String.valueOf(idx < pSpd.size() ? pSpd.get(idx) : 2.0));
+                boolean isSpeed = idx < pIsSpd.size() ? pIsSpd.get(idx) : true;
+                dialogCmbSpeedorTime.setSelectedIndex(isSpeed ? 0 : 1);
+                dialogTxtX.setEnabled(true);
+                dialogTxtY.setEnabled(true);
+                dialogTxtSpeedVal.setEnabled(true);
+                dialogCmbSpeedorTime.setEnabled(true);
+            }else{
+                dialogTxtX.setText("");
+                dialogTxtY.setText("");
+                dialogTxtSpeedVal.setText("");
+                dialogTxtY.setEnabled(false);
+                dialogTxtY.setEnabled(false);
+                dialogTxtSpeedVal.setEnabled(false);
+                dialogCmbSpeedorTime.setEnabled(false);
+            }
+        };
+
+        chkIsTriggered.addActionListener(e -> {
+            editingTriggeredPath[0] = chkIsTriggered.isSelected();
+            refreshDropdowns[0].run();
+            loadSelectedSegmentData.run();
+        });
+
+        dialogSegmentDropdown.addActionListener(e -> {
+            if(dialogSegmentDropdown.getItemCount() > 0 && dialogSegmentDropdown.getSelectedIndex() != -1){
+                selectedWaypointIndex = dialogSegmentDropdown.getSelectedIndex();
+                loadSelectedSegmentData.run();
+                gameCanvas.repaint();
+            }
+        });
+
+        btnAddPoint.addActionListener(e -> {
+            boolean triggered = editingTriggeredPath[0];
+            ArrayList<Integer> px = triggered ? obj.triggeredPathX : obj.pathX;
+            ArrayList<Integer> py = triggered ? obj.triggeredPathY : obj.pathY;
+            ArrayList<Double> pSpd = triggered ? obj.triggeredPathSpeed : obj.pathSpeed;
+            ArrayList<Boolean> pIsSpd = triggered ? obj.triggeredPathSpeedIsSpeed : obj.pathSpeedIsSpeed;
+
+            int defaultX = px.isEmpty() ? obj.x + 100 : px.get(px.size() - 1) + 50;
+            int defaultY = px.isEmpty() ? obj.y : px.get(px.size() - 1);
+
+            px.add(defaultX);
+            py.add(defaultY);
+            pSpd.add(2.0);
+            pIsSpd.add(true);
+
+            refreshDropdowns[0].run();
+            dialogSegmentDropdown.setSelectedIndex(px.size() - 1);
+            selectedWaypointIndex = px.size() - 1;
+            gameCanvas.repaint();
+        });
+
+        btnRemovePoint.addActionListener(e -> {
+            boolean triggered = editingTriggeredPath[0];
+            ArrayList<Integer> px = triggered ? obj.triggeredPathX : obj.pathX;
+            ArrayList<Integer> py = triggered ? obj.triggeredPathY : obj.pathY;
+            ArrayList<Double> pSpd = triggered ? obj.triggeredPathSpeed : obj.pathSpeed;
+            ArrayList<Boolean> pIsSpd = triggered ? obj.triggeredPathSpeedIsSpeed : obj.pathSpeedIsSpeed;
+
+            int idx = dialogSegmentDropdown.getSelectedIndex();
+            if(idx >= 0 && idx < px.size()){
+                px.remove(idx);
+                py.remove(idx);
+                if(idx < pSpd.size()) pSpd.remove(idx);
+                if(idx < pIsSpd.size()) pIsSpd.remove(idx);
+
+                refreshDropdowns[0].run();
+                if(dialogSegmentDropdown.getItemCount() > 0) dialogSegmentDropdown.setSelectedIndex(Math.max(0, idx - 1));
+                gameCanvas.repaint();
+            }
+        });
+
+        refreshDropdowns[0].run();
+        if(dialogSegmentDropdown.getItemCount() > 0) dialogSegmentDropdown.setSelectedIndex(0);
+
+        JButton btnConfirm = new JButton("Confirm & Save Changes");
+        btnConfirm.addActionListener(e -> {
+            try{
+                obj.triggeredBy = Integer.parseInt(txtTriggeredBy.getText().trim());
+                if (obj.type == GameObject.Type.trigger) {
+                    obj.activatesChannel = Integer.parseInt(txtActivatesChannel.getText().trim());
+                }
+                obj.triggeredX = Integer.parseInt(txtTriggeredX.getText().trim());
+                obj.triggeredY = Integer.parseInt(txtTriggeredY.getText().trim());
+
+
+
+                int idx = dialogSegmentDropdown.getSelectedIndex();
+                boolean triggered = editingTriggeredPath[0];
+                // obj.isTriggered = triggered;
+
+                ArrayList<Integer> px = triggered ? obj.triggeredPathX : obj.pathX;
+                ArrayList<Integer> py = triggered ? obj.triggeredPathY : obj.pathY;
+                ArrayList<Double> pSpd = triggered ? obj.triggeredPathSpeed : obj.pathSpeed;
+                ArrayList<Boolean> pIsSpd = triggered ? obj.triggeredPathSpeedIsSpeed : obj.pathSpeedIsSpeed;
+
+                if(idx >= 0 && idx < px.size() && !dialogTxtX.getText().isEmpty()){
+                    px.set(idx, Integer.parseInt(dialogTxtX.getText().trim()));
+                    py.set(idx, Integer.parseInt(dialogTxtY.getText().trim()));
+
+                    while(pSpd.size() <= idx) pSpd.add(2.0);
+                    while(pIsSpd.size() <= idx) pIsSpd.add(true);
+
+                    pSpd.set(idx, Double.parseDouble(dialogTxtSpeedVal.getText().trim()));
+                    pIsSpd.set(idx, dialogCmbSpeedorTime.getSelectedIndex() == 0);
+                }
+                selectedWaypointIndex = -1;
+                propDialog.dispose();
+                this.propertyEditingObject = null;
+                gameCanvas.repaint();
+            }catch (NumberFormatException ex){
+                JOptionPane.showMessageDialog(propDialog, "Please enter valid numerical values.");
+            }
+        });
+
+        JPanel bottomPanel = new JPanel();
+        bottomPanel.add(btnConfirm);
+        propDialog.add(formPanel, BorderLayout.CENTER);
+        propDialog.add(bottomPanel, BorderLayout.SOUTH);
+        propDialog.pack();
+        propDialog.setLocationRelativeTo(this);
+        propDialog.setVisible(true);
+    }
+
+    private void showPropertyConfigDialog1(GameObject obj){
         this.propertyEditingObject = obj;
         this.currentPathClickMode = PathClickMode.NONE;
 
@@ -1412,6 +1741,18 @@ public class MapEditorWindow extends JFrame{
         return Math.max(highestEnemyID, highestID);
     }
     
+    public void updatePropertyDialogTextFields(){
+        if (dialogTxtX != null && dialogTxtY != null && propertyEditingObject != null && selectedWaypointIndex >= 0) {
+            boolean triggered = propertyEditingObject.isTriggered;
+            ArrayList<Integer> px = triggered ? propertyEditingObject.triggeredPathX : propertyEditingObject.pathX;
+            ArrayList<Integer> py = triggered ? propertyEditingObject.triggeredPathY : propertyEditingObject.pathY;
+            if (selectedWaypointIndex < px.size()) {
+                dialogTxtX.setText(String.valueOf(px.get(selectedWaypointIndex)));
+                dialogTxtY.setText(String.valueOf(py.get(selectedWaypointIndex)));
+            }
+        }
+    }
+
     public int getCameraX(){return this.cameraX;}
     public int getCameraY(){return this.cameraY;}
     public void setCamLeft(boolean state) { this.camLeft = state; }
