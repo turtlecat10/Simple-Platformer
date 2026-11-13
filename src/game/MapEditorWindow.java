@@ -674,6 +674,7 @@ public class MapEditorWindow extends JFrame{
                             }
                         }
                     }
+                    // System.out.println("ddsh");
                     gameCanvas.repaint();
                     return;
                 }
@@ -808,7 +809,7 @@ public class MapEditorWindow extends JFrame{
                     ArrayList<Double> tPSpd = new ArrayList<>();
                     ArrayList<Boolean> tPIsSpd = new ArrayList<>();
 
-                    String[] properties = rawObj.split(",");
+                    String[] properties = rawObj.split(",(?![^\\[]*\\])");
                     for(String prop : properties){
                         int colonIdx = prop.indexOf(":");
                         if(colonIdx == -1) continue;
@@ -835,7 +836,7 @@ public class MapEditorWindow extends JFrame{
                             case "moveY": moveY = Integer.parseInt(val); break;
                             case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
                             case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
-                            case "PathX":
+                            case "pathX":
                                 if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pX.add(Integer.parseInt(s.trim()));
                                 break;
                             case "pathY":
@@ -850,7 +851,7 @@ public class MapEditorWindow extends JFrame{
                             case "triggeredPathX":
                                 if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPX.add(Integer.parseInt(s.trim()));
                                 break;
-                            case "triggeredpathY":
+                            case "triggeredPathY":
                                 if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPY.add(Integer.parseInt(s.trim()));
                                 break;
                             case "triggeredPathSpeed":
@@ -962,7 +963,7 @@ public class MapEditorWindow extends JFrame{
                     ArrayList<Double> tPSpd = new ArrayList<>();
                     ArrayList<Boolean> tPIsSpd = new ArrayList<>();
 
-                    String[] properties = rawObj.split(",");
+                    String[] properties = rawObj.split(",(?![^\\[]*\\])");
                     for (String prop : properties) {
                         String[] kv = prop.split(":");
                         if (kv.length != 2) continue;
@@ -989,7 +990,7 @@ public class MapEditorWindow extends JFrame{
                             case "moveY": moveY = Integer.parseInt(val); break;
                             case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
                             case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
-                            case "PathX":
+                            case "pathX":
                                 if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pX.add(Integer.parseInt(s.trim()));
                                 break;
                             case "pathY":
@@ -1004,7 +1005,7 @@ public class MapEditorWindow extends JFrame{
                             case "triggeredPathX":
                                 if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPX.add(Integer.parseInt(s.trim()));
                                 break;
-                            case "triggeredpathY":
+                            case "triggeredPathY":
                                 if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPY.add(Integer.parseInt(s.trim()));
                                 break;
                             case "triggeredPathSpeed":

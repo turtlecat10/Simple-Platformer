@@ -540,6 +540,10 @@ public class Graphics extends JPanel implements ActionListener {
     private void renderSelectedObjectPath(Graphics2D g2, GameObject obj, boolean triggered){
         ArrayList<Integer> px = triggered ? obj.triggeredPathX : obj.pathX;
         ArrayList<Integer> py = triggered ? obj.triggeredPathY : obj.pathY;
+        ArrayList<Double> pSpd = triggered ? obj.triggeredPathSpeed : obj.pathSpeed;
+        ArrayList<Boolean> pIsSpd = triggered ? obj.triggeredPathSpeedIsSpeed : obj.pathSpeedIsSpeed;
+        // System.out.println(obj.pathX+" "+obj.pathY+" "+obj.pathSpeed+" "+obj.pathSpeedIsSpeed);
+        
         if(px == null || px.isEmpty()) return;
 
         int startX = triggered ? obj.triggeredX : obj.x;
@@ -547,7 +551,8 @@ public class Graphics extends JPanel implements ActionListener {
 
         ArrayList<Point> points = new ArrayList<>();
         points.add(new Point(startX, startY));
-        for(int i = 0; i < px.size(); i++){
+        // System.out.println(Math.min(Math.min(px.size(), py.size()), Math.min(pSpd.size(), pIsSpd.size())));
+        for(int i = 0; i < Math.min(Math.min(px.size(), py.size()), Math.min(pSpd.size(), pIsSpd.size())); i++){
             points.add(new Point(px.get(i), py.get(i)));
         }
 
