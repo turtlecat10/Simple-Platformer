@@ -26,6 +26,10 @@ public class MapEditorWindow extends JFrame{
     private JTextField dialogTxtX, dialogTxtY, dialogTxtSpeedVal;
     private JComboBox<String> dialogCmbSpeedorTime;
     private JComboBox<String> dialogSegmentDropdown;
+    private boolean isDraggingStartPos = false;
+    private boolean isDraggingTriggeredStart = false;
+    public boolean isEditingTriggeredPath = false;
+    public boolean selectedWaypointIsTriggered = false;
 
     private GameObject propertyEditingObject = null;
     private Enemy propertyEditingEnemy = null;
@@ -504,42 +508,67 @@ public class MapEditorWindow extends JFrame{
 
                 if (propertyEditingObject != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))) {
                     // boolean triggered = propertyEditingObject.isTriggered;
-                    ArrayList<ArrayList<Integer>> pathListsX = new ArrayList<>();
-                    ArrayList<ArrayList<Integer>> pathListsY = new ArrayList<>();
-                    ArrayList<Boolean> isTrigList = new ArrayList<>();
-                    pathListsX.add(propertyEditingObject.pathX);
-                    pathListsY.add(propertyEditingObject.pathY);
-                    isTrigList.add(false);
+                    Rectangle startRect = new Rectangle(propertyEditingObject.currentX, propertyEditingObject.currentY - propertyEditingObject.height, propertyEditingObject.width, propertyEditingObject.height);
+                    if(startRect.contains(gamePoint)){
+                        isDraggingStartPos = true;
+                        isEditingTriggeredPath = false;
+                        selectedWaypointIndex = -1;
+                        gameCanvas.repaint();
+                        return;
+                    }
 
-                    pathListsX.add(propertyEditingObject.triggeredPathX);
-                    pathListsY.add(propertyEditingObject.triggeredPathY);
-                    isTrigList.add(true);
+                    Rectangle trigStartRect = new Rectangle(propertyEditingObject.triggeredX, propertyEditingObject.triggeredY - propertyEditingObject.height, propertyEditingObject.width, propertyEditingObject.height);
+                    if(trigStartRect.contains(gamePoint)){
+                        isDraggingTriggeredStart = true;
+                        isEditingTriggeredPath = true;
+                        selectedWaypointIndex = -1;
+                        gameCanvas.repaint();
+                        return;
+                    }
+
+                    // ArrayList<ArrayList<Integer>> pathListsX = new ArrayList<>();
+                    // ArrayList<ArrayList<Integer>> pathListsY = new ArrayList<>();
+                    // ArrayList<Boolean> isTrigList = new ArrayList<>();
+                    // pathListsX.add(propertyEditingObject.pathX);
+                    // pathListsY.add(propertyEditingObject.pathY);
+                    // isTrigList.add(false);
+
+                    // pathListsX.add(propertyEditingObject.triggeredPathX);
+                    // pathListsY.add(propertyEditingObject.triggeredPathY);
+                    // isTrigList.add(true);
 
                     // Check if clicking near an existing waypoint to drag it
                     int clickedIdx = -1;
-                    boolean foundTriggered= false;
-                    for(int listIdx = 0; listIdx < pathListsX.size(); listIdx++){
-                        ArrayList<Integer> px = pathListsX.get(listIdx);
-                        ArrayList<Integer> py = pathListsY.get(listIdx);
-                        for (int i = 0; i < px.size(); i++) {
-                            Rectangle wpRect = new Rectangle(px.get(i), py.get(i) - propertyEditingObject.height, propertyEditingObject.width, propertyEditingObject.height);
-                            if (wpRect.contains(gamePoint)) {
+                    boolean clickedTriggered = false;
+
+                    for(int i = 0; i < propertyEditingObject.pathX.size(); i++){
+                        Rectangle wpRect = new Rectangle((int)propertyEditingObject.pathX.get(i), propertyEditingObject.pathY.get(i) - propertyEditingObject.height, propertyEditingObject.width, propertyEditingObject.height);
+                        if(wpRect.contains(gamePoint)){
+                            clickedIdx = i;
+                            clickedTriggered = false;
+                            break;
+                        }
+                    }
+
+                    if(clickedIdx == -1){
+                        for(int i = 0; i < propertyEditingObject.triggeredPathX.size(); i++){
+                            Rectangle wpRect = new Rectangle(propertyEditingObject.triggeredPathX.get(i), propertyEditingObject.triggeredPathY.get(i) - propertyEditingObject.height, propertyEditingObject.width, propertyEditingObject.height);
+                            if(wpRect.contains(gamePoint)){
                                 clickedIdx = i;
-                                foundTriggered = isTrigList.get(listIdx);
+                                clickedTriggered = true;
                                 break;
                             }
                         }
-                        if(clickedIdx != -1) break;
                     }
+
 
                     if (clickedIdx != -1) {
                         isDraggingWaypoint = true;
                         activeDraggedWaypointIndex = clickedIdx;
-                        activeDraggedIsTriggered = foundTriggered;
+                        activeDraggedIsTriggered = clickedTriggered;
                         selectedWaypointIndex = clickedIdx;
-                        if(dialogSegmentDropdown != null && dialogSegmentDropdown.getItemCount() > clickedIdx){
-                            dialogSegmentDropdown.setSelectedIndex(clickedIdx);
-                        }
+                        selectedWaypointIsTriggered = clickedTriggered;
+                        isEditingTriggeredPath = clickedTriggered;
                     } 
                     gameCanvas.repaint();
                     return;
@@ -595,7 +624,8 @@ public class MapEditorWindow extends JFrame{
                         gameCanvas.repaint();
                     }
                 }
-                    
+                   
+                
                 if(SwingUtilities.isMiddleMouseButton(e)){
                     if(propertyEditingObject != null){
                         try {
@@ -681,6 +711,8 @@ public class MapEditorWindow extends JFrame{
             }
             @Override 
             public void mouseReleased(MouseEvent e){
+                isDraggingStartPos = false;
+                isDraggingTriggeredStart = false;
                 if(isDraggingWaypoint && propertyEditingObject != null){
                     isDraggingWaypoint = false;
                     if (propertyEditingObject != null && selectedWaypointIndex >= 0) {
@@ -693,21 +725,40 @@ public class MapEditorWindow extends JFrame{
         gameCanvas.addMouseMotionListener(new MouseMotionAdapter(){
             @Override 
             public void mouseDragged(MouseEvent e){
-                if (isDraggingWaypoint && propertyEditingObject != null && activeDraggedWaypointIndex >= 0) {
+                if (propertyEditingObject != null) {
                     Point gamePoint = getTransformedGamePoint(e);
                     int snapSize = gameCanvas.getTileSize();
                     int snapX = freePlace ? gamePoint.x : Math.floorDiv(gamePoint.x, snapSize) * snapSize;
                     int snapY = freePlace ? gamePoint.y : Math.floorDiv(gamePoint.y, snapSize) * snapSize;
 
-                    ArrayList<Integer> px = activeDraggedIsTriggered ? propertyEditingObject.triggeredPathX : propertyEditingObject.pathX;
-                    ArrayList<Integer> py = activeDraggedIsTriggered ? propertyEditingObject.triggeredPathY : propertyEditingObject.pathY;
-
-                    if (activeDraggedWaypointIndex < px.size()) {
-                        px.set(activeDraggedWaypointIndex, snapX);
-                        py.set(activeDraggedWaypointIndex, snapY);
-                        updatePropertyDialogTextFields();
+                    if(isDraggingStartPos){
+                        propertyEditingObject.x = snapX;
+                        propertyEditingObject.y = snapY;
+                        propertyEditingObject.currentX = snapX;
+                        propertyEditingObject.currentY = snapY;
+                        gameCanvas.repaint();
+                        return;
                     }
-                    gameCanvas.repaint();
+                    if(isDraggingTriggeredStart){
+                        propertyEditingObject.triggeredX = snapX;
+                        propertyEditingObject.triggeredY = snapY;
+                        gameCanvas.repaint();
+                        return;
+                    }
+
+
+
+                    if(isDraggingWaypoint && activeDraggedWaypointIndex >= 0){
+                        ArrayList<Integer> px = activeDraggedIsTriggered ? propertyEditingObject.triggeredPathX : propertyEditingObject.pathX;
+                        ArrayList<Integer> py = activeDraggedIsTriggered ? propertyEditingObject.triggeredPathY : propertyEditingObject.pathY;
+
+                        if (activeDraggedWaypointIndex < px.size()) {
+                            px.set(activeDraggedWaypointIndex, snapX);
+                            py.set(activeDraggedWaypointIndex, snapY);
+                            updatePropertyDialogTextFields();
+                        }
+                        gameCanvas.repaint();
+                    }
                 }
             }
 
@@ -1244,6 +1295,7 @@ public class MapEditorWindow extends JFrame{
     
     private void showPropertyConfigDialog(GameObject obj){
         this.propertyEditingObject = obj;
+        this.isEditingTriggeredPath = false;
         JDialog propDialog = new JDialog(this, "Configure Object Path & Properties", false);
         propDialog.setLayout(new BorderLayout());
         propDialog.getRootPane().setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -1290,6 +1342,22 @@ public class MapEditorWindow extends JFrame{
         formPanel.add(dialogTxtSpeedVal);
         formPanel.add(new JLabel("Value Type:"));
         formPanel.add(dialogCmbSpeedorTime);
+
+        formPanel.add(new JLabel("Movement Activation Condition:"));
+        JButton btnCycleMoveCondition = new JButton(obj.move.name().toUpperCase());
+        btnCycleMoveCondition.addActionListener(e -> {
+            if(obj.move == GameObject.movement.never){
+                obj.move = GameObject.movement.always;
+            }else if(obj.move == GameObject.movement.always){
+                obj.move = GameObject.movement.touch;
+            }else if(obj.move == GameObject.movement.touch){
+                obj.move = GameObject.movement.trigger;
+            }else{
+                obj.move = GameObject.movement.never;
+            }
+            btnCycleMoveCondition.setText(obj.move.name().toUpperCase());
+        });
+        formPanel.add(btnCycleMoveCondition);
 
         JButton btnAddPoint = new JButton("Add new Waypoint");
         JButton btnRemovePoint = new JButton("Remove current Waypoint");
@@ -1341,8 +1409,10 @@ public class MapEditorWindow extends JFrame{
 
         chkIsTriggered.addActionListener(e -> {
             editingTriggeredPath[0] = chkIsTriggered.isSelected();
+            isEditingTriggeredPath = editingTriggeredPath[0];
             refreshDropdowns[0].run();
             loadSelectedSegmentData.run();
+            gameCanvas.repaint();
         });
 
         dialogSegmentDropdown.addActionListener(e -> {
@@ -1406,8 +1476,6 @@ public class MapEditorWindow extends JFrame{
                 }
                 obj.triggeredX = Integer.parseInt(txtTriggeredX.getText().trim());
                 obj.triggeredY = Integer.parseInt(txtTriggeredY.getText().trim());
-
-
 
                 int idx = dialogSegmentDropdown.getSelectedIndex();
                 boolean triggered = editingTriggeredPath[0];

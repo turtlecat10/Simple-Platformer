@@ -543,20 +543,29 @@ public class Graphics extends JPanel implements ActionListener {
         ArrayList<Double> pSpd = triggered ? obj.triggeredPathSpeed : obj.pathSpeed;
         ArrayList<Boolean> pIsSpd = triggered ? obj.triggeredPathSpeedIsSpeed : obj.pathSpeedIsSpeed;
         // System.out.println(obj.pathX+" "+obj.pathY+" "+obj.pathSpeed+" "+obj.pathSpeedIsSpeed);
-        
-        if(px == null || px.isEmpty()) return;
 
-        int startX = triggered ? obj.triggeredX : obj.x;
-        int startY = triggered ? obj.triggeredX : obj.x;
+        int startX = triggered ? obj.triggeredX : obj.currentX;
+        int startY = triggered ? obj.triggeredY : obj.currentY;
+        Color startBoxColor = triggered ? Color.YELLOW : Color.WHITE;
+
+        System.out.println(startX +" "+startY);
+
+        int renderStartTopY = startY - obj.height;
+        g2.setColor(new Color(startBoxColor.getRed(), startBoxColor.getGreen(), startBoxColor.getBlue(), 90));
+        g2.fillRect(startX, renderStartTopY, obj.width, obj.height);
+        g2.setColor(startBoxColor);
+        g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{2f}, 0f));
+        g2.drawRect(startX, renderStartTopY, obj.width, obj.height);
+         
+        if(px == null || px.isEmpty()) return;
 
         ArrayList<Point> points = new ArrayList<>();
         points.add(new Point(startX, startY));
-        // System.out.println(Math.min(Math.min(px.size(), py.size()), Math.min(pSpd.size(), pIsSpd.size())));
-        for(int i = 0; i < Math.min(Math.min(px.size(), py.size()), Math.min(pSpd.size(), pIsSpd.size())); i++){
+        for(int i = 0; i < px.size(); i++){
             points.add(new Point(px.get(i), py.get(i)));
         }
 
-        Color wayPointOutlineColor = triggered ? Color.BLACK : Color.WHITE;
+        
         int activeIndex = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.selectedWaypointIndex : -1;
 
         Color objColor;
@@ -585,22 +594,39 @@ public class Graphics extends JPanel implements ActionListener {
             g2.setStroke(new java.awt.BasicStroke(3f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{8f}, 0f));
             g2.drawLine(p1CenterX, p1CenterY, p2CenterX, p2CenterY);
 
-            g2.setColor(wayPointOutlineColor);
+            g2.setColor(startBoxColor);
             g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0f));
             g2.drawLine(p1CenterX, p1CenterY, p2CenterX, p2CenterY);
 
+            double val = (i < pSpd.size()) ? pSpd.get(i) : 2.0;
+            boolean isSpd = (i < pIsSpd.size()) ? pIsSpd.get(i) : true;
+            String labelText = val + (isSpd ? " px/f" : " frames");
+
+            int midX = (p1CenterX + p2CenterX) / 2;
+            int midY = (p1CenterY + p2CenterY) / 2 - 10;
+
+            g2.setFont(new Font("Arial", Font.BOLD, 11));
+            FontMetrics fm = g2.getFontMetrics();
+            int textWidth = fm.stringWidth(labelText);
+
+            g2.setColor(new Color(0, 0, 0, 180));
+            g2.fillRect(midX - textWidth / 2 - 3, midY - fm.getHeight() + 2, textWidth + 6, fm.getHeight());
+            g2.setColor(Color.CYAN);
+            g2.drawString(labelText, midX - textWidth / 2, midY);
+
             int waypointIdx = i;
             int renderTopY = p2.y - obj.height;
-
             g2.setColor(new Color(objColor.getRed(), objColor.getGreen(), objColor.getBlue(), 120));
             g2.fillRect(p2.x, renderTopY, obj.width, obj.height);
 
-            if (waypointIdx == activeIndex) {
+            boolean isThisWaypointActive = (waypointIdx == activeIndex && triggered == MapEditorWindow.instance.selectedWaypointIsTriggered);
+
+            if (isThisWaypointActive) {
                 g2.setColor(Color.CYAN);
-                g2.setStroke(new java.awt.BasicStroke(2.5f));
+                g2.setStroke(new java.awt.BasicStroke(4.5f));
             } else {
-                g2.setColor(wayPointOutlineColor);
-                g2.setStroke(new java.awt.BasicStroke(1.5f));
+                g2.setColor(startBoxColor);
+                g2.setStroke(new java.awt.BasicStroke(4.5f));
             }
             g2.drawRect(p2.x, renderTopY, obj.width, obj.height);
         }
