@@ -54,6 +54,10 @@ public class MapEditorWindow extends JFrame{
     public int activeEditingMapID = 1;
     private int currentlyLoadedMapID = -1;
 
+    private long lastSegmentClickTime = 0;
+    private int lastClickedSegmentIdx = -1;
+    private boolean lastClickedIsTriggeredPath = false;
+
     private JLabel lblX, lblY, lblWidth, lblHeight, lblBrush, lblSelectedInfo, lblFreePlace;
     private JTextField txtMapID;
     private JButton btnEditProperties;
@@ -507,7 +511,79 @@ public class MapEditorWindow extends JFrame{
                 }
 
                 if (propertyEditingObject != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))) {
-                    // boolean triggered = propertyEditingObject.isTriggered;
+
+                    for(int pathType = 0; pathType < 2; pathType++){
+                        boolean isTriggered = (pathType == 1);
+                        ArrayList<Integer> px = isTriggered ? propertyEditingObject.triggeredPathX : propertyEditingObject.pathX;
+                        ArrayList<Integer> py = isTriggered ? propertyEditingObject.triggeredPathY : propertyEditingObject.pathY;
+                        ArrayList<Double> pSpd = isTriggered ? propertyEditingObject.triggeredPathSpeed : propertyEditingObject.pathSpeed;
+                        ArrayList<Boolean> pIsSpd = isTriggered ? propertyEditingObject.triggeredPathSpeedIsSpeed : propertyEditingObject.pathSpeedIsSpeed;
+
+                        if(px == null || px.isEmpty()) continue;
+
+                        int startX = isTriggered ? propertyEditingObject.triggeredX : propertyEditingObject.currentX;
+                        int startY = isTriggered ? propertyEditingObject.triggeredY : propertyEditingObject.currentY;
+
+                        ArrayList<Point> points = new ArrayList<>();
+                        points.add(new Point(startX, startY));
+                        for(int i = 0; i < Math.min(px.size(), py.size()); i++){
+                            points.add(new Point(px.get(i), py.get(i)));
+                        }
+
+                        for(int i = 0; i < points.size() - 1; i++){
+                            Point p1 = points.get(i);
+                            Point p2 = points.get(i+1);
+                            
+                            int p1CenterX = p1.x + propertyEditingObject.width / 2;
+                            int p1CenterY = (p1.y - propertyEditingObject.height) + propertyEditingObject.height / 2;
+                            int p2CenterX = p2.x + propertyEditingObject.width / 2;
+                            int p2CenterY = (p2.y - propertyEditingObject.height) + propertyEditingObject.height / 2;
+
+                            int midX = (p1CenterX + p2CenterX) / 2;
+                            int midY = (p1CenterY + p2CenterY) / 2 - 10;
+
+                            double val = (pSpd != null && i < pSpd.size()) ? pSpd.get(i) : 2.0;
+                            boolean isSpd = (pIsSpd != null && i < pIsSpd.size()) ? pIsSpd.get(i) : true;
+                            String labelText = val + (isSpd ? " px/f" : " frames");
+
+                            int boxWidth = labelText.length() * 7 + 10;
+                            int boxHeight = 16;
+                            Rectangle labelRect = new Rectangle(midX - boxWidth / 2, midY - boxHeight + 2, boxWidth, boxHeight);
+
+                            if(labelRect.contains(gamePoint)){
+                                long now = System.currentTimeMillis();
+                                if(now - lastSegmentClickTime <= 200 && lastClickedSegmentIdx == i && lastClickedIsTriggeredPath == isTriggered){
+                                    while (pSpd.size() <= i) pSpd.add(2.0);
+                                    while(pIsSpd.size() <= i) pIsSpd.add(true);
+
+                                    int splitX = midX;
+                                    if(gamePoint.x > splitX){
+                                        boolean currentMode = pIsSpd.get(i);
+                                        pIsSpd.set(i, !currentMode);
+                                    }else{
+                                        String response = JOptionPane.showInputDialog(MapEditorWindow.this, "Enter new Speed / Time value:", val);
+                                        if(response != null && !response.trim().isEmpty()){
+                                            try{
+                                                double newVal = Double.parseDouble(response.trim());
+                                                pSpd.set(i, newVal);
+                                            }catch(NumberFormatException ex){
+                                                JOptionPane.showMessageDialog(MapEditorWindow.this, "Invalid number format.");
+                                            }
+                                        }
+                                    }
+                                    updatePropertyDialogTextFields();
+                                    gameCanvas.repaint();
+                                    lastSegmentClickTime = 0;
+                                    return;
+                                }
+                                lastSegmentClickTime = now;
+                                lastClickedSegmentIdx = i;
+                                lastClickedIsTriggeredPath = isTriggered;
+                                return;
+                            }
+                        }
+                    }
+
                     Rectangle startRect = new Rectangle(propertyEditingObject.currentX, propertyEditingObject.currentY - propertyEditingObject.height, propertyEditingObject.width, propertyEditingObject.height);
                     if(startRect.contains(gamePoint)){
                         isDraggingStartPos = true;
@@ -525,17 +601,6 @@ public class MapEditorWindow extends JFrame{
                         gameCanvas.repaint();
                         return;
                     }
-
-                    // ArrayList<ArrayList<Integer>> pathListsX = new ArrayList<>();
-                    // ArrayList<ArrayList<Integer>> pathListsY = new ArrayList<>();
-                    // ArrayList<Boolean> isTrigList = new ArrayList<>();
-                    // pathListsX.add(propertyEditingObject.pathX);
-                    // pathListsY.add(propertyEditingObject.pathY);
-                    // isTrigList.add(false);
-
-                    // pathListsX.add(propertyEditingObject.triggeredPathX);
-                    // pathListsY.add(propertyEditingObject.triggeredPathY);
-                    // isTrigList.add(true);
 
                     // Check if clicking near an existing waypoint to drag it
                     int clickedIdx = -1;
@@ -704,7 +769,6 @@ public class MapEditorWindow extends JFrame{
                             }
                         }
                     }
-                    // System.out.println("ddsh");
                     gameCanvas.repaint();
                     return;
                 }

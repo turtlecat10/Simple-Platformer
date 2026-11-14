@@ -542,13 +542,10 @@ public class Graphics extends JPanel implements ActionListener {
         ArrayList<Integer> py = triggered ? obj.triggeredPathY : obj.pathY;
         ArrayList<Double> pSpd = triggered ? obj.triggeredPathSpeed : obj.pathSpeed;
         ArrayList<Boolean> pIsSpd = triggered ? obj.triggeredPathSpeedIsSpeed : obj.pathSpeedIsSpeed;
-        // System.out.println(obj.pathX+" "+obj.pathY+" "+obj.pathSpeed+" "+obj.pathSpeedIsSpeed);
 
         int startX = triggered ? obj.triggeredX : obj.currentX;
         int startY = triggered ? obj.triggeredY : obj.currentY;
         Color startBoxColor = triggered ? Color.YELLOW : Color.WHITE;
-
-        System.out.println(startX +" "+startY);
 
         int renderStartTopY = startY - obj.height;
         g2.setColor(new Color(startBoxColor.getRed(), startBoxColor.getGreen(), startBoxColor.getBlue(), 90));
