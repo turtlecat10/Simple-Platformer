@@ -202,19 +202,24 @@ public class MapEditorWindow extends JFrame{
         controlPanel.add(lblFreePlace);
         controlPanel.add(Box.createVerticalStrut(15));
 
-        Dimension enumBtnSize = new Dimension(200,28);
-        for(GameObject.Type type : GameObject.Type.values()){
-            JButton btnType = new JButton("Select " + type.name());
-            btnType.setMaximumSize(enumBtnSize);
-            btnType.setAlignmentX(Component.LEFT_ALIGNMENT);
-            btnType.addActionListener(e ->{
-                activeBrushType = type;
-                activeEnemyBrush = EnemyRegistry.NONE;
-                lblBrush.setText("Selected Brush: "+ type.name().toUpperCase());
-            });
-            controlPanel.add(btnType);
-            controlPanel.add(Box.createVerticalStrut(5));
+        String[] objectTypeNames = new String[GameObject.Type.values().length];
+        for(int i = 0; i < GameObject.Type.values().length; i++){
+            objectTypeNames[i] = GameObject.Type.values()[i].name();
         }
+        JComboBox<String> cmbObjectType = new JComboBox<>(objectTypeNames);
+        cmbObjectType.setMaximumSize(new Dimension(200, 32));
+        cmbObjectType.setAlignmentX(Component.LEFT_ALIGNMENT);
+        cmbObjectType.setSelectedItem(activeBrushType.name());
+        cmbObjectType.addActionListener(e -> {
+            String selected = (String) cmbObjectType.getSelectedItem();
+            if(selected != null){
+                activeBrushType = GameObject.Type.valueOf(selected);
+                activeEnemyBrush = EnemyRegistry.NONE;
+                lblBrush.setText("Selected Brush: "+activeBrushType.name().toUpperCase());
+            }
+        });
+        controlPanel.add(cmbObjectType);
+        controlPanel.add(Box.createVerticalStrut(5));
 
         JButton btnEnemyBrush = new JButton("Spawn Enemy");
         btnEnemyBrush.setMaximumSize(new Dimension(200, 32));
@@ -654,7 +659,7 @@ public class MapEditorWindow extends JFrame{
                         if(newEnemy != null){
                             currentEnemyList.add(newEnemy);
                         }
-                        lblBrush.setText("Selected Brush: " + activeBrushType.name().toUpperCase());
+                        lblBrush.setText("Selected Brush: ENEMY [" + activeEnemyBrush.name().toUpperCase() + "]");
                         gameCanvas.repaint();
                         return;
                     }
