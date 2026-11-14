@@ -63,6 +63,7 @@ public class FlyingEnemy extends Enemy{
         g2.drawRect(x, renderY, width, height);
     }
     public double getAngle() {return this.angle;}
+    public void setAngle(double angle){this.angle = angle;}
     public double getHomeX(){return this.homeX;}
     public double getHomeY(){ return this.homeY;}
     public double getXRange(){ return this.xRange;}

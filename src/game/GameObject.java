@@ -2,6 +2,7 @@ package src.game;
 
 import java.util.ArrayList;
 import java.awt.Rectangle;
+import java.awt.Point;
 
 public class GameObject {
     public enum Type{
@@ -21,16 +22,17 @@ public class GameObject {
         trigger,
         never
     }
-    public double lastX, lastY, deltaX, deltaY;
+    public double lastX, lastY, deltaX = 0, deltaY = 0;
     public int x, y;
     public int width, height;
     public Type type;
     public int mapID;
-    public int triggeredX, triggeredY, triggeredBy, activatesChannel;
-    public boolean isTriggered, triggeredDisplay;
-    public int time, timeElapsed;
+    public int triggeredX, triggeredY, triggeredBy = 0, activatesChannel = 0;
+    public boolean isTriggered = false, triggeredDisplay;
+    public int time, timeElapsed = 0;
     public int moveX, moveY;
     public movement move;
+    public boolean returnReverse;
     public int triggerMoveX, triggerMoveY;
     public int currentX, currentY;
 
@@ -43,10 +45,16 @@ public class GameObject {
     public ArrayList<Integer> triggeredPathY = new ArrayList<>();
     public ArrayList<Double> triggeredPathSpeed = new ArrayList<>();
     public ArrayList<Boolean> triggeredPathSpeedIsSpeed = new ArrayList<>();
+
+    public boolean initializedPathTracking = false;
+    public int currentSegmentIndex = 0;
+    public double segmentProgress = 0.0;
+    public boolean movingBackward = false;
+    public boolean isReturningFromTouch = false;
     
     public GameObject(int x, int y, int width, int height, Type type, int mapID, boolean isTriggered,
         int triggeredX, int triggeredY, boolean triggeredDisplay, int triggeredBy, int activatesChannel,
-        int time, int timeElapsed, movement move, int moveX, int moveY, int triggerMoveX, int triggerMoveY, int currentX, int currentY,
+        int time, int timeElapsed, movement move, boolean returnReverse, int moveX, int moveY, int triggerMoveX, int triggerMoveY, int currentX, int currentY,
         ArrayList<Integer> pathX, ArrayList<Integer> pathY, ArrayList<Double> pathSpeed, ArrayList<Boolean> pathSpeedIsSpeed,
         ArrayList<Integer> triggeredPathX, ArrayList<Integer> triggeredPathY, ArrayList<Double> triggeredPathSpeed, ArrayList<Boolean> triggeredPathSpeedIsSpeed){
         
@@ -65,6 +73,7 @@ public class GameObject {
         this.time = time;
         this.timeElapsed = timeElapsed;
         this.move = move;
+        this.returnReverse = returnReverse;
         this.moveX = moveX;
         this.moveY = moveY;
         this.triggerMoveX = triggerMoveX;
@@ -86,21 +95,34 @@ public class GameObject {
         if(triggeredPathSpeed != null) this.triggeredPathSpeed.addAll(triggeredPathSpeed);
         if(triggeredPathSpeedIsSpeed != null) this.triggeredPathSpeedIsSpeed.addAll(triggeredPathSpeedIsSpeed);
     }
-    public GameObject(int x, int y, int width, int height, Type type, int mapID){
-    this(x, y, width, height, type, mapID, false, x, y, true, 0, 0, 0, 0, GameObject.movement.never, x, y, x, y, x, y, 
-        new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), 
-        new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+    
+    public GameObject(int x, int y, int width, int height, Type type, int mapID) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.type = type;
+        this.mapID = mapID;
+        this.triggeredX = x;
+        this.triggeredY = y;
+        this.move = movement.never;
+        this.moveX = x;
+        this.moveY = y;
+        this.triggerMoveX = x;
+        this.triggerMoveY = y;
+        this.currentX = x;
+        this.currentY = y;
+        this.lastX = x;
+        this.lastY = y;
     }
     public void updateMovement(double playerX, double playerY, int playerSize){
-        this.lastX = this.currentX;
-        this.lastY = this.currentY;
         if(this.move == movement.never){
-            this.currentX = isTriggered ? (triggeredPathX.isEmpty() ? triggeredX : triggeredPathX.get(0)) : x;
-            this.currentY = isTriggered ? (triggeredPathY.isEmpty() ? triggeredY : triggeredPathY.get(0)) : y;
-            this.deltaX = this.currentX - this.lastX;
-            this.deltaY = this.currentY - this.lastY;
+            this.deltaX = 0;
+            this.deltaY = 0;
             return;
         }
+        this.lastX = this.currentX;
+        this.lastY = this.currentY;
 
 
         ArrayList<Integer> pX = isTriggered ? triggeredPathX : pathX;
@@ -118,6 +140,9 @@ public class GameObject {
                 points.add(new PointD(pX.get(i), pY.get(i)));
             }
         }
+        if(this.move == movement.trigger && !this.isTriggered){
+            return;
+        }
 
         if(points.size() <= 1){
             this.currentX = (int) points.get(0).x;
@@ -127,51 +152,152 @@ public class GameObject {
             return;
         }
 
-        ArrayList<Double> segmentDurations = new ArrayList<>();
-        double totalDuration = 0;
-        for(int i = 0; i < points.size(); i++){
-            PointD p1 = points.get(i);
-            PointD p2 = points.get((i+1) % points.size());
-            double dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        boolean isTouchingPlayer = (playerX + playerSize >= this.currentX && playerX <= this.currentX + this.width &&
+                                playerY + playerSize >= (this.currentY - this.height) && playerY <= this.currentY); 
 
-            double speedVal = (pSpd != null && i < pSpd.size()) ? pSpd.get(i) : 2.0;
-            boolean isSpeed = (pIsSpd != null && i < pIsSpd.size()) ? pIsSpd.get(i) : true;
+        if(this.move == movement.touch){
+            if(!isTouchingPlayer && !isReturningFromTouch){
+                return;
+            }
+        }
 
-            double duration;
-            if(isSpeed){
-                double spd = Math.max(0.1,speedVal);
-                duration = dist / spd;
+        if(!this.initializedPathTracking){
+            this.currentSegmentIndex = 0;
+            this.segmentProgress = 0.0;
+            this.movingBackward = false;
+            this.initializedPathTracking = true;
+        }
+
+
+        double direction = 1.0;
+        if(this.move == movement.touch){
+            if(isTouchingPlayer){
+                direction = 1.0;
             }else{
-                duration = Math.max(1.0, speedVal);
+                direction = -1.0;
             }
-            segmentDurations.add(duration);
-            totalDuration += duration;
         }
 
-        if(totalDuration <= 0) totalDuration = 1;
+        int segIdx = Math.min(this.currentSegmentIndex, points.size() - 2);
+        if(segIdx < 0) segIdx = 0;
 
-        timeElapsed++;
-        double currentCycleTime = timeElapsed % totalDuration;
+        PointD p1 = points.get(segIdx);
+        PointD p2 = points.get(segIdx + 1);
 
-        double accumulated = 0;
-        int activeSegment = 0;
-        double segmentProgress = 0;
-
-        for(int i = 0; i < segmentDurations.size(); i++){
-            double dur = segmentDurations.get(i);
-            if(currentCycleTime <= accumulated + dur){
-                activeSegment = i;
-                segmentProgress = (currentCycleTime - accumulated) / dur;
-                break;
-            }
-            accumulated += dur;
-        }
+        double distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        double step = 2.0;
         
-        PointD startPt = points.get(activeSegment);
-        PointD endPt = points.get((activeSegment + 1) % points.size());
+        if(pSpd != null && segIdx < pSpd.size()){
+            double val = pSpd.get(segIdx);
+            boolean isSpeed = (pIsSpd == null || segIdx >= pIsSpd.size() || pIsSpd.get(segIdx));
+            if(isSpeed){
+                step = val;
+            }else{
+                step = (val > 0) ? (distance / val) : distance;
+            }
+        }
 
-        this.currentX = (int) Math.round(startPt.x + (endPt.x - startPt.x) * segmentProgress);
-        this.currentY = (int) Math.round(startPt.y + (endPt.y - startPt.y) * segmentProgress);
+        double increment = (distance > 0) ? (step / distance) : 1.0;
+        this.segmentProgress += increment * direction;
+
+        if(this.segmentProgress >= 1.0){
+            if(segIdx >= points.size() - 2){
+                if(this.returnReverse){
+                    this.movingBackward = true;
+                    this.segmentProgress = 1.0;
+                    this.currentSegmentIndex = points.size() - 2;
+                }else{
+                    this.currentSegmentIndex = 0;
+                    this.segmentProgress = 0.0;
+                }
+            }else{
+                if(!this.movingBackward){
+                    this.currentSegmentIndex++;
+                    this.segmentProgress = 0.0;
+                }
+            }
+        }else if(this.segmentProgress <= 0.0){
+            if(this.currentSegmentIndex <= 0){
+                this.segmentProgress = 0.0;
+                this.movingBackward = false;
+            }else{
+                if(this.movingBackward){
+                    this.currentSegmentIndex--;
+                    this.segmentProgress = 1.0;
+                }
+            }
+        }
+
+        if(this.movingBackward && this.move != movement.touch){
+            segIdx = Math.min(this.currentSegmentIndex, points.size() - 2);
+            p1 = points.get(segIdx + 1);
+            p2 = points.get(segIdx);
+            double revProgress = 1.0 - this.segmentProgress;
+
+            this.lastX = this.currentX;
+            this.lastY = this.currentY;
+            this.currentX = (int) (p1.x + (p2.x - p1.x) * revProgress);
+            this.currentY = (int) (p1.y + (p2.y - p2.y) * revProgress);
+        }else{
+            segIdx = Math.min(this.currentSegmentIndex, points.size() - 2);
+            p1 = points.get(segIdx);
+            p2 = points.get(segIdx + 1);
+            double prog = Math.max(0.0, Math.min(1.0, this.segmentProgress));
+
+            this.lastX = this.currentX;
+            this.lastY = this.currentY;
+            this.currentX = (int) (p1.x + (p2.x - p1.x) * prog);
+            this.currentY = (int) (p1.y + (p2.y - p1.y) * prog);
+        }
+
+
+
+
+        // ArrayList<Double> segmentDurations = new ArrayList<>();
+        // double totalDuration = 0;
+        // for(int i = 0; i < points.size(); i++){
+        //     PointD p1 = points.get(i);
+        //     PointD p2 = points.get((i+1) % points.size());
+        //     double dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+
+        //     double speedVal = (pSpd != null && i < pSpd.size()) ? pSpd.get(i) : 2.0;
+        //     boolean isSpeed = (pIsSpd != null && i < pIsSpd.size()) ? pIsSpd.get(i) : true;
+
+        //     double duration;
+        //     if(isSpeed){
+        //         double spd = Math.max(0.1,speedVal);
+        //         duration = dist / spd;
+        //     }else{
+        //         duration = Math.max(1.0, speedVal);
+        //     }
+        //     segmentDurations.add(duration);
+        //     totalDuration += duration;
+        // }
+
+        // if(totalDuration <= 0) totalDuration = 1;
+
+        // timeElapsed++;
+        // double currentCycleTime = timeElapsed % totalDuration;
+
+        // double accumulated = 0;
+        // int activeSegment = 0;
+        // double segmentProgress = 0;
+
+        // for(int i = 0; i < segmentDurations.size(); i++){
+        //     double dur = segmentDurations.get(i);
+        //     if(currentCycleTime <= accumulated + dur){
+        //         activeSegment = i;
+        //         segmentProgress = (currentCycleTime - accumulated) / dur;
+        //         break;
+        //     }
+        //     accumulated += dur;
+        // }
+        
+        // PointD startPt = points.get(activeSegment);
+        // PointD endPt = points.get((activeSegment + 1) % points.size());
+
+        // this.currentX = (int) Math.round(startPt.x + (endPt.x - startPt.x) * segmentProgress);
+        // this.currentY = (int) Math.round(startPt.y + (endPt.y - startPt.y) * segmentProgress);
 
         this.deltaX = this.currentX - this.lastX;
         this.deltaY = this.currentY - this.lastY;
@@ -181,5 +307,15 @@ public class GameObject {
         public double x, y;
         public PointD(double x, double y){this.x = x; this.y = y;}
     }
+    public void resetToStart(){
+        this.timeElapsed = 0;
+        this.deltaX = 0;
+        this.deltaY = 0;
 
+        this.initializedPathTracking = false;
+        this.currentSegmentIndex = 0;
+        this.segmentProgress = 0.0;
+        this.movingBackward = false;
+        this.isReturningFromTouch = false;
+    }
 }

@@ -359,6 +359,12 @@ public class MapEditorWindow extends JFrame{
                 btnFreePlace.setEnabled(false);
                 btnNew.setEnabled(false);
                 btnSelectLevelMenu.setEnabled(false);
+                for(Enemy enemy : gameCanvas.getMovement().getEnemies()){
+                    if(enemy instanceof FlyingEnemy){
+                        FlyingEnemy fe = (FlyingEnemy) enemy;
+                        fe.setAngle(0);
+                    }
+                }
                 gameCanvas.requestFocusInWindow();
                 gameCanvas.getMovement().resetTriggerTrackingState();
             }catch (Exception ex){}
@@ -381,6 +387,7 @@ public class MapEditorWindow extends JFrame{
                     obj.lastY = obj.y;
                     obj.deltaX = 0;
                     obj.deltaY = 0;
+                    obj.resetToStart();
                 }
             }
             ArrayList<Enemy> allEnemies = gameCanvas.getMovement().getEnemies();
@@ -552,7 +559,7 @@ public class MapEditorWindow extends JFrame{
 
                             if(labelRect.contains(gamePoint)){
                                 long now = System.currentTimeMillis();
-                                if(now - lastSegmentClickTime <= 200 && lastClickedSegmentIdx == i && lastClickedIsTriggeredPath == isTriggered){
+                                if(now - lastSegmentClickTime <= 500 && lastClickedSegmentIdx == i && lastClickedIsTriggeredPath == isTriggered){
                                     while (pSpd.size() <= i) pSpd.add(2.0);
                                     while(pIsSpd.size() <= i) pIsSpd.add(true);
 
@@ -913,6 +920,7 @@ public class MapEditorWindow extends JFrame{
                     int time = 0, timeElapsed = 0, moveX = 0, moveY = 0, triggerMoveX = 0, triggerMoveY = 0;
                     GameObject.Type type = GameObject.Type.solid;
                     GameObject.movement move = GameObject.movement.never;
+                    boolean returnReverse = false;
 
                     ArrayList<Integer> pX = new ArrayList<>();
                     ArrayList<Integer> pY = new ArrayList<>();
@@ -947,6 +955,7 @@ public class MapEditorWindow extends JFrame{
                             case "time": time = Integer.parseInt(val); break;
                             case "timeElapsed": timeElapsed = Integer.parseInt(val); break;
                             case "move": move = GameObject.movement.valueOf(val); break;
+                            case "returnReverse" : returnReverse = Boolean.parseBoolean(val); break;
                             case "moveX": moveX = Integer.parseInt(val); break;
                             case "moveY": moveY = Integer.parseInt(val); break;
                             case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
@@ -982,7 +991,7 @@ public class MapEditorWindow extends JFrame{
                     if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
 
                     masterList.add(new GameObject(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY, 
-                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, moveX, moveY, triggerMoveX, triggerMoveY, x, y,
+                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, returnReverse, moveX, moveY, triggerMoveX, triggerMoveY, x, y,
                         pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
                 }
             }
@@ -1002,12 +1011,12 @@ public class MapEditorWindow extends JFrame{
                 String jsonStr = String.format(
                     "{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"type\":\"%s\", \"mapID\":%d, \"isTriggered\":%b, " +
                     "\"triggeredX\":%d, \"triggeredY\":%d, \"triggeredDisplay\":%b, \"triggeredBy\":%d, \"activatesChannel\":%d, " +
-                    "\"time\":%d, \"timeElapsed\":%d, \"move\":\"%s\", \"moveX\":%d, \"moveY\":%d, \"triggerMoveX\":%d, \"triggerMoveY\":%d, " +
+                    "\"time\":%d, \"timeElapsed\":%d, \"move\":\"%s\", \"returnReverse\":%b, \"moveX\":%d, \"moveY\":%d, \"triggerMoveX\":%d, \"triggerMoveY\":%d, " +
                     "\"pathX\":%s, \"pathY\":%s, \"pathSpeed\":%s, \"pathSpeedIsSpeed\":%s, " +
                     "\"triggeredPathX\":%s, \"triggeredPathY\":%s, \"triggeredPathSpeed\":%s, \"triggeredPathSpeedIsSpeed\":%s}", 
                     obj.x, obj.y, obj.width, obj.height, obj.type.name(), obj.mapID, obj.isTriggered, 
                     obj.triggeredX, obj.triggeredY, obj.triggeredDisplay, obj.triggeredBy, obj.activatesChannel,
-                    obj.time, obj.timeElapsed, obj.move.name(), obj.moveX, obj.moveY, obj.triggerMoveX, obj.triggerMoveY,
+                    obj.time, obj.timeElapsed, obj.move.name(),obj.returnReverse, obj.moveX, obj.moveY, obj.triggerMoveX, obj.triggerMoveY,
                     obj.pathX.toString(), obj.pathY.toString(), obj.pathSpeed.toString(), obj.pathSpeedIsSpeed.toString(),
                     obj.triggeredPathX.toString(), obj.triggeredPathY.toString(), obj.triggeredPathSpeed.toString(), obj.triggeredPathSpeedIsSpeed.toString()
                 );
@@ -1067,6 +1076,7 @@ public class MapEditorWindow extends JFrame{
                     int time = 0, timeElapsed = 0, moveX = 0, moveY = 0, triggerMoveX = 0, triggerMoveY = 0;
                     GameObject.Type type = GameObject.Type.solid;
                     GameObject.movement move = GameObject.movement.never;
+                    boolean returnReverse = false;
 
                     ArrayList<Integer> pX = new ArrayList<>();
                     ArrayList<Integer> pY = new ArrayList<>();
@@ -1101,6 +1111,7 @@ public class MapEditorWindow extends JFrame{
                             case "time": time = Integer.parseInt(val); break;
                             case "timeElapsed": timeElapsed = Integer.parseInt(val); break;
                             case "move": move = GameObject.movement.valueOf(val); break;
+                            case "returnReverse" : returnReverse = Boolean.parseBoolean(val); break;
                             case "moveX": moveX = Integer.parseInt(val); break;
                             case "moveY": moveY = Integer.parseInt(val); break;
                             case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
@@ -1136,7 +1147,7 @@ public class MapEditorWindow extends JFrame{
                     if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
                     
                     loadedObjects.add(new GameObject(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY,
-                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, moveX, moveY, triggerMoveX, triggerMoveY, x, y,
+                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, returnReverse, moveX, moveY, triggerMoveX, triggerMoveY, x, y,
                         pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
                 }
             }
@@ -1234,16 +1245,19 @@ public class MapEditorWindow extends JFrame{
             for(int i = 0; i < masterEnemyList.size(); i++){
                 Enemy e = masterEnemyList.get(i);
                 String jsonStr;
+
+                double initialSpeed = (e instanceof FlyingEnemy) ? ((FlyingEnemy) e).getXSpeed() : e.velX;
+
                 if(e instanceof FlyingEnemy){
                     FlyingEnemy fe = (FlyingEnemy) e;
                     jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"mapID\":%d, \"type\":\"%s\"}", 
-                       e.startX, e.startY, e.width, e.height, e.velX, fe.getXRange(), fe.getYRange(), e.mapID, e.type);
+                       e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.mapID, e.type);
                 }else if(e instanceof JumpingEnemy){
                     JumpingEnemy je = (JumpingEnemy) e;
                     jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"mapID\":%d, \"type\":\"%s\"}", 
-                       e.startX, e.startY, e.width, e.height, e.velX, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.mapID, e.type);
+                       e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.mapID, e.type);
                 }else{
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"mapID\":%d, \"type\":\"%s\"}", e.startX, e.startY, e.width, e.height, e.velX, e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"mapID\":%d, \"type\":\"%s\"}", e.startX, e.startY, e.width, e.height, initialSpeed, e.mapID, e.type);
                 }
                 writer.write(" " + jsonStr);
                 if(i < masterEnemyList.size() - 1) writer.write(",\n");
@@ -1423,6 +1437,14 @@ public class MapEditorWindow extends JFrame{
         });
         formPanel.add(btnCycleMoveCondition);
 
+        formPanel.add(new JLabel("Waypoint Return Style:"));
+        JToggleButton btnReturnStyle = new JToggleButton(obj.returnReverse ? "Reverse Through Waypoints" : "Direct Return to Start", obj.returnReverse);
+        btnReturnStyle.addActionListener(e -> {
+            obj.returnReverse = btnReturnStyle.isSelected();
+            btnReturnStyle.setText(obj.returnReverse ? "Reverse Through Waypoints" : "Direct Return to Start");
+        });
+        formPanel.add(btnReturnStyle);
+
         JButton btnAddPoint = new JButton("Add new Waypoint");
         JButton btnRemovePoint = new JButton("Remove current Waypoint");
         formPanel.add(btnAddPoint);
@@ -1486,6 +1508,14 @@ public class MapEditorWindow extends JFrame{
                 gameCanvas.repaint();
             }
         });
+
+        formPanel.add(new JLabel("Visible / Tangible When Triggered:"));
+        JToggleButton btnToggleDisplay = new JToggleButton(obj.triggeredDisplay ? "TRUE (Stay Visible)" : "FALSE (Disappear / Intangible)", obj.triggeredDisplay);
+        btnToggleDisplay.addActionListener(e -> {
+            obj.triggeredDisplay = btnToggleDisplay.isSelected();
+            btnToggleDisplay.setText(obj.triggeredDisplay ? "TRUE (Stay Visible)": "FALSE (Disappear / Intangible)");
+        });
+        formPanel.add(btnToggleDisplay);
 
         btnAddPoint.addActionListener(e -> {
             boolean triggered = editingTriggeredPath[0];

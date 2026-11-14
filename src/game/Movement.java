@@ -128,6 +128,7 @@ public class Movement {
                         obj.timeElapsed = 0;
                         obj.currentX = obj.x;
                         obj.currentY = obj.y;
+                        obj.resetToStart();
                     }
                 }
             }
@@ -140,6 +141,10 @@ public class Movement {
                 if(enemy.mapID == currentMap){
                     enemy.x = enemy.startX;
                     enemy.y = enemy.startY;
+                    if(enemy instanceof FlyingEnemy){
+                        FlyingEnemy fe = (FlyingEnemy) enemy;
+                        fe.setAngle(0);
+                    }
                     enemy.velY = 0;
                     enemy.isGrounded = false;
                 }
