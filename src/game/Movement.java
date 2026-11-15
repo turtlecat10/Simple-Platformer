@@ -3,34 +3,22 @@ import java.awt.Rectangle;
 import java.util.ArrayList;
 
 public class Movement {
-    private final int tileSize;
-    private final int worldWidth;
-    private final int worldHeight;
-    private final int playerSpeed;
-    private final ArrayList<GameObject> objects;
-    private final ArrayList<Enemy> enemies = new ArrayList<>();
+
+    //player
     private final int playerSize;
-    private final java.util.HashSet<GameObject> savedCheckpointTriggeredObjects = new java.util.HashSet<>();
-    private final java.util.HashSet<GameObject> sessionTriggeredObjects = new java.util.HashSet<>();
-
-    public GameObject platformRidden = null;
-
-    private double platformCarriageX = 0;
-    private double platformCarriageY = 0;
-    // Tracking position (bottom-left corner)
     private int spawnX;
     private int spawnY;
     private double playerX;
     private double playerY;
-
-    // Inputs 
-    private boolean left, right, up, down, zoom, dash, reset;
-
+    private final int playerSpeed;
     private double velocityX = 0;
     private double velocityY = 0;
     private final double terminalVelocity = 20;
     private double currentVelocityX = 0.0;
 
+    // Inputs 
+    private boolean left, right, up, down, zoom, dash, reset;
+    
     // Dashing
     private final int dashDuration = 10;
     private final int dashCooldown = 45;
@@ -51,19 +39,38 @@ public class Movement {
     private boolean isJumping = false;
     private boolean isGrounded = false;
     private boolean isDroppingThrough = false;
-
+    
+    //ladder
     private boolean isOnLadder = false;
     private int ladderGraceFrames = 0;
     private final int maxLadderGrace = 6;
+
+    //moving platforms
+    public GameObject platformRidden = null;
+    private double platformCarriageX = 0;
+    private double platformCarriageY = 0;
+    
+    //deathcount
+    private int deathCount = 0;
+    private int respawnTimerFrames = 0;
+    public boolean isDead = false;
+    
+    //world building
+    private final int tileSize;
+    private final int worldWidth;
+    private final int worldHeight;
+
+    
+    //object + enemy tracking
+    private final ArrayList<GameObject> objects;
+    private final ArrayList<Enemy> enemies = new ArrayList<>();
+    private final java.util.HashSet<GameObject> savedCheckpointTriggeredObjects = new java.util.HashSet<>();
+    private final java.util.HashSet<GameObject> sessionTriggeredObjects = new java.util.HashSet<>();
     
     // FPS Tracking
     private int totalframes = 0;
     private int fps = 0;
     private long lastFrameCheck = System.nanoTime();
-
-    private int deathCount = 0;
-    private int respawnTimerFrames = 0;
-    public boolean isDead = false;
      
     public Movement(int tileSize, int worldWidth, int worldHeight, ArrayList<GameObject> objects, int startGridX, int startGridY, int speed){
         this.tileSize = tileSize;
@@ -77,6 +84,7 @@ public class Movement {
         this.playerY = startGridY * tileSize;
     }
     
+    //game loop
     public void update(int currentMap){
         totalframes++;
         if(System.nanoTime() - lastFrameCheck >= 1_000_000_000L){
@@ -113,44 +121,7 @@ public class Movement {
         }
     }
     
-    private void triggerDeathSequence(int currentMap){
-        if(!isDead){
-            isDead = true;
-            respawnTimerFrames = 0;
-            deathCount++;
-            if (objects != null) {
-                for (GameObject obj : objects) {
-                    if (obj.mapID == currentMap) {
-                        if (obj.isTriggered && !savedCheckpointTriggeredObjects.contains(obj)) {
-                            obj.isTriggered = false;
-                        }
-                        obj.timeElapsed = 0;
-                        obj.currentX = obj.x;
-                        obj.currentY = obj.y;
-                        obj.resetToStart();
-                    }
-                }
-            }
-            sessionTriggeredObjects.clear();
-            sessionTriggeredObjects.addAll(savedCheckpointTriggeredObjects);
-            if(MapEditorWindow.instance != null && MapEditorWindow.instance.gameCanvas != null){
-                MapEditorWindow.instance.gameCanvas.spawnDeathExplosion((int)this.playerX, (int)this.playerY - playerSize);
-            }
-            for(Enemy enemy : enemies){
-                if(enemy.mapID == currentMap){
-                    enemy.x = enemy.startX;
-                    enemy.y = enemy.startY;
-                    if(enemy instanceof FlyingEnemy){
-                        FlyingEnemy fe = (FlyingEnemy) enemy;
-                        fe.setAngle(0);
-                    }
-                    enemy.velY = 0;
-                    enemy.isGrounded = false;
-                }
-            }
-        }
-    }
-    
+    //movement update
     private void jump(){
         if(isGrounded){
             hasDoubleJumped = false;
@@ -513,6 +484,7 @@ public class Movement {
         checkGroundStatus(currentMap);
     }
 
+    //object movement
     private void resolveSafePlatformPush(GameObject movingPlatform, int currentMap){
         int playerLeft = (int) Math.round(playerX);
         int playerRight = (int) Math.round(playerX + playerSize);
@@ -587,28 +559,7 @@ public class Movement {
         }
     }
     
-    public void setInitialSpawn(int x, int y){
-        this.spawnX = x;
-        this.spawnY = y;
-        this.playerX = x;
-        this.playerY = y;
-        
-        this.velocityY = 0;
-        this.isGrounded = true;
-        this.isDroppingThrough = false;
-        this.hasDoubleJumped = false;
-    }
-    
-    public void respawnPlayer(int gridX, int gridY){
-        this.playerX = spawnX;
-        this.playerY = spawnY;
-        this.velocityY = 0;
-        this.isGrounded = false;
-        this.dashAble = false;
-        this.isJumping = false;
-        this.isDroppingThrough = false;
-    }
-        
+    //collision checks
     private ArrayList<GameObject> checkCornerCollision(int startX, int startY, int endX, int endY, int currentMap){
         ArrayList<GameObject> objColliding = new ArrayList<>();
         
@@ -744,23 +695,87 @@ public class Movement {
             }
         }
     }
+    
+    //player death handling
+    public void respawnPlayer(int gridX, int gridY){
+        this.playerX = spawnX;
+        this.playerY = spawnY;
+        this.velocityY = 0;
+        this.isGrounded = false;
+        this.dashAble = false;
+        this.isJumping = false;
+        this.isDroppingThrough = false;
+    }
+     
+    private void triggerDeathSequence(int currentMap){
+        if(!isDead){
+            isDead = true;
+            respawnTimerFrames = 0;
+            deathCount++;
+            if (objects != null) {
+                for (GameObject obj : objects) {
+                    if (obj.mapID == currentMap) {
+                        if (obj.isTriggered && !savedCheckpointTriggeredObjects.contains(obj)) {
+                            obj.isTriggered = false;
+                        }
+                        obj.timeElapsed = 0;
+                        obj.currentX = obj.x;
+                        obj.currentY = obj.y;
+                        obj.resetToStart();
+                    }
+                }
+            }
+            sessionTriggeredObjects.clear();
+            sessionTriggeredObjects.addAll(savedCheckpointTriggeredObjects);
+            if(MapEditorWindow.instance != null && MapEditorWindow.instance.gameCanvas != null){
+                MapEditorWindow.instance.gameCanvas.spawnDeathExplosion((int)this.playerX, (int)this.playerY - playerSize);
+            }
+            for(Enemy enemy : enemies){
+                if(enemy.mapID == currentMap){
+                    enemy.x = enemy.startX;
+                    enemy.y = enemy.startY;
+                    if(enemy instanceof FlyingEnemy){
+                        FlyingEnemy fe = (FlyingEnemy) enemy;
+                        fe.setAngle(0);
+                    }
+                    enemy.velY = 0;
+                    enemy.isGrounded = false;
+                }
+            }
+        }
+    }
 
-    public void setLeft(boolean pressed) {this.left = pressed;}
-    public void setRight(boolean pressed) {this.right = pressed;}
-    public void setUp(boolean pressed) {this.up = pressed;}
-    public void setDown(boolean pressed) {this.down = pressed;}
-    public void setZoom(boolean pressed) {this.zoom = pressed;}
-    public void setDash(boolean pressed) {this.dash = pressed;}
-    public void setReset(boolean pressed) {this.reset = pressed;}
+    //spawning
+    public void setInitialSpawn(int x, int y){
+        this.spawnX = x;
+        this.spawnY = y;
+        this.playerX = x;
+        this.playerY = y;
+        
+        this.velocityY = 0;
+        this.isGrounded = true;
+        this.isDroppingThrough = false;
+        this.hasDoubleJumped = false;
+    }
+    
+    //inputs
+    public void setLeft(boolean pressed) { this.left = pressed;}
+    public void setRight(boolean pressed) { this.right = pressed;}
+    public void setUp(boolean pressed) { this.up = pressed;}
+    public void setDown(boolean pressed) { this.down = pressed;}
+    public void setZoom(boolean pressed) { this.zoom = pressed;}
+    public void setDash(boolean pressed) { this.dash = pressed;}
+    public void setReset(boolean pressed) { this.reset = pressed;}
 
+    //getters + setters
     public int getPlayerSize(){ return playerSize;}
-    public int getPlayerX() { return (int)playerX; }
-    public int getPlayerY() { return (int)playerY; }
-    public double getVelocityY() { return velocityY; }
-    public void setVelocityY(double val) { this.velocityY = val; }
-    public boolean isGrounded() { return isGrounded; }
-    public int getFps() { return fps; }
-    public int getDeathCount(){ return this.deathCount; }
+    public int getPlayerX() { return (int)playerX;}
+    public int getPlayerY() { return (int)playerY;}
+    public double getVelocityY() { return velocityY;}
+    public void setVelocityY(double val) { this.velocityY = val;}
+    public boolean isGrounded() { return isGrounded;}
+    public int getFps() { return fps;}
+    public int getDeathCount(){ return this.deathCount;}
     public void setDeathCount(int num){ this.deathCount = num;}
 
     public void resetTriggerTrackingState() {

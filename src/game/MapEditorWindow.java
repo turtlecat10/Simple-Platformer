@@ -6,23 +6,31 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 public class MapEditorWindow extends JFrame{
-
+    //saving
     private final String externalSavePath = "src/levels.json";
     private final String externalEnemySavePath = "src/enemies.json";
 
+    //stuff
     public Graphics gameCanvas;
     private JPanel controlPanel;
+    public static MapEditorWindow instance;
 
+    //selected thing
     private GameObject selectedObject = null;
     private Enemy selectedEnemy = null;
+
+    //mouse point
     private Point bottomLeftCorner = null;
     private Point currentHoverPoint = null;
     private Point pathHoverPoint = null;
 
+    //moving waypoints
     public int selectedWaypointIndex = -1;
     private boolean isDraggingWaypoint = false;
     private int activeDraggedWaypointIndex = -1;
     private boolean activeDraggedIsTriggered = false;
+
+    //object editing
     private JTextField dialogTxtX, dialogTxtY, dialogTxtSpeedVal;
     private JComboBox<String> dialogCmbSpeedorTime;
     private JComboBox<String> dialogSegmentDropdown;
@@ -30,42 +38,26 @@ public class MapEditorWindow extends JFrame{
     private boolean isDraggingTriggeredStart = false;
     public boolean isEditingTriggeredPath = false;
     public boolean selectedWaypointIsTriggered = false;
-
     private GameObject propertyEditingObject = null;
-    private Enemy propertyEditingEnemy = null;
-    private int highlightedBroadcastChannel = 0;
-
     private JDialog propertyDialog = null;
     private JTextField txtTriggeredBy, txtActivatesChannel;
     private JToggleButton btnToggleDisplay;
-
-    private JDialog enemyProperty = null;
-    private JTextField txtSpeed, txtWidth, txtHeight;
-    private JComboBox<String> enemyTypeDropdown;
-    private JOptionPane enemyTypes;
-
-    private JTextField txtTimeLimit;
-    private enum PathClickMode { NONE, OSCILLATION, TRIGGERED_MOVE, OSCILLATE_AFTER_TRIGGER}
-    private PathClickMode currentPathClickMode = PathClickMode.NONE;
-
-    private EnemyRegistry activeEnemyBrush = EnemyRegistry.NONE;
-
     private GameObject.Type activeBrushType = GameObject.Type.solid;
     public int activeEditingMapID = 1;
     private int currentlyLoadedMapID = -1;
+    private int highlightedBroadcastChannel = 0;
 
+    //sidebar
     private long lastSegmentClickTime = 0;
     private int lastClickedSegmentIdx = -1;
     private boolean lastClickedIsTriggeredPath = false;
-
     private JLabel lblX, lblY, lblWidth, lblHeight, lblBrush, lblSelectedInfo, lblFreePlace;
     private JTextField txtMapID;
     private JButton btnEditProperties;
-
     private JPanel mainContentCardContainer;
     private CardLayout windowLayoutSwitcher;
     private JPanel levelGridMenuPanel;
-
+    //buttons
     private boolean freePlace;
     private JButton btnDelete = new JButton("delete");
     private JButton btnPlay = new JButton("Play");
@@ -75,14 +67,25 @@ public class MapEditorWindow extends JFrame{
     private JButton btnFreePlace = new JButton("Free place");
     private JButton btnNew = new JButton("New map");
     private JButton btnSelectLevelMenu = new JButton("Browse Levels");
+    
+    //enemy editing
+    private Enemy propertyEditingEnemy = null;
+    private JDialog enemyProperty = null;
+    private JTextField txtSpeed, txtWidth, txtHeight;
+    private JComboBox<String> enemyTypeDropdown;
+    private JOptionPane enemyTypes;
+    private JTextField txtTimeLimit;
+    private enum PathClickMode { NONE, OSCILLATION, TRIGGERED_MOVE, OSCILLATE_AFTER_TRIGGER}
+    private PathClickMode currentPathClickMode = PathClickMode.NONE;
+    private EnemyRegistry activeEnemyBrush = EnemyRegistry.NONE;
 
-
+    //camera
     public int cameraX = 0;
     public int cameraY = 0;
     private final int cameraSpeed = 16;
     private boolean camLeft = false, camRight = false, camUp = false, camDown = false;
     private Timer editorCamTimer;
-    public static MapEditorWindow instance;
+    
 
     public MapEditorWindow(){
         instance = this;
@@ -148,16 +151,7 @@ public class MapEditorWindow extends JFrame{
         gameCanvas.requestFocusInWindow();
     }
     
-    public static void win() {
-        if (instance == null) return;
-        instance.gameCanvas.setEditorMode(true);
-        instance.gameCanvas.setCameraX(0);
-        instance.gameCanvas.setCameraY(0);
-        instance.btnPlay.setEnabled(true);
-        instance.btnExit.setEnabled(false);
-        JOptionPane.showMessageDialog(instance, "Level Complete! You Win!", "Victory!", JOptionPane.INFORMATION_MESSAGE);
-    }
-
+    //creating sidebar
     private void createControlBar(){
         controlPanel = new JPanel();
         controlPanel.setLayout(new BoxLayout(controlPanel, BoxLayout.Y_AXIS));
@@ -500,6 +494,7 @@ public class MapEditorWindow extends JFrame{
         return new Point(virtualMouseX + gameCanvas.getCameraX(), virtualMouseY + gameCanvas.getCameraY());
     }
     
+    //handling clicking
     private void setupEditorClickEngine(){
         if(gameCanvas == null) return;
 
@@ -891,6 +886,7 @@ public class MapEditorWindow extends JFrame{
         });
     }
     
+    //saving + loading objects
     private void saveMapManual(ArrayList<GameObject> currentEditingObjects, String filePath){
         ArrayList<GameObject> masterList = new ArrayList<>();
         java.io.File file = new java.io.File(filePath);
@@ -1184,6 +1180,7 @@ public class MapEditorWindow extends JFrame{
         }
     }
 
+    //saving + loading enemies
     private void saveEnemiesManual(ArrayList<Enemy> currentEditingEnemies, String filePath){
         ArrayList<Enemy> masterEnemyList = new ArrayList<>();
         java.io.File file = new java.io.File(filePath);
@@ -1368,20 +1365,13 @@ public class MapEditorWindow extends JFrame{
         }
     }
 
+    //clearing points
     public void clearSelectionPoints() {
         this.bottomLeftCorner = null;
         this.selectedObject = null;
         this.selectedEnemy = null;
         if (this.btnDelete != null) this.btnDelete.setEnabled(false);
         if (this.gameCanvas != null) this.gameCanvas.repaint();
-    }
-
-    public void updateMapIDField(String text){
-        if(txtMapID != null) txtMapID.setText(text);
-    }
-    
-    public void setCurrentlyLoadedMapID(int id){
-        this.currentlyLoadedMapID = id;
     }
     
     public void restoreGameView(){
@@ -1397,6 +1387,7 @@ public class MapEditorWindow extends JFrame{
         }
     }
     
+    //editing objects
     private void showPropertyConfigDialog(GameObject obj){
         this.propertyEditingObject = obj;
         this.isEditingTriggeredPath = false;
@@ -1634,6 +1625,7 @@ public class MapEditorWindow extends JFrame{
         propDialog.setVisible(true);
     }
 
+    //editing enemies
     private void showEnemyConfigDialog(Enemy enemy){
         this.propertyEditingEnemy = enemy;
         
@@ -1819,6 +1811,7 @@ public class MapEditorWindow extends JFrame{
         enemyProperty.setVisible(true);
     }
     
+    //for map button
     public int getNextUnusedMapID(){
         int highestID = 1;
         boolean found = false;
@@ -1861,22 +1854,41 @@ public class MapEditorWindow extends JFrame{
         }
     }
 
-    public int getCameraX(){return this.cameraX;}
-    public int getCameraY(){return this.cameraY;}
-    public void setCamLeft(boolean state) { this.camLeft = state; }
-    public void setCamRight(boolean state) { this.camRight = state; }
-    public void setCamUp(boolean state) { this.camUp = state; }
-    public void setCamDown(boolean state) { this.camDown = state; }
+    //handling winning
+    public static void win() {
+        if (instance == null) return;
+        instance.gameCanvas.setEditorMode(true);
+        instance.gameCanvas.setCameraX(0);
+        instance.gameCanvas.setCameraY(0);
+        instance.btnPlay.setEnabled(true);
+        instance.btnExit.setEnabled(false);
+        JOptionPane.showMessageDialog(instance, "Level Complete! You Win!", "Victory!", JOptionPane.INFORMATION_MESSAGE);
+    }
 
-    public Point getBottomLeftCorner(){return this.bottomLeftCorner;}
-    public Point getCurrentHoverPoint(){return this.currentHoverPoint;}
+    public void updateMapIDField(String text){ if(txtMapID != null) txtMapID.setText(text);}
+    public void setCurrentlyLoadedMapID(int id){ this.currentlyLoadedMapID = id;}
+    
+    //camera
+    public int getCameraX(){ return this.cameraX;}
+    public int getCameraY(){ return this.cameraY;}
+    public void setCamLeft(boolean state) { this.camLeft = state;}
+    public void setCamRight(boolean state) { this.camRight = state;}
+    public void setCamUp(boolean state) { this.camUp = state;}
+    public void setCamDown(boolean state) { this.camDown = state;}
+
+    //points
+    public Point getBottomLeftCorner(){ return this.bottomLeftCorner;}
+    public Point getCurrentHoverPoint(){ return this.currentHoverPoint;}
+    public Point getPathHoverPoint() { return this.pathHoverPoint;}
+
+    //object editing
     public GameObject.Type getActiveBrushType(){ return this.activeBrushType;}
-    public GameObject getPropertyEditingObject(){ return this.propertyEditingObject; }
-    public int getHighlightedBroadcastChannel(){ return this.highlightedBroadcastChannel; }
+    public GameObject getPropertyEditingObject(){ return this.propertyEditingObject;}
+    public int getHighlightedBroadcastChannel(){ return this.highlightedBroadcastChannel;}
 
-    public Point getPathHoverPoint() { return this.pathHoverPoint; }
-    public String getCurrentPathClickModeName() { return this.currentPathClickMode.name(); }
-    public boolean isSettingPathMode() { return this.currentPathClickMode != PathClickMode.NONE; }
+    
+    public String getCurrentPathClickModeName() { return this.currentPathClickMode.name();}
+    public boolean isSettingPathMode() { return this.currentPathClickMode != PathClickMode.NONE;}
 
     public Enemy getSelectedEnemy(){ return this.selectedEnemy;}
 }
