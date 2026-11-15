@@ -356,7 +356,33 @@ public class Graphics extends JPanel implements ActionListener {
         }
         
         Enemy currentSelected = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.getSelectedEnemy() : null;
-        if(this.isEditorMode && currentSelected instanceof FlyingEnemy && currentSelected.mapID == mapID){
+        if(currentSelected != null && currentSelected.hasPathfinding && this.isEditorMode && currentSelected instanceof FlyingEnemy){
+            FlyingEnemy fe = (FlyingEnemy) currentSelected;
+
+            g2.setColor(new Color(0, 191, 255, 150));
+            g2.setStroke(new java.awt.BasicStroke(1.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
+
+            double simX = fe.x;
+            double simY = fe.y;
+
+            Point prevPt = new Point((int) simX + fe.width / 2, (int) simY - fe.height / 2);
+
+            for(int frame = 0; frame < 300; frame += 1){
+                double dx = getMovement().getPlayerX() - simX;
+                double dy = getMovement().getPlayerY() - simY;
+                double dist = Math.hypot(dx, dy);
+                if(dist> 1){
+                    simX += (dx / dist) * Math.abs(fe.getXSpeed() * 15) * 0.5;
+                    simY += (dy / dist) * Math.abs(fe.getYSpeed() * 15) * 0.5;
+                }
+                Point nextPt = new Point((int) simX + fe.width / 2, (int) simY - fe.height / 2);
+                g2.drawLine(prevPt.x, prevPt.y, nextPt.x, nextPt.y);
+                prevPt = nextPt;
+            }
+            
+
+
+        }else if(this.isEditorMode && currentSelected instanceof FlyingEnemy && currentSelected.mapID == mapID){
             FlyingEnemy fe = (FlyingEnemy) currentSelected;
 
             g2.setColor(new Color(0, 191, 255, 150));

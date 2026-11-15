@@ -15,7 +15,6 @@ public class Movement {
 
     public GameObject platformRidden = null;
 
-
     private double platformCarriageX = 0;
     private double platformCarriageY = 0;
     // Tracking position (bottom-left corner)
