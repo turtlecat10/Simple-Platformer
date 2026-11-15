@@ -12,6 +12,7 @@ public abstract class Enemy {
     public int mapID;
     public boolean isGrounded;
     public String type;
+    public boolean hasPathfinding = false;
 
     public Enemy(int x, int y, int width, int height, int mapID, double velX){
         this.x = x;
@@ -26,7 +27,7 @@ public abstract class Enemy {
         this.isGrounded = false;
     }
     
-    public abstract void aiTick(ArrayList<GameObject> objects);
+    public abstract void aiTick(ArrayList<GameObject> objects, double playerX, double playerY);
 
     public abstract void draw(Graphics2D g2);
 
@@ -87,6 +88,7 @@ public abstract class Enemy {
             }
         }
     }
+    
     protected void handleWallBump(){
 
     }

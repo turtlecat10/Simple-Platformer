@@ -25,7 +25,23 @@ public class JumpingEnemy extends Enemy{
         this.jumpTimerFrames = 0;
     }
     @Override
-    public void aiTick(ArrayList<GameObject> objects){
+    public void aiTick(ArrayList<GameObject> objects, double playerX, double playerY){
+        if(hasPathfinding){
+            double dx = playerX - this.x;
+            if(Math.abs(dx) > 5){
+                this.velX = Math.signum(dx) * Math.abs(this.velX);
+            }
+            if(this.isGrounded){
+                this.jumpTimerFrames++;
+                if(this.jumpTimerFrames >= this.nextJumpInterval || Math.abs(dx) < 200 && playerY < this.y){
+                    this.velY = jumpHeight;
+                    this.isGrounded = false;
+                    resetJumpInterval();
+                }
+            }
+            updatePhysics(objects);
+            return;
+        }
         if(this.x <= 0) this.velX = Math.abs(this.velX);
 
         if(this.isGrounded){

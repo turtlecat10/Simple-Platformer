@@ -635,4 +635,5 @@ public class Graphics extends JPanel implements ActionListener {
     public boolean getOriginalEditorModeStatus(){return this.isEditorMode;}
     public boolean isEditorMode(){return this.isEditorMode;}
     public Movement getMovement(){ return this.movement; }
+    public int getCurrentMap(){return currentMap;}
 }

@@ -221,23 +221,21 @@ public class MapEditorWindow extends JFrame{
         controlPanel.add(cmbObjectType);
         controlPanel.add(Box.createVerticalStrut(5));
 
-        JButton btnEnemyBrush = new JButton("Spawn Enemy");
-        btnEnemyBrush.setMaximumSize(new Dimension(200, 32));
-        btnEnemyBrush.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btnEnemyBrush.addActionListener(e ->{
-            String[] choices = EnemyRegistry.getDisplayChoices();
-            String selected = (String) JOptionPane.showInputDialog(this, "Select which type of enemy", "Enemy toolkit", JOptionPane.QUESTION_MESSAGE, null, choices, choices[0]);
+        String[] enemyTypeNames = java.util.Arrays.copyOf(EnemyRegistry.getDisplayChoices(), EnemyRegistry.getDisplayChoices().length);
+        JComboBox<String> cmbEnemyType = new JComboBox<>(enemyTypeNames);
+        cmbEnemyType.setMaximumSize(new Dimension(200, 32));
+        cmbEnemyType.setAlignmentX(Component.LEFT_ALIGNMENT);
+        cmbEnemyType.setSelectedItem(activeEnemyBrush.getDisplayName());
+        cmbEnemyType.addActionListener(e -> {
+            String selected = (String) cmbEnemyType.getSelectedItem();
             if(selected != null){
+                activeBrushType = null;
                 activeEnemyBrush = EnemyRegistry.fromDisplayName(selected);
-                if(activeEnemyBrush != EnemyRegistry.NONE){
-                    lblBrush.setText("Selected Brush: ENEMY [" + activeEnemyBrush.name() + "]");
-                }else{
-                    lblBrush.setText("Selected Brush: none");
-                }
+                lblBrush.setText("Selected Brush: ENEMY ["+activeEnemyBrush.name()+"]");
             }
         });
-        controlPanel.add(btnEnemyBrush);
-        controlPanel.add(Box.createVerticalStrut(4));
+        controlPanel.add(cmbEnemyType);
+        controlPanel.add(Box.createVerticalStrut(5));
 
         // btnDelete = new JButton("delete selected object");
         btnDelete.setMaximumSize(new Dimension(200,32));
@@ -462,6 +460,18 @@ public class MapEditorWindow extends JFrame{
 
             windowLayoutSwitcher.show(mainContentCardContainer, "LEVEL_MENU");
         });
+
+        JButton btnDeleteLevel = new JButton("Delete Level");
+        btnDeleteLevel.addActionListener(e -> {
+            int choice = JOptionPane.showConfirmDialog(controlPanel, "Do you want to continue?", "Confirm Action", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+            if(choice == JOptionPane.YES_OPTION){
+                int currentMap = gameCanvas.getCurrentMap();
+
+                gameCanvas.getGameObjects().removeIf(obj -> obj.mapID == currentMap);
+                gameCanvas.repaint();
+            }
+        });
+        controlPanel.add(btnDeleteLevel);
 
         JScrollPane scrollPaneWrapper = new JScrollPane(controlPanel);
         scrollPaneWrapper.setPreferredSize(sideBarDimensions);
@@ -1203,6 +1213,7 @@ public class MapEditorWindow extends JFrame{
                     double velX = 0;
                     double xRange = 64.0, yRange = 32.0;
                     String type = "PATROL";
+                    Boolean hasPathfinding = false;
 
                     String[] properties = rawEnemy.split(",");
                     for(String prop : properties){
@@ -1222,10 +1233,14 @@ public class MapEditorWindow extends JFrame{
                             case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
                             case "intervalMin": intervalMin = Integer.parseInt(val); break;
                             case "intervalMax": intervalMax = Integer.parseInt(val); break;
+                            case "hasPathfinding" : hasPathfinding = Boolean.parseBoolean(val); break;
                             case "type": type = val; break;
                         }
                     }
                     Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
+                    if(enemy != null){
+                        enemy.hasPathfinding = hasPathfinding;
+                    }
                     if(enemy instanceof FlyingEnemy){
                         ((FlyingEnemy) enemy).setXRange(xRange);
                         ((FlyingEnemy) enemy).setYRange(yRange);
@@ -1255,14 +1270,15 @@ public class MapEditorWindow extends JFrame{
 
                 if(e instanceof FlyingEnemy){
                     FlyingEnemy fe = (FlyingEnemy) e;
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"mapID\":%d, \"type\":\"%s\"}", 
-                       e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
+                    e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.hasPathfinding, e.mapID, e.type);
                 }else if(e instanceof JumpingEnemy){
                     JumpingEnemy je = (JumpingEnemy) e;
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"mapID\":%d, \"type\":\"%s\"}", 
-                       e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
+                    e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.hasPathfinding, e.mapID, e.type);
                 }else{
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"mapID\":%d, \"type\":\"%s\"}", e.startX, e.startY, e.width, e.height, initialSpeed, e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
+                    e.startX, e.startY, e.width, e.height, initialSpeed, e.hasPathfinding, e.mapID, e.type);
                 }
                 writer.write(" " + jsonStr);
                 if(i < masterEnemyList.size() - 1) writer.write(",\n");
@@ -1303,6 +1319,7 @@ public class MapEditorWindow extends JFrame{
                     double xRange = 64.0;
                     double yRange = 32.0;
                     String type = "PATROL";
+                    boolean hasPathfinding = false;
 
                     String[] properties = rawEnemy.split(",");
                     for (String prop : properties) {
@@ -1321,11 +1338,15 @@ public class MapEditorWindow extends JFrame{
                             case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
                             case "intervalMin": intervalMin = Integer.parseInt(val); break;
                             case "intervalMax": intervalMax = Integer.parseInt(val); break;
+                            case "hasPathfinding" : hasPathfinding = Boolean.parseBoolean(val); break;
                             case "mapID": mapID = Integer.parseInt(val); break;
                             case "type": type = val; break;
                         }
                     }
                     Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
+                    if(enemy != null){
+                        enemy.hasPathfinding = hasPathfinding;
+                    }
                     if(enemy instanceof FlyingEnemy){
                         ((FlyingEnemy) enemy).setXRange(xRange);
                         ((FlyingEnemy) enemy).setYRange(yRange);
@@ -1613,94 +1634,6 @@ public class MapEditorWindow extends JFrame{
         propDialog.setVisible(true);
     }
 
-    private void showPropertyConfigDialog1(GameObject obj){
-        this.propertyEditingObject = obj;
-        this.currentPathClickMode = PathClickMode.NONE;
-
-        propertyDialog = new JDialog(this, "Configure object properties", false);
-        propertyDialog.setLayout(new GridLayout(9, 2, 10, 10));
-        propertyDialog.getRootPane().setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-
-        propertyDialog.add(new JLabel("Triggered By Channel ID:"));
-        txtTriggeredBy = new JTextField(String.valueOf(obj.triggeredBy));
-        propertyDialog.add(txtTriggeredBy);
-
-        propertyDialog.add(new JLabel("Activates Channel ID:"));
-        txtActivatesChannel = new JTextField(String.valueOf(obj.activatesChannel));
-        txtActivatesChannel.setEnabled(obj.type == GameObject.Type.trigger);
-        propertyDialog.add(txtActivatesChannel);
-
-        propertyDialog.add(new JLabel("Travel Duration (In Frames 60 FPS):"));
-        txtTimeLimit = new JTextField(String.valueOf(obj.time < 0 ? 60 : obj.time));
-        propertyDialog.add(txtTimeLimit);
-
-        propertyDialog.add(new JLabel("Visible When Triggered:"));
-        btnToggleDisplay = new JToggleButton(obj.triggeredDisplay ? "TRUE (Stay Visible)" : "FALSE (Hide Block)", obj.triggeredDisplay);
-        btnToggleDisplay.addActionListener(e -> {
-            btnToggleDisplay.setText(btnToggleDisplay.isSelected() ? "TRUE (Stay Visible)" : "FALSE (Hide Block)");
-        });
-        propertyDialog.add(btnToggleDisplay);
-
-        JButton btnSetOscillate = new JButton("Place Standard Oscillation");
-        btnSetOscillate.addActionListener(e -> {
-            this.currentPathClickMode = PathClickMode.OSCILLATION;
-        });
-        propertyDialog.add(btnSetOscillate);
-
-        JButton btnSetTriggerMove = new JButton("Place Triggered Move Target");
-        btnSetTriggerMove.addActionListener(e -> {
-            this.currentPathClickMode = PathClickMode.TRIGGERED_MOVE;
-        });
-        propertyDialog.add(btnSetTriggerMove);
-
-        JButton btnSetOscillateAfterTrigger = new JButton("Place Oscillation After Triggered");
-        btnSetOscillateAfterTrigger.addActionListener(e -> {
-            this.currentPathClickMode = PathClickMode.OSCILLATE_AFTER_TRIGGER;
-        });
-        propertyDialog.add(btnSetOscillateAfterTrigger);
-
-        propertyDialog.add(new JLabel("Movement Activation Condition:"));
-        JButton btnCycleMoveCondition = new JButton(obj.move.name().toUpperCase());
-        btnCycleMoveCondition.addActionListener(e -> {
-            if(obj.move == GameObject.movement.never){
-                obj.move = GameObject.movement.always;
-            }else if(obj.move == GameObject.movement.always){
-                obj.move = GameObject.movement.touch;
-            }else if(obj.move == GameObject.movement.touch){
-                obj.move = GameObject.movement.trigger;
-            }else{
-                obj.move = GameObject.movement.never;
-            }
-            btnCycleMoveCondition.setText(obj.move.name().toUpperCase());
-        });
-        propertyDialog.add(btnCycleMoveCondition);
-
-        propertyDialog.add(new JLabel("<html><i>Tip: Tap a Place path button<br>then click the Grid map!</i></html>"));
-        JButton btnConfirm = new JButton("Confirm & Close");
-        btnConfirm.addActionListener(e -> {
-            try {
-                propertyEditingObject.triggeredBy = Integer.parseInt(txtTriggeredBy.getText().trim());
-                if (propertyEditingObject.type == GameObject.Type.trigger) {
-                    propertyEditingObject.activatesChannel = Integer.parseInt(txtActivatesChannel.getText().trim());
-                }
-                propertyEditingObject.triggeredDisplay = btnToggleDisplay.isSelected();
-                propertyEditingObject.time = Integer.parseInt(txtTimeLimit.getText().trim());
-                
-                this.propertyEditingObject = null;
-                this.currentPathClickMode = PathClickMode.NONE;
-                propertyDialog.dispose();
-                gameCanvas.repaint();
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(propertyDialog, "Please verify all numerical text entries are clean integer values");
-            }
-        });
-        propertyDialog.add(btnConfirm);
-
-        propertyDialog.pack();
-        propertyDialog.setLocationRelativeTo(this);
-        propertyDialog.setVisible(true);
-    }
-
     private void showEnemyConfigDialog(Enemy enemy){
         this.propertyEditingEnemy = enemy;
         
@@ -1725,6 +1658,10 @@ public class MapEditorWindow extends JFrame{
         formPanel.add(new JLabel("Size (height)"));
         txtHeight = new JTextField(String.valueOf(enemy.height));
         formPanel.add(txtHeight);
+
+        formPanel.add(new JLabel("Enable Pathfinding:"));
+        JCheckBox chkPathfinding = new JCheckBox("", enemy.hasPathfinding);
+        formPanel.add(chkPathfinding);
 
         String[] choices = EnemyRegistry.getDisplayChoices();
         enemyTypeDropdown = new JComboBox<>(choices);
@@ -1806,6 +1743,7 @@ public class MapEditorWindow extends JFrame{
                 double newVelX = Double.parseDouble(txtSpeed.getText().trim());
                 int newWidth = Integer.parseInt(txtWidth.getText().trim());
                 int newHeight = Integer.parseInt(txtHeight.getText().trim());
+                boolean newPathfinding = chkPathfinding.isSelected();
 
                 String selectedDisplayName = (String) enemyTypeDropdown.getSelectedItem();
                 EnemyRegistry selectedRegistry = EnemyRegistry.fromDisplayName(selectedDisplayName);
@@ -1822,6 +1760,7 @@ public class MapEditorWindow extends JFrame{
                         newVelX
                     );
                     if(updatedEnemy != null){
+                        updatedEnemy.hasPathfinding = chkPathfinding.isSelected();
                         if(updatedEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
                             try{
                                 ((FlyingEnemy)updatedEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
@@ -1842,6 +1781,7 @@ public class MapEditorWindow extends JFrame{
                     propertyEditingEnemy.velX = newVelX;
                     propertyEditingEnemy.width = newWidth;
                     propertyEditingEnemy.height = newHeight;
+                    propertyEditingEnemy.hasPathfinding = chkPathfinding.isSelected();
                     if(propertyEditingEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
                         try{
                             ((FlyingEnemy)propertyEditingEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));

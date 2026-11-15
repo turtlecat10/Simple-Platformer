@@ -205,7 +205,7 @@ public class Movement {
         if(enemies != null && !this.isDead){
             for(Enemy enemy : enemies){
                 if(enemy.mapID == currentMap){
-                    enemy.aiTick(objects);
+                    enemy.aiTick(objects, playerX, playerY);
                 }
             }
         }

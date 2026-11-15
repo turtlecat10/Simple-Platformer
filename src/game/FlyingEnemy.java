@@ -3,6 +3,7 @@ package src.game;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.util.ArrayList;
+import java.awt.Rectangle;;
 
 public class FlyingEnemy extends Enemy{
 
@@ -32,8 +33,38 @@ public class FlyingEnemy extends Enemy{
     }
 
     @Override 
-    public void aiTick(ArrayList<GameObject> objects){
+    public void aiTick(ArrayList<GameObject> objects, double playerX, double playerY){
         this.isGrounded = true;
+        if(hasPathfinding){
+            double dx = playerX - this.x;
+            double dy = playerY - this.y;
+            double dist = Math.hypot(dx, dy);
+            if(dist > 1){
+                double desiredVx = (dx / dist) * Math.abs(this.xSpeed * 15);
+                double desiredVy = (dy / dist) * Math.abs(this.ySpeed * 15);
+
+                boolean blocked = false;
+                for(GameObject obj : objects){
+                    if(obj.mapID != this.mapID || obj.type != GameObject.Type.solid) continue;
+                    Rectangle futureBox = new Rectangle((int)(this.x + desiredVx), (int)(this.y + desiredVy - this.height), this.width, this.height);
+                    Rectangle blockBounds = new Rectangle(obj.currentX, obj.currentY - obj.height, obj.width, obj.height);
+                    if(futureBox.intersects(blockBounds)){
+                        blocked = true;
+                        break;
+                    }
+                }
+                if(blocked){
+                    this.velX = -desiredVy * 0.5;
+                    this.velY = desiredVx * 0.5;
+                }else{
+                    this.velX = desiredVx;
+                    this.velY = desiredVy;
+                }
+            }
+            this.x += (int)Math.round(this.velX);
+            this.y += (int)Math.round(this.velY);
+            return;
+        }
 
         if(this.homeX != this.startX) this.homeX += (this.startX - this.homeX) * this.returnHomeSpeed;
         if(this.homeY != this.startY) this.homeY += (this.startY - this.homeY) * this.returnHomeSpeed;

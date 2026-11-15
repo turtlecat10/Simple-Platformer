@@ -18,7 +18,7 @@ public class PatrolEnemy extends Enemy{
     }
 
     @Override 
-    public void aiTick(ArrayList<GameObject> objects){
+    public void aiTick(ArrayList<GameObject> objects, double playerX, double playerY){
         if(!this.isGrounded){
            this.velY += 0.5;
         }
