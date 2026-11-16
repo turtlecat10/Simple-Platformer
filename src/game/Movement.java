@@ -128,11 +128,22 @@ public class Movement {
         }
         
         if(up && isGrounded){
-            velocityY = initialJumpForce;
-            isGrounded = false;
-            isJumping = true;
-            jumpCounter = 0;
-            stoppedJumping = false;
+            double platformDeltaY = 0;
+
+            if(platformRidden != null && platformRidden == null){
+                platformDeltaY = platformRidden.deltaY;
+                this.velocityY += initialJumpForce + platformDeltaY;
+                this.isGrounded = false;
+                isJumping = true;
+                jumpCounter = 0;
+                stoppedJumping = false;
+            }else{
+                velocityY = initialJumpForce;
+                isGrounded = false;
+                isJumping = true;
+                jumpCounter = 0;
+                stoppedJumping = false;
+            }
         }
         if(up && isJumping){
             if(jumpCounter < maxJumpHoldTime){
@@ -174,8 +185,15 @@ public class Movement {
         }
         if(enemies != null && !this.isDead){
             for(Enemy enemy : enemies){
-                if(enemy.mapID == currentMap){
+                if(enemy.mapID == currentMap && !enemy.isDead){
+                    boolean wasDead = enemy.isDead;
+                    enemy.applyPlatformInteractions(objects, currentMap);
+                    if(!wasDead && enemy.isDead){
+                        MapEditorWindow.instance.gameCanvas.spawnDeathParticles(enemy.x, enemy.y, enemy.width, enemy.height, enemy.getParticleColor());
+                    }
+
                     enemy.aiTick(objects, playerX, playerY);
+
                 }
             }
         }
@@ -366,7 +384,6 @@ public class Movement {
             }
         }
 
-        
         // --- HORIZONTAL MOVEMENT & PLATFORM CARRIAGE ---
         int totalMoveX = (int) (moveX);
         if(totalMoveX != 0 || platformCarriageX != 0 || true){
@@ -663,7 +680,7 @@ public class Movement {
         }
         
         for(Enemy enemy : enemies){
-            if(enemy.mapID != currentMap) continue;
+            if(enemy.mapID != currentMap || enemy.isDead) continue;
             if(playerBounds.intersects(enemy.getBounds())){
                 triggerDeathSequence(currentMap);
                 return;
@@ -705,6 +722,9 @@ public class Movement {
         this.dashAble = false;
         this.isJumping = false;
         this.isDroppingThrough = false;
+        for(Enemy enemy : enemies){
+            enemy.resetToStart();
+        }
     }
      
     private void triggerDeathSequence(int currentMap){

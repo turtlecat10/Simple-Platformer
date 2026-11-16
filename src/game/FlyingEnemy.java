@@ -93,6 +93,11 @@ public class FlyingEnemy extends Enemy{
         g2.setColor(Color.BLACK);
         g2.drawRect(x, renderY, width, height);
     }
+    @Override 
+    public Color getParticleColor(){
+        return new Color(0, 139, 0);
+    }
+
     public double getAngle() {return this.angle;}
     public void setAngle(double angle){this.angle = angle;}
     public double getHomeX(){return this.homeX;}

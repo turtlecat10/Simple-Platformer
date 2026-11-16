@@ -34,6 +34,7 @@ public class Graphics extends JPanel implements ActionListener {
 
     private final java.util.ArrayList<DeathParticle> deathParticles = new java.util.ArrayList<>();
     public final java.util.ArrayList<Enemy> activeEnemies = new java.util.ArrayList<>();
+    private ArrayList<Particle> activeParticles = new ArrayList<>();
 
 
     public final int virtualWidth = 1920;
@@ -278,6 +279,8 @@ public class Graphics extends JPanel implements ActionListener {
             g2.setColor(new Color(255, (int)(Math.random() * 100), 0, p.alpha));
             g2.fillRect((int)p.x, (int)p.y, p.size, p.size);
         }
+
+
         g2.setTransform(oldTransform);
 
         g2.setFont(new Font("Arial", Font.BOLD, 14));
@@ -304,6 +307,26 @@ public class Graphics extends JPanel implements ActionListener {
         int particleCount = 35;
         for(int i = 0; i < particleCount; i++){
             deathParticles.add(new DeathParticle(x + (getPlayerSize() / 2), y + getPlayerSize() / 2));
+        }
+    }
+
+    public void spawnDeathParticles(int x, int y, int width, int height, Color color){
+        double centerX = x + width / 2.0;
+        double centerY = y - height / 2.0;
+        for(int i = 0; i < 18; i++){
+            activeParticles.add(new Particle(centerX, centerY, color));
+        }
+    }
+
+
+    public void updateAndRenderParticles(Graphics2D g2){
+        for(int i = activeParticles.size() - 1; i >= 0; i--){
+            Particle p = activeParticles.get(i);
+            p.update();
+            p.draw(g2);
+            if(p.life <= 0){
+                activeParticles.remove(i);
+            }
         }
     }
 
@@ -349,7 +372,10 @@ public class Graphics extends JPanel implements ActionListener {
         
         if(movement != null && movement.getEnemies() != null){
             for(Enemy enemy : movement.getEnemies()){
-                if(enemy.mapID == mapID){
+                if(enemy.mapID == mapID && enemy.isDead){
+                    updateAndRenderParticles(g2);
+                }
+                if(enemy.mapID == mapID && !enemy.isDead){
                     enemy.draw(g2);
                 }
             }

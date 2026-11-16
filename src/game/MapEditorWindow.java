@@ -393,8 +393,7 @@ public class MapEditorWindow extends JFrame{
             ArrayList<Enemy> allEnemies = gameCanvas.getMovement().getEnemies();
             if(allEnemies != null){
                 for(Enemy obj : allEnemies){
-                    obj.x = obj.startX;
-                    obj.y = obj.startY;
+                    obj.resetToStart();
                 }
             }
             btnPlay.setEnabled(true);
@@ -1388,9 +1387,29 @@ public class MapEditorWindow extends JFrame{
         btnPlainText.addActionListener(e -> {
             exportDialog.dispose();
             String json = generateExportJson();
+
+            JDialog textDialog = new JDialog(this, "Export Plaintext", true);
+            textDialog.setLayout(new BorderLayout());
+            textDialog.getRootPane().setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
             JTextArea textArea = new JTextArea(json, 20, 50);
             textArea.setEditable(false);
-            JOptionPane.showMessageDialog(this, new JScrollPane(textArea), "Export plaintext", JOptionPane.INFORMATION_MESSAGE);
+            JScrollPane scrollPane = new JScrollPane(textArea);
+
+            JButton btnCopy = new JButton("Copy to Clipboard");
+            btnCopy.addActionListener(ce -> {
+                java.awt.datatransfer.StringSelection selection = new java.awt.datatransfer.StringSelection(json);
+                java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
+                JOptionPane.showMessageDialog(textDialog, "Copied to clipboard", "Success", JOptionPane.INFORMATION_MESSAGE);
+            });
+            JPanel bottomPanel = new JPanel();
+            bottomPanel.add(btnCopy);
+
+            textDialog.add(scrollPane, BorderLayout.CENTER);
+            textDialog.add(bottomPanel, BorderLayout.SOUTH);
+            textDialog.pack();
+            textDialog.setLocationRelativeTo(this);
+            textDialog.setVisible(true);
         });
 
         btnFile.addActionListener(e -> {
@@ -1505,9 +1524,7 @@ public class MapEditorWindow extends JFrame{
         importDialog.setLocationRelativeTo(this);
         importDialog.setVisible(true);
     }
-
     
-
     private void processImportJson(String jsonStringData){
         if(jsonStringData == null || jsonStringData.trim().isEmpty()) return;
         jsonStringData.trim();
@@ -1684,7 +1701,6 @@ public class MapEditorWindow extends JFrame{
         gameCanvas.repaint();
         JOptionPane.showMessageDialog(this, "Level imported successfully into Map: " + newMapID);
     }
-
 
     //clearing points
     public void clearSelectionPoints() {

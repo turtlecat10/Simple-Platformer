@@ -67,6 +67,11 @@ public class JumpingEnemy extends Enemy{
         g2.drawRect(this.x, renderY, this.width, this.height);
     }
 
+    @Override 
+    public Color getParticleColor(){
+        return new Color(255, 69, 0);
+    }
+
     public double getJumpHeight(){return this.jumpHeight;}
     public void setJumpHeight(double height){this.jumpHeight = height;}
     public int getIntervalMax(){ return this.intervalMax;}

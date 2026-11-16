@@ -58,4 +58,8 @@ public class PatrolEnemy extends Enemy{
         g2.setColor(Color.BLACK);
         g2.drawRect(this.x, renderY, this.width, this.height);
     }
+    @Override 
+    public Color getParticleColor(){
+        return new Color(139, 0, 0);
+    }
 }
