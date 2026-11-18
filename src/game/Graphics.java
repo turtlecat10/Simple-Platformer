@@ -318,7 +318,6 @@ public class Graphics extends JPanel implements ActionListener {
         }
     }
 
-
     public void updateAndRenderParticles(Graphics2D g2){
         for(int i = activeParticles.size() - 1; i >= 0; i--){
             Particle p = activeParticles.get(i);
@@ -343,9 +342,6 @@ public class Graphics extends JPanel implements ActionListener {
         g2.translate(offsetX, offsetY);
         g2.scale(scale, scale);
         g2.translate(-this.cameraX, -this.cameraY);
-        // for(Enemy enemy : movement.enemies()){
-
-        // }
 
         for(GameObject obj : gameObjects){
             if(obj.mapID != mapID) continue;
@@ -459,11 +455,33 @@ public class Graphics extends JPanel implements ActionListener {
             java.awt.Point anchor = MapEditorWindow.instance.getBottomLeftCorner();
             java.awt.Point hover = MapEditorWindow.instance.getCurrentHoverPoint();
             GameObject.Type brush = MapEditorWindow.instance.getActiveBrushType();
-            if (anchor != null && hover != null) {
-                int previewX = Math.min(anchor.x, hover.x);
-                int previewY = Math.max(anchor.y, hover.y); // Bottom-left coordinate anchor
-                int previewWidth = Math.abs(hover.x - anchor.x);
-                int previewHeight = Math.abs(hover.y - anchor.y);
+            if (anchor != null && hover != null && brush != null) {
+                int previewX, previewY, previewWidth, previewHeight;
+                if(!MapEditorWindow.instance.getFreePlace()){
+                    int cellX = Math.floorDiv(hover.x, tileSize);
+                    int cellY = Math.floorDiv(hover.y, tileSize);
+                    
+                    boolean leftOfStart = (cellX * tileSize) < anchor.x;
+                    boolean aboveStart = (cellY * tileSize) < (anchor.y - tileSize);
+
+                    int targetMinX = leftOfStart ? (cellX * tileSize) : anchor.x;
+                    int targetMaxX = leftOfStart ? anchor.x : ((cellX + 1) * tileSize);
+                    
+                    int targetMinY = aboveStart ? (cellY * tileSize) : (anchor.y - tileSize);
+                    int targetMaxY = aboveStart ? anchor.y : ((cellY + 1) * tileSize);
+
+                    previewX = targetMinX;
+                    previewY = targetMaxY; // top-left for rendering rectangle
+                    previewWidth = targetMaxX - targetMinX;
+                    previewHeight = targetMaxY - targetMinY;
+                }else{
+                    previewX = Math.min(anchor.x, hover.x);
+                    int rawMinY = Math.min(anchor.y, hover.y);
+                    int rawMaxY = Math.max(anchor.y, hover.y);
+                    previewY = rawMaxY;
+                    previewWidth = Math.abs(hover.x - anchor.x);
+                    previewHeight = Math.abs(hover.y - anchor.y);
+                }
 
                 if (previewWidth == 0) previewWidth = tileSize;
                 if (previewHeight == 0) previewHeight = tileSize;

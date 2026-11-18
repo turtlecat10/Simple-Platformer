@@ -63,8 +63,17 @@ public class JumpingEnemy extends Enemy{
         int renderY = this.y - height;
         g2.setColor(new Color(255, 69, 0));
         g2.fillRect(this.x, renderY, this.width, this.height);
-        g2.setColor(Color.BLACK);
-        g2.drawRect(this.x, renderY, this.width, this.height);
+        if(MapEditorWindow.instance.getSelectedEnemy() != this){
+            g2.setColor(Color.BLACK);
+            g2.drawRect(x, renderY, width, height);
+        }else{
+            g2.setColor(Color.BLUE);
+            java.awt.Stroke oldStroke = g2.getStroke();
+            float thickness = 4.0f;
+            g2.setStroke(new java.awt.BasicStroke(thickness));
+            g2.drawRect(x, renderY, width, height);
+            g2.setStroke(oldStroke);
+        }
     }
 
     @Override 

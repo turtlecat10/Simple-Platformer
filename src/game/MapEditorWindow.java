@@ -81,6 +81,9 @@ public class MapEditorWindow extends JFrame{
     private enum PathClickMode { NONE, OSCILLATION, TRIGGERED_MOVE, OSCILLATE_AFTER_TRIGGER}
     private PathClickMode currentPathClickMode = PathClickMode.NONE;
     private EnemyRegistry activeEnemyBrush = EnemyRegistry.NONE;
+    private Enemy draggedEnemy = null;
+    private int dragOffsetX = 0;
+    private int dragOffsetY = 0;
 
     //camera
     public int cameraX = 0;
@@ -522,6 +525,7 @@ public class MapEditorWindow extends JFrame{
                 }
             }
         });
+
         gameCanvas.addMouseListener(new MouseAdapter(){
             @Override
             public void mousePressed(MouseEvent e){
@@ -618,6 +622,8 @@ public class MapEditorWindow extends JFrame{
                         isDraggingStartPos = true;
                         isEditingTriggeredPath = false;
                         selectedWaypointIndex = -1;
+                        dragOffsetX = gamePoint.x - propertyEditingObject.currentX;
+                        dragOffsetY = gamePoint.y - (propertyEditingObject.currentY - propertyEditingObject.height);
                         gameCanvas.repaint();
                         return;
                     }
@@ -627,6 +633,8 @@ public class MapEditorWindow extends JFrame{
                         isDraggingTriggeredStart = true;
                         isEditingTriggeredPath = true;
                         selectedWaypointIndex = -1;
+                        dragOffsetX = gamePoint.x - propertyEditingObject.triggeredX;
+                        dragOffsetY = gamePoint.y - (propertyEditingObject.triggeredY - propertyEditingObject.height);
                         gameCanvas.repaint();
                         return;
                     }
@@ -663,6 +671,11 @@ public class MapEditorWindow extends JFrame{
                         selectedWaypointIndex = clickedIdx;
                         selectedWaypointIsTriggered = clickedTriggered;
                         isEditingTriggeredPath = clickedTriggered;
+
+                        ArrayList<Integer> px = clickedTriggered ? propertyEditingObject.triggeredPathX : propertyEditingObject.pathX;
+                        ArrayList<Integer> py = clickedTriggered ? propertyEditingObject.triggeredPathY : propertyEditingObject.pathY;
+                        dragOffsetX = gamePoint.x - px.get(clickedIdx);
+                        dragOffsetY = gamePoint.y - (py.get(clickedIdx) - propertyEditingObject.height);
                     } 
                     gameCanvas.repaint();
                     return;
@@ -670,9 +683,13 @@ public class MapEditorWindow extends JFrame{
 
 
                 if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
-                    if(activeEnemyBrush != EnemyRegistry.NONE && gameCanvas.getMovement() != null){
+                    if(activeEnemyBrush != EnemyRegistry.NONE && gameCanvas.getMovement() != null && selectedEnemy != null){
+                        int placementY = snapY;
+                        if(!freePlace){
+                            placementY += snapSize;
+                        }
                         ArrayList<Enemy> currentEnemyList = gameCanvas.getMovement().getEnemies();
-                        Enemy newEnemy = activeEnemyBrush.create(snapX, snapY, 36, 36, activeEditingMapID, 0);
+                        Enemy newEnemy = activeEnemyBrush.create(snapX, placementY, 36, 36, activeEditingMapID, 0);
                         if(newEnemy != null){
                             currentEnemyList.add(newEnemy);
                         }
@@ -680,41 +697,77 @@ public class MapEditorWindow extends JFrame{
                         gameCanvas.repaint();
                         return;
                     }
+                    
+                    if(gameCanvas.getMovement() != null){
+                        ArrayList<Enemy> enemies = gameCanvas.getMovement().getEnemies();
+                        if(enemies != null){
+                            for(int i = enemies.size() - 1; i>= 0; i--){
+                                Enemy enemy = enemies.get(i);
+                                int objTop = enemy.y - enemy.height;
+                                if(enemy.mapID == activeEditingMapID && gamePoint.x >= enemy.x && gamePoint.x <= (enemy.x + enemy.width) && gamePoint.y >= objTop && gamePoint.y <= enemy.y){
+                                    draggedEnemy = enemy;
+                                    selectedEnemy = enemy;
+                                    dragOffsetX = gamePoint.x - enemy.x;
+                                    dragOffsetY = gamePoint.y - (enemy.y - enemy.height);
+                                    btnDelete.setEnabled(true);
+                                    btnEditProperties.setEnabled(true);
+                                    gameCanvas.repaint();
+                                    return;
+                                }
+                            }
+                        }
+                    }
 
-                    if(bottomLeftCorner == null){
-                        int finalY = freePlace ? snapY : (snapY + snapSize);
-                        bottomLeftCorner = new Point(snapX, finalY);
+                    if(bottomLeftCorner == null && selectedEnemy == null){
+                        int finalX = freePlace ? snapX : Math.floorDiv(gamePoint.x, snapSize) * snapSize;
+                        int finalY = freePlace ? snapY : ((Math.floorDiv(gamePoint.y, snapSize) + 1) * snapSize);
+                        bottomLeftCorner = new Point(finalX, finalY);
                         lblX.setText("X Offset:" + snapX);
-                        
-                        int currentRightX = snapX + (freePlace ? 0 : snapSize);
-                        currentHoverPoint = new Point(currentRightX, snapY);
+
+                        currentHoverPoint = new Point(gamePoint.x, gamePoint.y);
                         gameCanvas.repaint();
-                    }else{
-                        int currentRightX = snapX + (freePlace ? 0 : snapSize);
-                
+                    }else if (selectedEnemy == null){
                         try { activeEditingMapID = Integer.parseInt(txtMapID.getText().trim()); } catch (NumberFormatException ex) { activeEditingMapID = 1; }
                         
-                        int realX = Math.min(bottomLeftCorner.x, currentRightX);
-                        int realY = Math.max(bottomLeftCorner.y, snapY); // bottom-left Y is maximum coordinate value
-                        int realWidth = Math.abs(currentRightX - bottomLeftCorner.x);
-                        int realHeight = Math.abs(bottomLeftCorner.y - snapY);
+                        int realX, realY, realWidth, realHeight;
+                        if(!freePlace){
+                            int cellX = Math.floorDiv(gamePoint.x, snapSize);
+                            int cellY = Math.floorDiv(gamePoint.y, snapSize);
 
-                        if (realWidth == 0) realWidth = snapSize;
-                        if (realHeight == 0) realHeight = snapSize;
+                            boolean leftOfStart = (cellX * snapSize) < bottomLeftCorner.x;
+                            boolean aboveStart = (cellY * snapSize) < bottomLeftCorner.y - snapSize;
 
+                            int targetMinX = leftOfStart ? (cellX * snapSize) : bottomLeftCorner.x;
+                            int targetMaxX = leftOfStart ? bottomLeftCorner.x : ((cellX + 1) * snapSize);
+
+                            int targetMinY = aboveStart ? (cellY * snapSize) : (bottomLeftCorner.y - snapSize);
+                            int targetMaxY = aboveStart ? bottomLeftCorner.y : ((cellY + 1) * snapSize);
+
+                            realX = targetMinX;
+                            realY = targetMaxY;
+                            realWidth = Math.max(snapSize, targetMaxX - targetMinX);
+                            realHeight = Math.max(snapSize, targetMaxY - targetMinY);
+                        }else{
+                            realX = Math.min(bottomLeftCorner.x, gamePoint.x);
+                            realY = Math.max(bottomLeftCorner.y, gamePoint.y);
+                            realWidth = Math.abs(gamePoint.x - bottomLeftCorner.x);
+                            realHeight = Math.abs(gamePoint.y - bottomLeftCorner.y);
+                            if(realWidth == 0) realWidth = 1;
+                            if(realHeight == 0) realHeight = 1;
+                        }
                         lblWidth.setText("Width Status: " + realWidth);
                         lblHeight.setText("Height Status: " + realHeight);
                         lblX.setText("X Offset: " + realX);
                         lblY.setText("Y Offset: " + realY);
-                    
-                        if (gameCanvas.getGameObjects() != null) {
+
+                        if(gameCanvas.getGameObjects() != null){
                             GameObject newlyCreatedObject = new GameObject(realX, realY, realWidth, realHeight, activeBrushType, activeEditingMapID);
                             gameCanvas.getGameObjects().add(newlyCreatedObject);
                             showPropertyConfigDialog(newlyCreatedObject);
                         }
 
                         bottomLeftCorner = null;
-                        currentHoverPoint = null;
+                        currentHoverPoint = null; 
                         gameCanvas.repaint();
                     }
                 }
@@ -804,6 +857,7 @@ public class MapEditorWindow extends JFrame{
             }
             @Override 
             public void mouseReleased(MouseEvent e){
+                draggedEnemy = null;
                 isDraggingStartPos = false;
                 isDraggingTriggeredStart = false;
                 if(isDraggingWaypoint && propertyEditingObject != null){
@@ -818,45 +872,90 @@ public class MapEditorWindow extends JFrame{
         gameCanvas.addMouseMotionListener(new MouseMotionAdapter(){
             @Override 
             public void mouseDragged(MouseEvent e){
+                Point gamePoint = getTransformedGamePoint(e);
+                int snapSize = gameCanvas.getTileSize();
+
+                int rawX = gamePoint.x - dragOffsetX;
+                int rawTopLeftY = gamePoint.y - dragOffsetY;
+                int newX = freePlace ? rawX : Math.round(rawX / (float) snapSize) * snapSize;
+                int newTopLeftY = freePlace ? rawTopLeftY : Math.round(rawTopLeftY / (float) snapSize) * snapSize;
+                int newY = newTopLeftY + propertyEditingObject.height;
+
                 if (propertyEditingObject != null) {
-                    Point gamePoint = getTransformedGamePoint(e);
-                    int snapSize = gameCanvas.getTileSize();
-                    int snapX = freePlace ? gamePoint.x : Math.floorDiv(gamePoint.x, snapSize) * snapSize;
-                    int snapY = freePlace ? gamePoint.y : Math.floorDiv(gamePoint.y, snapSize) * snapSize;
-
                     if(isDraggingStartPos){
-                        propertyEditingObject.x = snapX;
-                        propertyEditingObject.y = snapY;
-                        propertyEditingObject.currentX = snapX;
-                        propertyEditingObject.currentY = snapY;
+                        propertyEditingObject.x = newX;
+                        propertyEditingObject.y = newY;
+                        propertyEditingObject.currentX = newX;
+                        propertyEditingObject.currentY = newY;
                         gameCanvas.repaint();
                         return;
                     }
+
                     if(isDraggingTriggeredStart){
-                        propertyEditingObject.triggeredX = snapX;
-                        propertyEditingObject.triggeredY = snapY;
+                        propertyEditingObject.triggeredX = newX;
+                        propertyEditingObject.triggeredY = newY;
                         gameCanvas.repaint();
                         return;
                     }
-
-
 
                     if(isDraggingWaypoint && activeDraggedWaypointIndex >= 0){
                         ArrayList<Integer> px = activeDraggedIsTriggered ? propertyEditingObject.triggeredPathX : propertyEditingObject.pathX;
                         ArrayList<Integer> py = activeDraggedIsTriggered ? propertyEditingObject.triggeredPathY : propertyEditingObject.pathY;
 
                         if (activeDraggedWaypointIndex < px.size()) {
-                            px.set(activeDraggedWaypointIndex, snapX);
-                            py.set(activeDraggedWaypointIndex, snapY);
+                            px.set(activeDraggedWaypointIndex, newX);
+                            py.set(activeDraggedWaypointIndex, newY);
                             updatePropertyDialogTextFields();
                         }
                         gameCanvas.repaint();
                     }
+                }else if(draggedEnemy != null){
+                    draggedEnemy.x = newX;
+                    draggedEnemy.y = newY;
+                    draggedEnemy.startX = newX;
+                    draggedEnemy.startY = newY;
+                    gameCanvas.repaint();
                 }
             }
 
             @Override 
             public void mouseMoved(MouseEvent e){
+                Point gamePoint = getTransformedGamePoint(e);
+                int snapSize = gameCanvas.getTileSize();
+
+                if(propertyEditingObject != null && currentPathClickMode != PathClickMode.NONE){
+                    pathHoverPoint = new Point(gamePoint.x, gamePoint.y);
+                }else{
+                    pathHoverPoint = null;
+                }
+
+                if(bottomLeftCorner != null){
+                    currentHoverPoint = new Point(gamePoint.x, gamePoint.y);
+                    int realWidth, realHeight;
+                    if(!freePlace){
+                        int cellX = Math.floorDiv(gamePoint.x, snapSize);
+                        int cellY = Math.floorDiv(gamePoint.y, snapSize);
+                        
+                        boolean leftOfStart = (cellX * snapSize) < bottomLeftCorner.x;
+                        boolean aboveStart = (cellY * snapSize) < (bottomLeftCorner.y - snapSize);
+
+                        int targetMinX = leftOfStart ? (cellX * snapSize) : bottomLeftCorner.x;
+                        int targetMaxX = leftOfStart ? bottomLeftCorner.x : ((cellX + 1) * snapSize);
+                        
+                        int targetMinY = aboveStart ? (cellY * snapSize) : (bottomLeftCorner.y - snapSize);
+                        int targetMaxY = aboveStart ? bottomLeftCorner.y : ((cellY + 1) * snapSize);
+
+                        realWidth = Math.max(snapSize, targetMaxX - targetMinX);
+                        realHeight = Math.max(snapSize, targetMaxY - targetMinY);
+                    } else {
+                        realWidth = Math.abs(gamePoint.x - bottomLeftCorner.x);
+                        realHeight = Math.abs(gamePoint.y - bottomLeftCorner.y);
+                    }
+                    lblWidth.setText("Width Status: " + (realWidth == 0 ? snapSize : realWidth));
+                    lblHeight.setText("Height Status: " + (realHeight == 0 ? snapSize : realHeight));
+                }
+                gameCanvas.repaint();
+                /*
                 int panelWidth = gameCanvas.getWidth();
                 int panelHeight = gameCanvas.getHeight();
                 int virtualWidth = gameCanvas.virtualWidth;
@@ -877,7 +976,7 @@ public class MapEditorWindow extends JFrame{
 
                 int snapSize = gameCanvas.getTileSize();
                 int snapX = !freePlace ? Math.floorDiv(rawX, snapSize) * snapSize : rawX;
-                int snapY = !freePlace ? Math.floorDiv(rawY, snapSize) * snapSize : rawY;
+                int snapY = !freePlace ? Math.floorDiv(rawY, snapSize) * snapSize: rawY;
 
                 if (propertyEditingObject != null && currentPathClickMode != PathClickMode.NONE) {
                     pathHoverPoint = new Point(snapX, snapY);
@@ -886,7 +985,7 @@ public class MapEditorWindow extends JFrame{
                 }
 
                 if (bottomLeftCorner != null) {
-                    int currentRightX = snapX + (freePlace ? 0 : snapSize);
+                    int currentRightX = snapX  + (freePlace ? 0 : snapSize);
                     currentHoverPoint = new Point(currentRightX, snapY);
                     int realWidth = Math.abs(currentHoverPoint.x - bottomLeftCorner.x);
                     int realHeight = Math.abs(bottomLeftCorner.y - currentHoverPoint.y);
@@ -894,6 +993,7 @@ public class MapEditorWindow extends JFrame{
                     lblHeight.setText("Height Status: " + (realHeight == 0 ? snapSize : realHeight));
                 }
                 gameCanvas.repaint();
+                */
             }
         });
     }
@@ -2214,6 +2314,8 @@ public class MapEditorWindow extends JFrame{
     public Point getBottomLeftCorner(){ return this.bottomLeftCorner;}
     public Point getCurrentHoverPoint(){ return this.currentHoverPoint;}
     public Point getPathHoverPoint() { return this.pathHoverPoint;}
+
+    public boolean getFreePlace(){ return freePlace;}
 
     //object editing
     public GameObject.Type getActiveBrushType(){ return this.activeBrushType;}
