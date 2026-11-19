@@ -369,6 +369,7 @@ public class Graphics extends JPanel implements ActionListener {
                 g2.drawRect(renderX, renderY, obj.width, obj.height);
             }
         }
+        
         if(movement != null && movement.getEnemies() != null){
             for(Enemy enemy : movement.getEnemies()){
                 if(enemy.mapID == mapID && enemy.isDead){
@@ -483,17 +484,29 @@ public class Graphics extends JPanel implements ActionListener {
             int centerX = targetX + targetW / 2;
             int centerY = targetY + targetH / 2;
 
-            boolean isOffScreen = centerX < cameraX || centerX > cameraX + virtualWidth || centerY < cameraY || centerY > cameraY + virtualHeight;
+            boolean isOffScreen = (targetX + targetW < cameraX) || targetX > cameraX + virtualWidth || targetY + targetH < cameraY || targetY > cameraY + virtualHeight;
 
             if(isOffScreen){
                 int screenCamCenterX = cameraX + virtualWidth / 2;
                 int screenCamCenterY = cameraY + virtualHeight / 2;
 
-                double angle = Math.atan2(centerY - screenCamCenterY, centerX - screenCamCenterX);
-                int dist = (int) Math.hypot(centerX - screenCamCenterX, centerY - screenCamCenterY);
+                double dx = centerX - screenCamCenterX;
+                double dy = centerY - screenCamCenterY;
+                double angle = Math.atan2(dy, dx);
+                int dist = (int) Math.hypot(dx, dy);
 
-                int arrowX = screenCamCenterX + (int) (Math.cos(angle) * (virtualWidth / 2 - 80));
-                int arrowY = screenCamCenterY + (int) (Math.sin(angle) * (virtualHeight / 2 - 80));
+                int margin = 50;
+                int minX = cameraX + margin;
+                int maxX = cameraX + virtualWidth - 240 - margin;
+                int minY = cameraY + margin;
+                int maxY = cameraY + virtualHeight - margin;
+
+                double scaleX1 = (dx != 0) ? (dx > 0 ? (maxX - screenCamCenterX) / dx : (minX - screenCamCenterX) / dx) : Double.MAX_VALUE;
+                double scaleY1 = (dy != 0) ? (dy > 0 ? (maxY - screenCamCenterY) / dy : (minY - screenCamCenterY) / dy) : Double.MAX_VALUE;
+                double scale1 = Math.min(scaleX1, scaleY1);
+
+                int arrowX = screenCamCenterX + (int) (dx * scale1);
+                int arrowY = screenCamCenterY + (int) (dy * scale1);
 
                 java.awt.geom.AffineTransform oldTrans = g2.getTransform();
                 g2.translate(arrowX, arrowY);
@@ -504,9 +517,7 @@ public class Graphics extends JPanel implements ActionListener {
 
                 g2.drawLine(16, 0, 6, -6);
                 g2.drawLine(16, 0, 6, 6);
-
                 g2.drawLine(-12, 0, 16, 0);
-
                 g2.drawLine(-12, 0, -18, -6);
                 g2.drawLine(-14, 0, -20, 0);
                 g2.drawLine(-12, 0, -18, 6);
