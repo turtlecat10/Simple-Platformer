@@ -91,6 +91,7 @@ public class MapEditorWindow extends JFrame{
     private final int cameraSpeed = 16;
     private boolean camLeft = false, camRight = false, camUp = false, camDown = false;
     private Timer editorCamTimer;
+    private JLabel lblZoom;
     
 
     public MapEditorWindow(){
@@ -124,10 +125,14 @@ public class MapEditorWindow extends JFrame{
                 int currentX = gameCanvas.getCameraX();
                 int currentY = gameCanvas.getCameraY();
 
-                if (camLeft)  currentX -= cameraSpeed;
-                if (camRight) currentX += cameraSpeed;
-                if (camUp)    currentY -= cameraSpeed;
-                if (camDown)  currentY += cameraSpeed;
+                double zoom = gameCanvas.getEditorZoom();
+                int currentSpeed = (int) Math.round(cameraSpeed / zoom);
+                if(currentSpeed < 1) currentSpeed = 1;
+
+                if (camLeft)  currentX -= currentSpeed;
+                if (camRight) currentX += currentSpeed;
+                if (camUp)    currentY -= currentSpeed;
+                if (camDown)  currentY += currentSpeed;
 
                 if (currentX < 0) currentX = 0;
                 if (currentY < 0) currentY = 0;
@@ -292,6 +297,25 @@ public class MapEditorWindow extends JFrame{
 
         controlPanel.add(Box.createVerticalStrut(15));
 
+        lblZoom = new JLabel("Zoom: 100%");
+        lblZoom.setForeground(new Color(0, 100, 200));
+        lblZoom.setFont(new Font("Arial", Font.BOLD, 12));
+        lblZoom.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lblZoom.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        lblZoom.setToolTipText("Click to reset zoom to 100%");
+        lblZoom.addMouseListener(new MouseAdapter() {
+            @Override 
+            public void mouseClicked(MouseEvent e){
+                if(gameCanvas != null){
+                    gameCanvas.setEditorZoom(1.0);
+                    updateZoomLabel();
+                    gameCanvas.repaint();
+                }
+            }
+        });
+
+        controlPanel.add(lblZoom);
+
         Dimension btnSize = new Dimension(200, 32);
         JButton[] actionButtons = {btnSave, btnPlay, btnExit, btnLoad, btnFreePlace, btnNew, btnSelectLevelMenu, btnExportLevel, btnImportLevel, btnDeleteLevel};
         for (JButton btn : actionButtons) {
@@ -352,6 +376,8 @@ public class MapEditorWindow extends JFrame{
 
         btnPlay.addActionListener(e->{
             try{
+                gameCanvas.setEditorZoom(1.0);
+                updateZoomLabel();
                 activeEditingMapID = Integer.parseInt(txtMapID.getText().trim());
                 gameCanvas.setEditorMode(false);
                 gameCanvas.loadLevel(activeEditingMapID);
@@ -501,12 +527,13 @@ public class MapEditorWindow extends JFrame{
         double scaleX = (double) panelWidth / virtualWidth;
         double scaleY = (double) panelHeight / virtualHeight;
         double scale = Math.min(scaleX, scaleY);
+        double effectiveScale = scale * gameCanvas.getEditorZoom();
 
         int offsetX = (int) ((panelWidth - (virtualWidth * scale)) / 2);
         int offsetY = (int) ((panelHeight - (virtualHeight * scale)) / 2);
 
-        int virtualMouseX = (int) ((e.getX() - offsetX) / scale);
-        int virtualMouseY = (int) ((e.getY() - offsetY) / scale);
+        int virtualMouseX = (int) ((e.getX() - offsetX) / effectiveScale);
+        int virtualMouseY = (int) ((e.getY() - offsetY) / effectiveScale);
 
         return new Point(virtualMouseX + gameCanvas.getCameraX(), virtualMouseY + gameCanvas.getCameraY());
     }
@@ -2338,6 +2365,13 @@ public class MapEditorWindow extends JFrame{
         instance.btnExit.setEnabled(false);
         JOptionPane.showMessageDialog(instance, "Level Complete! You Win!", "Victory!", JOptionPane.INFORMATION_MESSAGE);
     }
+    
+    public void updateZoomLabel(){
+        if(lblZoom != null && gameCanvas != null){
+            int percent = (int) Math.round(gameCanvas.getEditorZoom() * 100);
+            lblZoom.setText("Zoom: " + percent + "%");
+        }
+    }
 
     public void updateMapIDField(String text){ if(txtMapID != null) txtMapID.setText(text);}
     public void setCurrentlyLoadedMapID(int id){ this.currentlyLoadedMapID = id;}
@@ -2366,5 +2400,5 @@ public class MapEditorWindow extends JFrame{
     public String getCurrentPathClickModeName() { return this.currentPathClickMode.name();}
     public boolean isSettingPathMode() { return this.currentPathClickMode != PathClickMode.NONE;}
 
-    public Enemy getSelectedEnemy(){ return this.selectedEnemy;}
+    public Enemy getSelectedEnemy(){ return this.selectedEnemy;}   
 }

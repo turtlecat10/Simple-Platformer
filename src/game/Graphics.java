@@ -7,6 +7,8 @@ import java.util.ArrayList;
 
 public class Graphics extends JPanel implements ActionListener {
 
+    private double editorZoom = 1.0;
+
     public final int tileSize = 48;
     public static final int screenWidth = 1536;
     public static final int screenHeight = 864;
@@ -59,6 +61,40 @@ public class Graphics extends JPanel implements ActionListener {
 
         setupKeyBindings();
         loadLevel(1);
+
+        this.addMouseWheelListener(e ->{
+            if(!isEditorMode) return;
+            double oldZoom = editorZoom;
+            double zoomFactor = e.getPreciseWheelRotation() < 0 ? 1.15 : 0.85;
+            editorZoom = Math.max(0.1, Math.min(10.0, editorZoom * zoomFactor));
+
+            int panelWidth = getWidth();
+            int panelHeight = getHeight();
+            double scaleX1 = (double) panelWidth / virtualWidth;
+            double scaleY1 = (double) panelHeight / virtualHeight;
+            double scale1 = Math.min(scaleX1, scaleY1);
+
+            int offsetX = (int) ((panelWidth - (virtualWidth * scale1)) / 2);
+            int offsetY = (int) ((panelHeight - (virtualHeight * scale1)) / 2);
+
+            int mouseX = e.getX();
+            int mouseY = e.getY();
+
+            double worldX = cameraX + (mouseX - offsetX) / (scale1 * oldZoom);
+            double worldY = cameraY + (mouseY - offsetY) / (scale1 * oldZoom);
+
+            cameraX = (int) (worldX - (mouseX - offsetX) / (scale1 * editorZoom));
+            cameraY = (int) (worldY - (mouseY - offsetY) / (scale1 * editorZoom));
+
+            if(cameraX < 0) cameraX = 0;
+            if(cameraY < 0) cameraY = 0;
+
+            Container parent = getTopLevelAncestor();
+            if(parent instanceof MapEditorWindow){
+                ((MapEditorWindow) parent).updateZoomLabel();
+            }
+            repaint();
+        });
 
         this.gameTimer = new Timer(16, this);
         if(!isEditorMode){
@@ -266,9 +302,10 @@ public class Graphics extends JPanel implements ActionListener {
         double scale = Math.min(scaleX, scaleY);
         int offsetX = (int) ((getWidth() - (virtualWidth * scale)) / 2);
         int offsetY = (int) ((getHeight() - (virtualHeight * scale)) / 2);
-        
+    
+        double effectiveScale = scale * editorZoom;
         g2.translate(offsetX, offsetY);
-        g2.scale(scale, scale);
+        g2.scale(effectiveScale, effectiveScale);
         g2.translate(-this.cameraX, -this.cameraY);
 
         for(int i = deathParticles.size() - 1; i >= 0; i--){
@@ -284,6 +321,122 @@ public class Graphics extends JPanel implements ActionListener {
 
 
         g2.setTransform(oldTransform);
+
+        Object selectedTarget = (MapEditorWindow.instance != null) ? (MapEditorWindow.instance.getPropertyEditingObject() != null ? MapEditorWindow.instance.getPropertyEditingObject() : MapEditorWindow.instance.getSelectedEnemy()) : null;
+
+        if(this.isEditorMode && selectedTarget != null){
+            int targetX = 0, targetY = 0, targetW = 36, targetH = 36;
+            Color indicatorColor = Color.GRAY;
+
+            if(selectedTarget instanceof GameObject){
+                GameObject obj = (GameObject) selectedTarget;
+                if(obj.mapID == currentMap){
+                    targetX = obj.x;
+                    targetY = obj.y - obj.height;
+                    targetW = obj.width;
+                    targetW = obj.width;
+                    targetH = obj.height;
+
+                    switch(obj.type){
+                        case solid: indicatorColor = Color.GREEN; break;
+                        case oneWay: indicatorColor = new Color(147, 112, 219); break;
+                        case death: indicatorColor = Color.RED; break;
+                        case respawn: indicatorColor = Color.BLUE; break;
+                        case spawnPoint: indicatorColor = Color.YELLOW; break;
+                        case ladder: indicatorColor = new Color(150, 75, 0); break;
+                        case win: indicatorColor = new Color(212, 175, 55); break;
+                        case trigger: indicatorColor = Color.ORANGE; break;
+                        default: indicatorColor = Color.GRAY; break;
+                    }
+                }
+            }else if(selectedTarget instanceof Enemy){
+                Enemy en = (Enemy) selectedTarget;
+                if(en.mapID == currentMap){
+                    targetX = en.x;
+                    targetY = en.y - en.height;
+                    targetW = en.width;
+                    targetH = en.height;
+                    indicatorColor = en.getParticleColor();
+                }
+            }
+
+            int centerX = targetX + targetW / 2;
+            int centerY = targetY + targetH / 2;
+
+            int viewWidth = (int) (virtualWidth / editorZoom);
+            int viewHeight = (int) (virtualHeight / editorZoom);
+
+            boolean isOffScreen = (targetX + targetW < cameraX) || targetX > cameraX + viewWidth || targetY + targetH < cameraY || targetY > cameraY + viewHeight;
+
+            if(isOffScreen){
+                int screenCamCenterX = cameraX + (int) viewWidth / 2;
+                int screenCamCenterY = cameraY + (int) viewHeight / 2;
+
+                double dx = centerX - screenCamCenterX;
+                double dy = centerY - screenCamCenterY;
+                double angle = Math.atan2(dy, dx);
+                int dist = (int) Math.hypot(dx, dy);
+
+                int margin = 50;
+                int minX = cameraX + margin;
+                int maxX = cameraX + (int) viewWidth - 240 - margin;
+                int minY = cameraY + margin;
+                int maxY = cameraY + (int) viewHeight - margin;
+
+                double scaleX1 = (dx != 0) ? (dx > 0 ? (maxX - screenCamCenterX) / dx : (minX - screenCamCenterX) / dx) : Double.MAX_VALUE;
+                double scaleY1 = (dy != 0) ? (dy > 0 ? (maxY - screenCamCenterY) / dy : (minY - screenCamCenterY) / dy) : Double.MAX_VALUE;
+                double scaleFactor = Math.min(scaleX1, scaleY1);
+
+                int arrowX = screenCamCenterX + (int) (dx * scaleFactor);
+                int arrowY = screenCamCenterY + (int) (dy * scaleFactor);
+
+                arrowX = Math.max(minX, Math.min(maxX, arrowX));
+                arrowY = Math.max(minY, Math.min(maxY, arrowY));
+
+                double panelScaleX = (double) getWidth() / virtualWidth;
+                double panelScaleY = (double) getHeight() / virtualHeight;
+                double panelScale = Math.min(panelScaleX, panelScaleY);
+                double effectiveScale1 = panelScale * editorZoom;
+
+                int panelOffsetX = (int) ((getWidth() - (virtualWidth * panelScale)) / 2);
+                int panelOffsetY = (int) ((getHeight() - (virtualHeight * panelScale)) / 2);
+
+                int screenArrowX = panelOffsetX + (int)((arrowX - cameraX) * effectiveScale1);
+                int screenArrowY = panelOffsetY + (int)((arrowY - cameraY) * effectiveScale1);
+
+                java.awt.geom.AffineTransform savedTransform = g2.getTransform();
+                g2.translate(screenArrowX, screenArrowY);
+                g2.rotate(angle);
+
+                g2.setColor(indicatorColor);
+                g2.setStroke(new java.awt.BasicStroke(2.5f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+
+                g2.drawLine(16, 0, 6, -6);
+                g2.drawLine(16, 0, 6, 6);
+                g2.drawLine(-12, 0, 16, 0);
+                g2.drawLine(-12, 0, -18, -6);
+                g2.drawLine(-14, 0, -20, 0);
+                g2.drawLine(-12, 0, -18, 6);
+
+                g2.setTransform(savedTransform);
+
+                String distStr = dist + "px";
+                g2.setFont(new Font("Arial", Font.BOLD, 12));
+                FontMetrics fm = g2.getFontMetrics();
+                int strW = fm.stringWidth(distStr);
+
+                g2.setColor(new Color(0, 0, 0, 200));
+                g2.fillRect(screenArrowX - strW / 2 - 4, screenArrowY + 16, strW + 8, 20);
+                g2.setColor(Color.YELLOW);
+                g2.drawString(distStr, screenArrowX - strW / 2, screenArrowY + 30);
+
+                lastIndicatorBounds = new Rectangle(screenArrowX - strW / 2 - 4, screenArrowY + 16, strW + 8, 20);
+            }else{
+                lastIndicatorBounds = null;
+            }
+        }else{
+            lastIndicatorBounds = null;
+        }
 
         g2.setFont(new Font("Arial", Font.BOLD, 14));
 
@@ -341,8 +494,9 @@ public class Graphics extends JPanel implements ActionListener {
         int offsetX = (int) ((panelWidth - virtualWidth * scale)) / 2;
         int offsetY = (int) ((panelHeight - virtualHeight * scale)) / 2;
 
+        double effectiveScale = scale * editorZoom;
         g2.translate(offsetX, offsetY);
-        g2.scale(scale, scale);
+        g2.scale(effectiveScale, effectiveScale);
         g2.translate(-this.cameraX, -this.cameraY);
 
         if(gameObjects != null){
@@ -443,104 +597,6 @@ public class Graphics extends JPanel implements ActionListener {
             }
         }
 
-        Object selectedTarget = (MapEditorWindow.instance != null) ? (MapEditorWindow.instance.getPropertyEditingObject() != null ? MapEditorWindow.instance.getPropertyEditingObject() : MapEditorWindow.instance.getSelectedEnemy()) : null;
-
-        if(this.isEditorMode && selectedTarget != null){
-            int targetX = 0, targetY = 0, targetW = 36, targetH = 36;
-            Color indicatorColor = Color.GRAY;
-
-            if(selectedTarget instanceof GameObject){
-                GameObject obj = (GameObject) selectedTarget;
-                if(obj.mapID == mapID){
-                    targetX = obj.x;
-                    targetY = obj.y - obj.height;
-                    targetW = obj.width;
-                    targetW = obj.width;
-                    targetH = obj.height;
-
-                    switch(obj.type){
-                        case solid: indicatorColor = Color.GREEN; break;
-                        case oneWay: indicatorColor = new Color(147, 112, 219); break;
-                        case death: indicatorColor = Color.RED; break;
-                        case respawn: indicatorColor = Color.BLUE; break;
-                        case spawnPoint: indicatorColor = Color.YELLOW; break;
-                        case ladder: indicatorColor = new Color(150, 75, 0); break;
-                        case win: indicatorColor = new Color(212, 175, 55); break;
-                        case trigger: indicatorColor = Color.ORANGE; break;
-                        default: indicatorColor = Color.GRAY; break;
-                    }
-                }
-            }else if(selectedTarget instanceof Enemy){
-                Enemy en = (Enemy) selectedTarget;
-                if(en.mapID == mapID){
-                    targetX = en.x;
-                    targetY = en.y - en.height;
-                    targetW = en.width;
-                    targetH = en.height;
-                    indicatorColor = en.getParticleColor();
-                }
-            }
-
-            int centerX = targetX + targetW / 2;
-            int centerY = targetY + targetH / 2;
-
-            boolean isOffScreen = (targetX + targetW < cameraX) || targetX > cameraX + virtualWidth || targetY + targetH < cameraY || targetY > cameraY + virtualHeight;
-
-            if(isOffScreen){
-                int screenCamCenterX = cameraX + virtualWidth / 2;
-                int screenCamCenterY = cameraY + virtualHeight / 2;
-
-                double dx = centerX - screenCamCenterX;
-                double dy = centerY - screenCamCenterY;
-                double angle = Math.atan2(dy, dx);
-                int dist = (int) Math.hypot(dx, dy);
-
-                int margin = 50;
-                int minX = cameraX + margin;
-                int maxX = cameraX + virtualWidth - 240 - margin;
-                int minY = cameraY + margin;
-                int maxY = cameraY + virtualHeight - margin;
-
-                double scaleX1 = (dx != 0) ? (dx > 0 ? (maxX - screenCamCenterX) / dx : (minX - screenCamCenterX) / dx) : Double.MAX_VALUE;
-                double scaleY1 = (dy != 0) ? (dy > 0 ? (maxY - screenCamCenterY) / dy : (minY - screenCamCenterY) / dy) : Double.MAX_VALUE;
-                double scale1 = Math.min(scaleX1, scaleY1);
-
-                int arrowX = screenCamCenterX + (int) (dx * scale1);
-                int arrowY = screenCamCenterY + (int) (dy * scale1);
-
-                java.awt.geom.AffineTransform oldTrans = g2.getTransform();
-                g2.translate(arrowX, arrowY);
-                g2.rotate(angle);
-
-                g2.setColor(indicatorColor);
-                g2.setStroke(new java.awt.BasicStroke(2.5f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
-
-                g2.drawLine(16, 0, 6, -6);
-                g2.drawLine(16, 0, 6, 6);
-                g2.drawLine(-12, 0, 16, 0);
-                g2.drawLine(-12, 0, -18, -6);
-                g2.drawLine(-14, 0, -20, 0);
-                g2.drawLine(-12, 0, -18, 6);
-
-                g2.setTransform(oldTrans);
-
-                String distStr = dist + "px";
-                g2.setFont(new Font("Arial", Font.BOLD, 12));
-                FontMetrics fm = g2.getFontMetrics();
-                int strW = fm.stringWidth(distStr);
-
-                g2.setColor(new Color(0, 0, 0, 200));
-                g2.fillRect(arrowX - strW / 2 - 4, arrowY + 16, strW + 8, 20);
-                g2.setColor(Color.YELLOW);
-                g2.drawString(distStr, arrowX - strW / 2, arrowY + 30);
-
-                lastIndicatorBounds = new Rectangle(arrowX - strW / 2 - 4, arrowY + 16, strW + 8, 20);
-            }else{
-                lastIndicatorBounds = null;
-            }
-        }else{
-            lastIndicatorBounds = null;
-        }
 
         if(drawPlayer && movement != null){
             if(!movement.isDead){
@@ -555,14 +611,20 @@ public class Graphics extends JPanel implements ActionListener {
             g2.setStroke(new java.awt.BasicStroke(1.0f));
             g2.setColor(new Color(255, 255, 255, 30));
 
-            for (int x = this.cameraX; x < this.cameraX + virtualWidth + tileSize; x += tileSize) {
-                int snapGridX = (x / tileSize) * tileSize;
-                g2.drawLine(snapGridX, this.cameraY, snapGridX, this.cameraY + virtualHeight);
+            int viewWidth = (int) (virtualWidth / editorZoom);
+            int viewHeight = (int) (virtualHeight / editorZoom);
+
+            int startGridX = (cameraX / tileSize) * tileSize - tileSize;
+            int endGridX = cameraX + viewWidth + tileSize * 2;
+            int startGridY = (cameraY / tileSize) * tileSize - tileSize;
+            int endGridY = cameraY + viewHeight + tileSize * 2;
+
+            for (int x = startGridX; x < endGridX; x += tileSize) {
+                g2.drawLine(x, cameraY, x, cameraY + viewHeight + tileSize);
             }
             
-            for (int y = this.cameraY; y < this.cameraY + virtualHeight + tileSize; y += tileSize) {
-                int snapGridY = (y / tileSize) * tileSize;
-                g2.drawLine(this.cameraX, snapGridY, this.cameraX + virtualWidth, snapGridY);
+            for (int y = startGridY; y < endGridY; y += tileSize) {
+                g2.drawLine(cameraX, y, cameraX + viewWidth + tileSize, y);
             }
 
             java.awt.Point anchor = MapEditorWindow.instance.getBottomLeftCorner();
@@ -819,4 +881,6 @@ public class Graphics extends JPanel implements ActionListener {
     public boolean isEditorMode(){return this.isEditorMode;}
     public Movement getMovement(){ return this.movement; }
     public int getCurrentMap(){return currentMap;}
+    public double getEditorZoom(){return this.editorZoom;}
+    public void setEditorZoom(double zoom){ this.editorZoom = Math.max(0.1, Math.min(zoom, 10.0));}
 }
