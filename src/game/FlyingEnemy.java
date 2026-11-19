@@ -91,15 +91,8 @@ public class FlyingEnemy extends Enemy{
         int renderY = y - height;
         g2.setColor(new Color(0, 139, 0));
         g2.fillRect(x, renderY, width, height);
-        if(MapEditorWindow.instance.getSelectedEnemy() != this){
-            g2.setColor(Color.BLACK);
-            g2.drawRect(x, renderY, width, height);
-        }else{
-            g2.setColor(Color.BLUE);
-            float thickness = 4.0f;
-            g2.setStroke(new BasicStroke(thickness));
-            g2.drawRect(x, renderY, width, height);
-        }
+        g2.setColor(Color.BLACK);
+        g2.drawRect(x, renderY, width, height);
         
     }
     @Override 

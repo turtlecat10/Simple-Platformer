@@ -25,6 +25,8 @@ public class Graphics extends JPanel implements ActionListener {
     public void setCameraX(int x){ this.cameraX = x;}
     public void setCameraY(int y){ this.cameraY = y;}
 
+    public Rectangle lastIndicatorBounds = null;
+
     private int currentMap = 1;
     private ArrayList<GameObject> gameObjects;
     private boolean isEditorMode = true;
@@ -343,29 +345,30 @@ public class Graphics extends JPanel implements ActionListener {
         g2.scale(scale, scale);
         g2.translate(-this.cameraX, -this.cameraY);
 
-        for(GameObject obj : gameObjects){
-            if(obj.mapID != mapID) continue;
-            if(obj.isTriggered && !obj.triggeredDisplay) continue;
+        if(gameObjects != null){
+            for(GameObject obj : gameObjects){
+                if(obj.mapID != mapID) continue;
+                if(obj.isTriggered && !obj.triggeredDisplay) continue;
 
-            int renderX = obj.currentX;
-            int renderY = obj.currentY - obj.height; // Convert bottom-left Y to top-left Y for rendering
+                int renderX = obj.currentX;
+                int renderY = obj.currentY - obj.height; // Convert bottom-left Y to top-left Y for rendering
 
-            switch(obj.type){
-                case solid: g2.setColor(Color.GREEN); break;
-                case oneWay: g2.setColor(new Color(147, 112, 219)); break;
-                case death: g2.setColor(Color.RED); break;
-                case respawn: g2.setColor(Color.BLUE); break;
-                case spawnPoint: g2.setColor(Color.YELLOW); break;
-                case ladder: g2.setColor(new Color(150, 75, 0)); break;
-                case win: g2.setColor(new Color(212, 175, 55)); break;
-                case trigger: g2.setColor(Color.ORANGE); break;
-                default: g2.setColor(Color.GRAY); break;
+                switch(obj.type){
+                    case solid: g2.setColor(Color.GREEN); break;
+                    case oneWay: g2.setColor(new Color(147, 112, 219)); break;
+                    case death: g2.setColor(Color.RED); break;
+                    case respawn: g2.setColor(Color.BLUE); break;
+                    case spawnPoint: g2.setColor(Color.YELLOW); break;
+                    case ladder: g2.setColor(new Color(150, 75, 0)); break;
+                    case win: g2.setColor(new Color(212, 175, 55)); break;
+                    case trigger: g2.setColor(Color.ORANGE); break;
+                    default: g2.setColor(Color.GRAY); break;
+                }
+                g2.fillRect(renderX, renderY, obj.width, obj.height);
+                g2.setColor(Color.black);
+                g2.drawRect(renderX, renderY, obj.width, obj.height);
             }
-            g2.fillRect(renderX, renderY, obj.width, obj.height);
-            g2.setColor(Color.black);
-            g2.drawRect(renderX, renderY, obj.width, obj.height);
         }
-        
         if(movement != null && movement.getEnemies() != null){
             for(Enemy enemy : movement.getEnemies()){
                 if(enemy.mapID == mapID && enemy.isDead){
@@ -373,6 +376,15 @@ public class Graphics extends JPanel implements ActionListener {
                 }
                 if(enemy.mapID == mapID && !enemy.isDead){
                     enemy.draw(g2);
+
+                    Enemy currentSelected = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.getSelectedEnemy() : null;
+                    if(enemy == currentSelected && isEditorMode){
+                        Stroke oldStroke = g2.getStroke();
+                        g2.setColor(Color.CYAN);
+                        g2.setStroke(new java.awt.BasicStroke(4.0f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{4f}, 0.0f));
+                        g2.drawRect(enemy.x, enemy.y - enemy.height, enemy.width, enemy.height);
+                        g2.setStroke(oldStroke);
+                    }
                 }
             }
         }
@@ -430,6 +442,95 @@ public class Graphics extends JPanel implements ActionListener {
             }
         }
 
+        Object selectedTarget = (MapEditorWindow.instance != null) ? (MapEditorWindow.instance.getPropertyEditingObject() != null ? MapEditorWindow.instance.getPropertyEditingObject() : MapEditorWindow.instance.getSelectedEnemy()) : null;
+
+        if(this.isEditorMode && selectedTarget != null){
+            int targetX = 0, targetY = 0, targetW = 36, targetH = 36;
+            Color indicatorColor = Color.GRAY;
+
+            if(selectedTarget instanceof GameObject){
+                GameObject obj = (GameObject) selectedTarget;
+                if(obj.mapID == mapID){
+                    targetX = obj.x;
+                    targetY = obj.y - obj.height;
+                    targetW = obj.width;
+                    targetW = obj.width;
+                    targetH = obj.height;
+
+                    switch(obj.type){
+                        case solid: indicatorColor = Color.GREEN; break;
+                        case oneWay: indicatorColor = new Color(147, 112, 219); break;
+                        case death: indicatorColor = Color.RED; break;
+                        case respawn: indicatorColor = Color.BLUE; break;
+                        case spawnPoint: indicatorColor = Color.YELLOW; break;
+                        case ladder: indicatorColor = new Color(150, 75, 0); break;
+                        case win: indicatorColor = new Color(212, 175, 55); break;
+                        case trigger: indicatorColor = Color.ORANGE; break;
+                        default: indicatorColor = Color.GRAY; break;
+                    }
+                }
+            }else if(selectedTarget instanceof Enemy){
+                Enemy en = (Enemy) selectedTarget;
+                if(en.mapID == mapID){
+                    targetX = en.x;
+                    targetY = en.y - en.height;
+                    targetW = en.width;
+                    targetH = en.height;
+                    indicatorColor = en.getParticleColor();
+                }
+            }
+
+            int centerX = targetX + targetW / 2;
+            int centerY = targetY + targetH / 2;
+
+            boolean isOffScreen = centerX < cameraX || centerX > cameraX + virtualWidth || centerY < cameraY || centerY > cameraY + virtualHeight;
+
+            if(isOffScreen){
+                int screenCamCenterX = cameraX + virtualWidth / 2;
+                int screenCamCenterY = cameraY + virtualHeight / 2;
+
+                double angle = Math.atan2(centerY - screenCamCenterY, centerX - screenCamCenterX);
+                int dist = (int) Math.hypot(centerX - screenCamCenterX, centerY - screenCamCenterY);
+
+                int arrowX = screenCamCenterX + (int) (Math.cos(angle) * (virtualWidth / 2 - 80));
+                int arrowY = screenCamCenterY + (int) (Math.sin(angle) * (virtualHeight / 2 - 80));
+
+                java.awt.geom.AffineTransform oldTrans = g2.getTransform();
+                g2.translate(arrowX, arrowY);
+                g2.rotate(angle);
+
+                g2.setColor(indicatorColor);
+                g2.setStroke(new java.awt.BasicStroke(2.5f, java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+
+                g2.drawLine(16, 0, 6, -6);
+                g2.drawLine(16, 0, 6, 6);
+
+                g2.drawLine(-12, 0, 16, 0);
+
+                g2.drawLine(-12, 0, -18, -6);
+                g2.drawLine(-14, 0, -20, 0);
+                g2.drawLine(-12, 0, -18, 6);
+
+                g2.setTransform(oldTrans);
+
+                String distStr = dist + "px";
+                g2.setFont(new Font("Arial", Font.BOLD, 12));
+                FontMetrics fm = g2.getFontMetrics();
+                int strW = fm.stringWidth(distStr);
+
+                g2.setColor(new Color(0, 0, 0, 200));
+                g2.fillRect(arrowX - strW / 2 - 4, arrowY + 16, strW + 8, 20);
+                g2.setColor(Color.YELLOW);
+                g2.drawString(distStr, arrowX - strW / 2, arrowY + 30);
+
+                lastIndicatorBounds = new Rectangle(arrowX - strW / 2 - 4, arrowY + 16, strW + 8, 20);
+            }else{
+                lastIndicatorBounds = null;
+            }
+        }else{
+            lastIndicatorBounds = null;
+        }
+
         if(drawPlayer && movement != null){
             if(!movement.isDead){
                 g2.setColor(Color.WHITE);
@@ -440,6 +541,7 @@ public class Graphics extends JPanel implements ActionListener {
         }
 
         if (this.isEditorMode && drawPlayer) {
+            g2.setStroke(new java.awt.BasicStroke(1.0f));
             g2.setColor(new Color(255, 255, 255, 30));
 
             for (int x = this.cameraX; x < this.cameraX + virtualWidth + tileSize; x += tileSize) {

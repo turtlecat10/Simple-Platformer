@@ -362,6 +362,8 @@ public class MapEditorWindow extends JFrame{
                 btnFreePlace.setEnabled(false);
                 btnNew.setEnabled(false);
                 btnSelectLevelMenu.setEnabled(false);
+                selectedEnemy = null;
+                selectedObject = null;
                 for(Enemy enemy : gameCanvas.getMovement().getEnemies()){
                     if(enemy instanceof FlyingEnemy){
                         FlyingEnemy fe = (FlyingEnemy) enemy;
@@ -543,6 +545,33 @@ public class MapEditorWindow extends JFrame{
                     snapY = gamePoint.y;
                 }
 
+                if(gameCanvas.lastIndicatorBounds != null && gameCanvas.lastIndicatorBounds.contains(gamePoint)){
+                    Object sel = propertyEditingObject != null ? propertyEditingObject : selectedEnemy;
+                    if(sel != null){
+                        int itemCenterX = 0, itemCenterY = 0;
+                        if(sel instanceof GameObject){
+                            GameObject o = (GameObject) sel;
+                            itemCenterX = o.x + o.width / 2;
+                            itemCenterY = (o.y - o.height / 2);
+                        }else if(sel instanceof Enemy){
+                            Enemy o = (Enemy) sel;
+                            itemCenterX = o.x + o.width / 2;
+                            itemCenterY = o.y - o.height / 2;
+                        }
+
+                        int targetCamX = Math.round((itemCenterX - gameCanvas.virtualWidth / 2) / 16.0f) * 16;
+                        int targetCamY = Math.round((itemCenterY - gameCanvas.virtualHeight / 2) / 16.0f) * 16;
+
+                        if(targetCamX < 0) targetCamX = 0;
+                        if(targetCamY < 0) targetCamY = 0;
+
+                        gameCanvas.setCameraX(targetCamX);
+                        gameCanvas.setCameraY(targetCamY);
+                        gameCanvas.repaint();
+                        return;
+                    }
+                }
+
                 if (propertyEditingObject != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))) {
 
                     for(int pathType = 0; pathType < 2; pathType++){
@@ -681,23 +710,7 @@ public class MapEditorWindow extends JFrame{
                     return;
                 }
 
-
                 if(SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e)){
-                    if(activeEnemyBrush != EnemyRegistry.NONE && gameCanvas.getMovement() != null && selectedEnemy != null){
-                        int placementY = snapY;
-                        if(!freePlace){
-                            placementY += snapSize;
-                        }
-                        ArrayList<Enemy> currentEnemyList = gameCanvas.getMovement().getEnemies();
-                        Enemy newEnemy = activeEnemyBrush.create(snapX, placementY, 36, 36, activeEditingMapID, 0);
-                        if(newEnemy != null){
-                            currentEnemyList.add(newEnemy);
-                        }
-                        lblBrush.setText("Selected Brush: ENEMY [" + activeEnemyBrush.name().toUpperCase() + "]");
-                        gameCanvas.repaint();
-                        return;
-                    }
-                    
                     if(gameCanvas.getMovement() != null){
                         ArrayList<Enemy> enemies = gameCanvas.getMovement().getEnemies();
                         if(enemies != null){
@@ -707,8 +720,10 @@ public class MapEditorWindow extends JFrame{
                                 if(enemy.mapID == activeEditingMapID && gamePoint.x >= enemy.x && gamePoint.x <= (enemy.x + enemy.width) && gamePoint.y >= objTop && gamePoint.y <= enemy.y){
                                     draggedEnemy = enemy;
                                     selectedEnemy = enemy;
+                                    selectedObject = null;
+                                    propertyEditingObject = null;
                                     dragOffsetX = gamePoint.x - enemy.x;
-                                    dragOffsetY = gamePoint.y - (enemy.y - enemy.height);
+                                    dragOffsetY = gamePoint.y - objTop;
                                     btnDelete.setEnabled(true);
                                     btnEditProperties.setEnabled(true);
                                     gameCanvas.repaint();
@@ -717,6 +732,27 @@ public class MapEditorWindow extends JFrame{
                             }
                         }
                     }
+
+                    if(activeEnemyBrush != EnemyRegistry.NONE && gameCanvas.getMovement() != null && selectedEnemy == null && selectedObject == null){
+                        int placementY, placementX;
+                        if(!freePlace){
+                            int cellX = Math.floorDiv(gamePoint.x, snapSize);
+                            int cellY = Math.floorDiv(gamePoint.y, snapSize);
+                            placementX = cellX * snapSize;
+                            placementY = (cellY + 1) * snapSize;
+                        }else{
+                            placementX = gamePoint.x;
+                            placementY = gamePoint.y;
+                        }
+                        ArrayList<Enemy> currentEnemyList = gameCanvas.getMovement().getEnemies();
+                        Enemy newEnemy = activeEnemyBrush.create(placementX, placementY, 36, 36, activeEditingMapID, 0);
+                        if(newEnemy != null){
+                            currentEnemyList.add(newEnemy);
+                        }
+                        lblBrush.setText("Selected Brush: ENEMY [" + activeEnemyBrush.name().toUpperCase() + "]");
+                        gameCanvas.repaint();
+                        return;
+                    } 
 
                     if(bottomLeftCorner == null && selectedEnemy == null){
                         int finalX = freePlace ? snapX : Math.floorDiv(gamePoint.x, snapSize) * snapSize;
@@ -771,7 +807,6 @@ public class MapEditorWindow extends JFrame{
                         gameCanvas.repaint();
                     }
                 }
-                   
                 
                 if(SwingUtilities.isMiddleMouseButton(e)){
                     if(propertyEditingObject != null){
@@ -875,13 +910,12 @@ public class MapEditorWindow extends JFrame{
                 Point gamePoint = getTransformedGamePoint(e);
                 int snapSize = gameCanvas.getTileSize();
 
-                int rawX = gamePoint.x - dragOffsetX;
-                int rawTopLeftY = gamePoint.y - dragOffsetY;
-                int newX = freePlace ? rawX : Math.round(rawX / (float) snapSize) * snapSize;
-                int newTopLeftY = freePlace ? rawTopLeftY : Math.round(rawTopLeftY / (float) snapSize) * snapSize;
-                int newY = newTopLeftY + propertyEditingObject.height;
-
                 if (propertyEditingObject != null) {
+                    int rawX = gamePoint.x - dragOffsetX;
+                    int rawTopLeftY = gamePoint.y - dragOffsetY;
+                    int newX = freePlace ? rawX : Math.round(rawX / (float) snapSize) * snapSize;
+                    int newTopLeftY = freePlace ? rawTopLeftY : Math.round(rawTopLeftY / (float) snapSize) * snapSize;
+                    int newY = newTopLeftY + propertyEditingObject.height;
                     if(isDraggingStartPos){
                         propertyEditingObject.x = newX;
                         propertyEditingObject.y = newY;
@@ -910,6 +944,12 @@ public class MapEditorWindow extends JFrame{
                         gameCanvas.repaint();
                     }
                 }else if(draggedEnemy != null){
+                    int rawX = gamePoint.x - dragOffsetX;
+                    int rawTopLeftY = gamePoint.y - dragOffsetY;
+                    int newX = freePlace ? rawX : Math.round(rawX / (float) snapSize) * snapSize;
+                    int newTopLeftY = freePlace ? rawTopLeftY : Math.round(rawTopLeftY / (float) snapSize) * snapSize;
+                    int newY = newTopLeftY + draggedEnemy.height;
+
                     draggedEnemy.x = newX;
                     draggedEnemy.y = newY;
                     draggedEnemy.startX = newX;
