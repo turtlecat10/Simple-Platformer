@@ -57,6 +57,7 @@ public class MapEditorWindow extends JFrame{
     private JPanel mainContentCardContainer;
     private CardLayout windowLayoutSwitcher;
     private JPanel levelGridMenuPanel;
+
     //buttons
     private boolean freePlace;
     private JButton btnDelete = new JButton("delete");
@@ -84,6 +85,17 @@ public class MapEditorWindow extends JFrame{
     private Enemy draggedEnemy = null;
     private int dragOffsetX = 0;
     private int dragOffsetY = 0;
+
+    //resizing
+    public enum ResizeMode{ NONE, LEFT, RIGHT, TOP, BOTTOM, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT}
+    private ResizeMode currentResizeMode = ResizeMode.NONE;
+    private ResizeMode currentHoverResizeMode = ResizeMode.NONE;
+    private int resizeOriginalX = 0;
+    private int resizeOriginalY = 0;
+    private int resizeOriginalWidth = 0;
+    private int resizeOriginalHeight = 0;
+    private int resizeAnchorX = 0;
+    private int resizeAnchorY = 0;
 
     //camera
     public int cameraX = 0;
@@ -242,7 +254,6 @@ public class MapEditorWindow extends JFrame{
         controlPanel.add(cmbEnemyType);
         controlPanel.add(Box.createVerticalStrut(5));
 
-        // btnDelete = new JButton("delete selected object");
         btnDelete.setMaximumSize(new Dimension(200,32));
         btnDelete.setAlignmentX(Component.LEFT_ALIGNMENT);
         btnDelete.setEnabled(false);
@@ -251,6 +262,7 @@ public class MapEditorWindow extends JFrame{
             if(selectedObject != null && gameCanvas.getGameObjects() != null){
                 gameCanvas.getGameObjects().remove(selectedObject);
                 selectedObject = null;
+                propertyEditingObject = null;
                 lblSelectedInfo.setText("selection: Delete");
                 btnDelete.setEnabled(false);
                 btnEditProperties.setEnabled(false);
@@ -259,8 +271,10 @@ public class MapEditorWindow extends JFrame{
             if(selectedEnemy != null && gameCanvas.getMovement().getEnemies() != null){
                 gameCanvas.getMovement().getEnemies().remove(selectedEnemy);
                 selectedEnemy = null;
+                propertyEditingEnemy = null;
                 lblSelectedInfo.setText("selection: Delete");
                 btnDelete.setEnabled(false);
+                btnEditProperties.setEnabled(false);
                 gameCanvas.repaint();
             }
         });
@@ -599,8 +613,86 @@ public class MapEditorWindow extends JFrame{
                     }
                 }
 
-                if (propertyEditingObject != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))) {
+                Object activeSelTarget = propertyEditingObject != null ? propertyEditingObject : selectedEnemy;
+                if(activeSelTarget != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))){
+                    int tX = 0, tY = 0, tW = 0, tH = 0;
+                    if(activeSelTarget instanceof GameObject){
+                        GameObject obj = (GameObject) activeSelTarget;
+                        if(activeEditingMapID == obj.mapID){
+                            tX = obj.x; tY = obj.y - obj.height; tW = obj.width; tH = obj.height;
+                        }
+                    }else if(activeSelTarget instanceof Enemy){
+                        Enemy en = (Enemy) activeSelTarget;
+                        if(activeEditingMapID == en.mapID){
+                            tX = en.x; tY = en.y - en.height; tW = en.width; tH = en.height;
+                        }
+                    }
 
+                    int handleThreshold = 6;
+                    Rectangle bounds = new Rectangle(tX+1, tY-1, tW+2, tH+2);
+                    Rectangle innerBounds = new Rectangle(tX + handleThreshold, tY + handleThreshold, Math.max(1, tW - handleThreshold * 2), Math.max(1, tH - handleThreshold * 2));
+
+                    if(bounds.contains(gamePoint) && !innerBounds.contains(gamePoint)){
+                        boolean isLeft = Math.abs(gamePoint.x - tX) <= handleThreshold;
+                        boolean isRight = Math.abs(gamePoint.x - (tX + tW)) <= handleThreshold;
+                        boolean isTop = Math.abs(gamePoint.y - tY) <= handleThreshold;
+                        boolean isBottom = Math.abs(gamePoint.y - (tY + tH)) <= handleThreshold;
+
+                        if(isTop && isLeft) currentResizeMode = ResizeMode.TOP_LEFT;
+                        else if(isTop && isRight) currentResizeMode = ResizeMode.TOP_RIGHT;
+                        else if(isBottom && isLeft) currentResizeMode = ResizeMode.BOTTOM_LEFT;
+                        else if(isBottom && isRight) currentResizeMode = ResizeMode.BOTTOM_RIGHT;
+                        else if(isLeft) currentResizeMode = ResizeMode.LEFT;
+                        else if(isRight) currentResizeMode = ResizeMode.RIGHT;
+                        else if(isTop) currentResizeMode = ResizeMode.TOP;
+                        else if(isBottom) currentResizeMode = ResizeMode.BOTTOM;
+
+                        if(currentResizeMode != ResizeMode.NONE){
+                            int left = tX;
+                            int right = tX + tW;
+                            int top = tY;
+                            int bottom = tY + tH;
+
+                            resizeAnchorX = (currentResizeMode == ResizeMode.LEFT || currentResizeMode == ResizeMode.TOP_LEFT || currentResizeMode == ResizeMode.BOTTOM_LEFT) ? right : left;
+                            resizeAnchorY = (currentResizeMode == ResizeMode.TOP || currentResizeMode == ResizeMode.TOP_LEFT || currentResizeMode == ResizeMode.TOP_RIGHT) ? bottom : top;
+                            gameCanvas.repaint();
+                            return;
+                        }
+                    }
+                }
+
+                if (propertyEditingObject != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))) {
+                    /*GameObject obj = propertyEditingObject;
+                    int objTop = obj.y - obj.height;
+                    Rectangle bounds = new Rectangle(obj.x, objTop, obj.width, obj.height);
+
+                    int handleThreshold = 6;
+                    Rectangle innerBounds = new Rectangle(obj.x + handleThreshold, objTop + handleThreshold, Math.max(1, obj.width - handleThreshold * 2), Math.max(1, obj.height - handleThreshold * 2));
+                    if(bounds.contains(gamePoint) && !innerBounds.contains(gamePoint)){
+                        boolean isLeft = Math.abs(gamePoint.x - obj.x) <= handleThreshold;
+                        boolean isRight = Math.abs(gamePoint.x - (obj.x + obj.width)) < handleThreshold;
+                        boolean isTop = Math.abs(gamePoint.y - objTop) <= handleThreshold;
+                        boolean isBottom = Math.abs(gamePoint.y - obj.y) <= handleThreshold;
+
+                        if(isTop && isLeft) currentResizeMode = ResizeMode.TOP_LEFT;
+                        else if(isTop && isRight) currentResizeMode = ResizeMode.TOP_RIGHT;
+                        else if(isBottom && isLeft) currentResizeMode = ResizeMode.BOTTOM_LEFT;
+                        else if(isBottom && isRight) currentResizeMode = ResizeMode.BOTTOM_RIGHT;
+                        else if(isLeft) currentResizeMode = ResizeMode.LEFT;
+                        else if(isRight) currentResizeMode = ResizeMode.RIGHT;
+                        else if(isTop) currentResizeMode = ResizeMode.TOP;
+                        else if(isBottom) currentResizeMode = ResizeMode.BOTTOM;
+
+                        if(currentResizeMode != ResizeMode.NONE){
+                            resizeOriginalX = obj.x;
+                            resizeOriginalY = obj.y;
+                            resizeOriginalWidth = obj.width;
+                            resizeOriginalHeight = obj.height;
+                            gameCanvas.repaint();
+                            return;
+                        }
+                    }
+*/
                     for(int pathType = 0; pathType < 2; pathType++){
                         boolean isTriggered = (pathType == 1);
                         ArrayList<Integer> px = isTriggered ? propertyEditingObject.triggeredPathX : propertyEditingObject.pathX;
@@ -775,6 +867,10 @@ public class MapEditorWindow extends JFrame{
                         Enemy newEnemy = activeEnemyBrush.create(placementX, placementY, 36, 36, activeEditingMapID, 0);
                         if(newEnemy != null){
                             currentEnemyList.add(newEnemy);
+                            selectedEnemy = newEnemy;
+                            propertyEditingEnemy = selectedEnemy;
+                            showEnemyConfigDialog(propertyEditingEnemy);
+                            gameCanvas.repaint();
                         }
                         lblBrush.setText("Selected Brush: ENEMY [" + activeEnemyBrush.name().toUpperCase() + "]");
                         gameCanvas.repaint();
@@ -922,6 +1018,7 @@ public class MapEditorWindow extends JFrame{
                 draggedEnemy = null;
                 isDraggingStartPos = false;
                 isDraggingTriggeredStart = false;
+                currentResizeMode = ResizeMode.NONE;
                 if(isDraggingWaypoint && propertyEditingObject != null){
                     isDraggingWaypoint = false;
                     if (propertyEditingObject != null && selectedWaypointIndex >= 0) {
@@ -931,12 +1028,89 @@ public class MapEditorWindow extends JFrame{
                 }
             }
         });
+        
         gameCanvas.addMouseMotionListener(new MouseMotionAdapter(){
             @Override 
             public void mouseDragged(MouseEvent e){
                 Point gamePoint = getTransformedGamePoint(e);
                 int snapSize = gameCanvas.getTileSize();
 
+                Object target = propertyEditingObject != null ? propertyEditingObject : selectedEnemy;
+                if(target != null && currentResizeMode != ResizeMode.NONE){
+                    int newX = freePlace ? gamePoint.x : Math.round(gamePoint.x / (float) snapSize) * snapSize;
+                    int newY = freePlace ? gamePoint.y : Math.round(gamePoint.y / (float) snapSize) * snapSize;
+
+                    boolean resizeX = currentResizeMode != ResizeMode.TOP && currentResizeMode != ResizeMode.BOTTOM;
+                    boolean resizeY = currentResizeMode != ResizeMode.LEFT && currentResizeMode != ResizeMode.RIGHT;
+
+                    int currentX = (target instanceof GameObject) ? ((GameObject) target).x : ((Enemy) target).x;
+                    int currentY = (target instanceof GameObject) ? ((GameObject) target).y : ((Enemy) target).y;
+                    int currentW = (target instanceof GameObject) ? ((GameObject) target).width : ((Enemy) target).width;
+                    int currentH = (target instanceof GameObject) ? ((GameObject) target).height : ((Enemy) target).height;
+                    
+                    int newXPos = currentX;
+                    int newWidth = currentW;
+
+                    if(resizeX){
+                        newXPos = Math.min(resizeAnchorX, newX);
+                        newWidth = Math.abs(newX - resizeAnchorX);
+                        int minW = freePlace ? 1 : snapSize;
+                        if(newWidth < minW){
+                            newWidth = minW;
+                            newXPos = (newX < resizeAnchorX) ? resizeAnchorX - minW : resizeAnchorX;
+                        }
+
+                        boolean isLeft = newX < resizeAnchorX;
+                        if(currentResizeMode == ResizeMode.LEFT || currentResizeMode == ResizeMode.RIGHT){
+                            currentResizeMode = isLeft ? ResizeMode.LEFT : ResizeMode.RIGHT;
+                        }else{
+                            boolean isTop = (currentResizeMode == ResizeMode.TOP_LEFT || currentResizeMode == ResizeMode.TOP_RIGHT);
+                            currentResizeMode = isTop ? (isLeft ? ResizeMode.TOP_LEFT : ResizeMode.TOP_RIGHT) : (isLeft ? ResizeMode.BOTTOM_LEFT : ResizeMode.BOTTOM_RIGHT);
+                        }
+                    }
+
+                    int newBottomY = currentY;
+                    int newHeight = currentH;
+                    if(resizeY){
+                        int newTopY = Math.min(resizeAnchorY, newY);
+                        newHeight = Math.abs(newY - resizeAnchorY);
+                        int minH = freePlace ? 1: snapSize;
+                        if(newHeight < minH){
+                            newHeight = minH;
+                            newTopY = (newY < resizeAnchorY) ? resizeAnchorY - minH : resizeAnchorY;
+                        }
+                        newBottomY = newTopY + newHeight;
+
+                        boolean isTop = newY < resizeAnchorY;
+                        if(currentResizeMode == ResizeMode.TOP || currentResizeMode == ResizeMode.BOTTOM){
+                            currentResizeMode = isTop ? ResizeMode.TOP : ResizeMode.BOTTOM;
+                        }else{
+                            boolean isLeft = (currentResizeMode == ResizeMode.TOP_LEFT || currentResizeMode == ResizeMode.BOTTOM_LEFT);
+                            currentResizeMode = isTop ? (isLeft ? ResizeMode.TOP_LEFT : ResizeMode.TOP_RIGHT) : (isLeft ? ResizeMode.BOTTOM_LEFT : ResizeMode.BOTTOM_RIGHT);
+                        }
+                    }
+
+                    if (target instanceof GameObject) {
+                        GameObject obj = (GameObject) target;
+                        obj.x = newXPos;
+                        obj.y = newBottomY;
+                        obj.width = newWidth;
+                        obj.height = newHeight;
+                        obj.currentX = newXPos;
+                        obj.currentY = newBottomY;
+                    } else if (target instanceof Enemy) {
+                        Enemy en = (Enemy) target;
+                        en.x = newXPos;
+                        en.y = newBottomY;
+                        en.startX = newXPos;
+                        en.startY = newBottomY;
+                        en.width = newWidth;
+                        en.height = newHeight;
+                    }
+                    gameCanvas.repaint();
+                    return;
+                }
+                
                 if (propertyEditingObject != null) {
                     int rawX = gamePoint.x - dragOffsetX;
                     int rawTopLeftY = gamePoint.y - dragOffsetY;
@@ -990,6 +1164,54 @@ public class MapEditorWindow extends JFrame{
                 Point gamePoint = getTransformedGamePoint(e);
                 int snapSize = gameCanvas.getTileSize();
 
+                currentHoverResizeMode = ResizeMode.NONE;
+                Object target = propertyEditingObject != null ? propertyEditingObject : selectedEnemy;
+                if(target != null){
+                    int tX = 0, tY = 0, tW = 0, tH = 0;
+                    if(target instanceof GameObject){
+                        GameObject o = (GameObject) target;
+                        tX = o.x; tY = o.y - o.height; tW = o.width; tH = o.height;
+                    }else if(target instanceof Enemy){
+                        Enemy en = (Enemy) target;
+                        tX = en.x; tY = en.y - en.height; tW = en.width; tH = en.height;
+                    }
+
+                    int handleThresh = 6;
+                    Rectangle bounds = new Rectangle(tX + 1, tY - 1, tW + 2, tH + 2);
+                    Rectangle inner = new Rectangle(tX + handleThresh, tY + handleThresh, Math.max(1, tW - handleThresh * 2), Math.max(1, tH - handleThresh * 2));
+
+                    if(bounds.contains(gamePoint) && !inner.contains(gamePoint)){
+                        boolean isLeft = Math.abs(gamePoint.x - tX) <= handleThresh;
+                        boolean isRight = Math.abs(gamePoint.x - (tX + tW)) <= handleThresh;
+                        boolean isTop = Math.abs(gamePoint.y - tY) <= handleThresh;
+                        boolean isBottom = Math.abs(gamePoint.y - (tY + tH)) <= handleThresh;
+
+                        if (isTop && isLeft) currentHoverResizeMode = ResizeMode.TOP_LEFT;
+                        else if (isTop && isRight) currentHoverResizeMode = ResizeMode.TOP_RIGHT;
+                        else if (isBottom && isLeft) currentHoverResizeMode = ResizeMode.BOTTOM_LEFT;
+                        else if (isBottom && isRight) currentHoverResizeMode = ResizeMode.BOTTOM_RIGHT;
+                        else if (isLeft) currentHoverResizeMode = ResizeMode.LEFT;
+                        else if (isRight) currentHoverResizeMode = ResizeMode.RIGHT;
+                        else if (isTop) currentHoverResizeMode = ResizeMode.TOP;
+                        else if (isBottom) currentHoverResizeMode = ResizeMode.BOTTOM;
+                    }
+                }
+                if (currentHoverResizeMode != ResizeMode.NONE) {
+                    switch (currentHoverResizeMode) {
+                        case TOP: gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.N_RESIZE_CURSOR)); break;
+                        case BOTTOM: gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.S_RESIZE_CURSOR)); break;
+                        case LEFT: gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.W_RESIZE_CURSOR)); break;
+                        case RIGHT: gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.E_RESIZE_CURSOR)); break;
+                        case TOP_LEFT: gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.NW_RESIZE_CURSOR)); break;
+                        case TOP_RIGHT: gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.NE_RESIZE_CURSOR)); break;
+                        case BOTTOM_LEFT: gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.SW_RESIZE_CURSOR)); break;
+                        case BOTTOM_RIGHT: gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.SE_RESIZE_CURSOR)); break;
+                        default: gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR)); break;
+                    }
+                } else {
+                    gameCanvas.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+                }
+
                 if(propertyEditingObject != null && currentPathClickMode != PathClickMode.NONE){
                     pathHoverPoint = new Point(gamePoint.x, gamePoint.y);
                 }else{
@@ -1022,45 +1244,6 @@ public class MapEditorWindow extends JFrame{
                     lblHeight.setText("Height Status: " + (realHeight == 0 ? snapSize : realHeight));
                 }
                 gameCanvas.repaint();
-                /*
-                int panelWidth = gameCanvas.getWidth();
-                int panelHeight = gameCanvas.getHeight();
-                int virtualWidth = gameCanvas.virtualWidth;
-                int virtualHeight = gameCanvas.virtualHeight;
-
-                double scaleX = (double) panelWidth / virtualWidth;
-                double scaleY = (double) panelHeight / virtualHeight;
-                double scale = Math.min(scaleX, scaleY);
-
-                int offsetX = (int) ((panelWidth - (virtualWidth * scale)) / 2);
-                int offsetY = (int) ((panelHeight - (virtualHeight * scale)) / 2);
-
-                int virtualMouseX = (int) ((e.getX() - offsetX) / scale);
-                int virtualMouseY = (int) ((e.getY() - offsetY) / scale);
-
-                int rawX = virtualMouseX + gameCanvas.getCameraX();
-                int rawY = virtualMouseY + gameCanvas.getCameraY();
-
-                int snapSize = gameCanvas.getTileSize();
-                int snapX = !freePlace ? Math.floorDiv(rawX, snapSize) * snapSize : rawX;
-                int snapY = !freePlace ? Math.floorDiv(rawY, snapSize) * snapSize: rawY;
-
-                if (propertyEditingObject != null && currentPathClickMode != PathClickMode.NONE) {
-                    pathHoverPoint = new Point(snapX, snapY);
-                } else {
-                    pathHoverPoint = null;
-                }
-
-                if (bottomLeftCorner != null) {
-                    int currentRightX = snapX  + (freePlace ? 0 : snapSize);
-                    currentHoverPoint = new Point(currentRightX, snapY);
-                    int realWidth = Math.abs(currentHoverPoint.x - bottomLeftCorner.x);
-                    int realHeight = Math.abs(bottomLeftCorner.y - currentHoverPoint.y);
-                    lblWidth.setText("Width Status: " + (realWidth == 0 ? snapSize : realWidth));
-                    lblHeight.setText("Height Status: " + (realHeight == 0 ? snapSize : realHeight));
-                }
-                gameCanvas.repaint();
-                */
             }
         });
     }
@@ -2137,7 +2320,7 @@ public class MapEditorWindow extends JFrame{
         enemyProperty.setLayout(new BorderLayout());
         enemyProperty.getRootPane().setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        JPanel formPanel = new JPanel(new GridLayout(4, 2, 10, 10));
+        JPanel formPanel = new JPanel(new GridLayout(5, 2, 10, 10));
 
         formPanel.add(new JLabel("Speed"));
         double initialSpeed = enemy.velX;
@@ -2294,6 +2477,7 @@ public class MapEditorWindow extends JFrame{
                     }
                 }
 
+                selectedEnemy = null;
                 this.propertyEditingEnemy = null;
                 enemyProperty.dispose();
                 btnDelete.setEnabled(false);
@@ -2396,9 +2580,10 @@ public class MapEditorWindow extends JFrame{
     public GameObject getPropertyEditingObject(){ return this.propertyEditingObject;}
     public int getHighlightedBroadcastChannel(){ return this.highlightedBroadcastChannel;}
 
-    
     public String getCurrentPathClickModeName() { return this.currentPathClickMode.name();}
     public boolean isSettingPathMode() { return this.currentPathClickMode != PathClickMode.NONE;}
 
-    public Enemy getSelectedEnemy(){ return this.selectedEnemy;}   
+    public Enemy getSelectedEnemy(){ return this.selectedEnemy;}  
+    
+    public ResizeMode getCurrentHoverResizeMode(){ return currentHoverResizeMode;}
 }
