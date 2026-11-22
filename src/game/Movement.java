@@ -66,6 +66,12 @@ public class Movement {
     private final ArrayList<Enemy> enemies = new ArrayList<>();
     private final java.util.HashSet<GameObject> savedCheckpointTriggeredObjects = new java.util.HashSet<>();
     private final java.util.HashSet<GameObject> sessionTriggeredObjects = new java.util.HashSet<>();
+
+    //items
+    public ArrayList<Item> worldItems = new ArrayList<>();
+    public ArrayList<Item> inventory = new ArrayList<>();
+    public Item equippedWeapon = null;
+    private boolean pickUpKey = false;
     
     // FPS Tracking
     private int totalframes = 0;
@@ -762,6 +768,9 @@ public class Movement {
                     enemy.isGrounded = false;
                 }
             }
+            for(Item item : worldItems){
+                item.resetToStart();
+            }
         }
     }
 
@@ -797,6 +806,25 @@ public class Movement {
     public int getFps() { return fps;}
     public int getDeathCount(){ return this.deathCount;}
     public void setDeathCount(int num){ this.deathCount = num;}
+
+    public void setPickUp(boolean pressed){
+        if(pressed && !this.pickUpKey){
+            checkItemPickup();
+        }
+        this.pickUpKey = pressed;
+    }
+    private void checkItemPickup(){
+        Rectangle playerBounds = new Rectangle((int) playerX, (int) playerY - playerSize, playerSize, playerSize);
+        for(int i = worldItems.size() - 1; i >= 0; i--){
+            Item item = worldItems.get(i);
+            if(!item.isInInventory && playerBounds.intersects(item.getBounds())){
+                item.isInInventory = true;
+                inventory.add(item);
+                worldItems.remove(i);
+                break;
+            }
+        }
+    }
 
     public void resetTriggerTrackingState() {
         this.savedCheckpointTriggeredObjects.clear();

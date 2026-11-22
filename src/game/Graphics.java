@@ -287,6 +287,32 @@ public class Graphics extends JPanel implements ActionListener {
                 }
             }
         });
+
+        im.put(KeyStroke.getKeyStroke("pressed C"), "pPickup");
+        am.put("pPickup", new AbstractAction(){
+            public void actionPerformed(ActionEvent e){
+                if(isEditorMode) return;
+                movement.setPickUp(true);
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke("released C"), "rPickup");
+        am.put("rPickup", new AbstractAction(){
+            public void actionPerformed(ActionEvent e){
+                movement.setPickUp(false);
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke("pressed E"), "pInventory");
+        am.put("pInventory", new AbstractAction(){
+            public void actionPerformed(ActionEvent e){
+                if(isEditorMode) return;
+                Container parent = getTopLevelAncestor();
+                if(parent instanceof MapEditorWindow){
+                    ((MapEditorWindow)parent).openInventoryWindow();
+                }
+            }
+        });
     }
 
     @Override
@@ -544,6 +570,22 @@ public class Graphics extends JPanel implements ActionListener {
             }
         }
         
+        if(movement != null && movement.worldItems != null){
+            for(Item item : movement.worldItems){
+                if(item.mapID == mapID && !item.isInInventory){
+                    item.draw(g2);
+                    Item currentSelected = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.getSelectedItem() : null;
+                    if(item == currentSelected && isEditorMode){
+                        Stroke oldStroke = g2.getStroke();
+                        g2.setColor(Color.CYAN);
+                        g2.setStroke(new java.awt.BasicStroke(2.0f));
+                        g2.drawRect(item.x, item.y - item.height, item.width, item.height);
+                        g2.setStroke(oldStroke);
+                    }
+                }
+            }
+        }
+
         Enemy currentSelected = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.getSelectedEnemy() : null;
         if(currentSelected != null && currentSelected.hasPathfinding && this.isEditorMode && currentSelected instanceof FlyingEnemy){
             FlyingEnemy fe = (FlyingEnemy) currentSelected;
