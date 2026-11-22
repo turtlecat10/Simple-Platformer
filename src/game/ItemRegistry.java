@@ -27,7 +27,8 @@ public enum ItemRegistry {
     public String getDisplayName(){ return displayName;}
 
     public Item create(int x, int y, int mapID){
-        return new Item(name(), type, defaultColor, x, y, 32, 32, mapID, "");
+
+        return new Item(name(), type, defaultColor, x, y, 32, 32, mapID, "", new java.util.ArrayList<>(), new java.util.ArrayList<>(), new java.util.ArrayList<>(), new java.util.ArrayList<>());
     }
 
     public static String[] getDisplayChoices(){

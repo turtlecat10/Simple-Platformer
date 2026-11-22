@@ -313,6 +313,16 @@ public class Graphics extends JPanel implements ActionListener {
                 }
             }
         });
+        
+        im.put(KeyStroke.getKeyStroke("pressed F"), "pAttack");
+        am.put("pAttack", new AbstractAction(){
+            public void actionPerformed(ActionEvent e){
+                if(isEditorMode) return;
+                if(movement != null && movement.equippedWeapon != null){
+                    movement.triggerWeaponAttack();
+                }
+            }
+        });
     }
 
     @Override
@@ -581,6 +591,9 @@ public class Graphics extends JPanel implements ActionListener {
                         g2.setStroke(new java.awt.BasicStroke(2.0f));
                         g2.drawRect(item.x, item.y - item.height, item.width, item.height);
                         g2.setStroke(oldStroke);
+                        if(item.type == Item.ItemType.WEAPON){
+                            renderselectedItemAttackPath(g2, item);
+                        }
                     }
                 }
             }
@@ -913,6 +926,70 @@ public class Graphics extends JPanel implements ActionListener {
                 g2.setStroke(new java.awt.BasicStroke(4.5f));
             }
             g2.drawRect(p2.x, renderTopY, obj.width, obj.height);
+        }
+    }
+
+    private void renderselectedItemAttackPath(Graphics2D g2, Item item){
+        if(item.attackX == null || item.attackX.isEmpty()) return;
+
+        ArrayList<Point> points = new ArrayList<>();
+
+        points.add(new Point(item.x, item.y));
+        for(int i = 0; i < item.attackX.size(); i++){
+            points.add(new Point(item.attackX.get(i), item.attackY.get(i)));
+        }
+
+        points.add(new Point(item.x, item.y));
+
+        int activeWaypointIdx = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.selectedItemWaypointIndex : -1;
+
+        for(int i = 0; i < points.size() - 1; i++){
+            Point p1 = points.get(i);
+            Point p2 = points.get(i + 1);
+
+            int p1CenterX = p1.x + item.width / 2;
+            int p1CenterY = p1.y - item.height / 2;
+            int p2CenterX = p2.x + item.width / 2;
+            int p2CenterY = p2.y - item.height / 2;
+
+            if(i == points.size() - 2){
+                g2.setColor(Color.ORANGE);
+            }else{
+                g2.setColor(Color.MAGENTA);
+            }
+            g2.setStroke(new java.awt.BasicStroke(2.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{6f}, 0f));
+            g2.drawLine(p1CenterX, p1CenterY, p2CenterX, p2CenterY);
+
+            double val = (i < item.speed.size()) ? item.speed.get(i) : 2.0;
+            boolean isSpd = (i < item.isSpeed.size()) ? item.isSpeed.get(i) : true;
+            String labelText = val + (isSpd ? " px/f" : " frames");
+
+            int midX = (p1CenterX + p2CenterX) / 2;
+            int midY = (p1CenterY + p2CenterY) / 2 - 10;
+
+            g2.setFont(new Font("Arial", Font.BOLD, 11));
+            FontMetrics fm = g2.getFontMetrics();
+            int textWidth = fm.stringWidth(labelText);
+
+            g2.setColor(new Color(0, 0, 0, 180));
+            g2.fillRect(midX - textWidth / 2 - 3, midY - fm.getHeight() + 2, textWidth + 6, fm.getHeight());
+            g2.setColor(Color.CYAN);
+            g2.drawString(labelText, midX - textWidth / 2, midY);
+
+            if(i < item.attackX.size()){
+                int renderTopY = p2.y - item.height;
+                g2.setColor(new Color(item.color.getRed(), item.color.getGreen(), item.color.getBlue(), 120));
+                g2.fillRect(p2.x, renderTopY, item.width, item.height);
+
+                if(i == activeWaypointIdx){
+                    g2.setColor(Color.CYAN);
+                    g2.setStroke(new java.awt.BasicStroke(4.0f));
+                }else{
+                    g2.setColor(Color.YELLOW);
+                    g2.setStroke(new java.awt.BasicStroke(2.0f));
+                }
+                g2.drawRect(p2.x, renderTopY, item.width, item.height);
+            }
         }
     }
 

@@ -3,6 +3,7 @@ package src.game;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.util.ArrayList;
 
 public class Item {
     public enum ItemType{ WEAPON, CONSUMABLE, MISC, NONE}
@@ -17,9 +18,17 @@ public class Item {
     public boolean isEquipped = false;
     public int mapID;
     public String effects;
+    public ArrayList<Integer> attackX, attackY;
+    public ArrayList<Double> speed;
+    public ArrayList<Boolean> isSpeed;
+
+    public boolean isAttacking = false;
+    public int attackWaypointIndex = 0;
+    public double attackProgress = 0.0;
+    public double currentAttackX, currentAttackY;
     
 
-    public Item(String name, ItemType type, Color color, int x, int y, int width, int height, int mapID, String effects){
+    public Item(String name, ItemType type, Color color, int x, int y, int width, int height, int mapID, String effects, ArrayList<Integer> attackX, ArrayList<Integer> attackY, ArrayList<Double> speed, ArrayList<Boolean> isSpeed){
         this.name = name;
         this.type = type;
         this.color = color;
@@ -31,18 +40,27 @@ public class Item {
         this.height = height;
         this.mapID = mapID;
         this.effects = effects;
+        this.attackX = attackX;
+        this.attackY = attackY; 
+        this.speed = speed;
+        this.isSpeed = isSpeed;
     }
     public Rectangle getBounds(){
+        if(isAttacking){
+            return new Rectangle((int)currentAttackX, (int) currentAttackY - height, width, height);
+        }
         return new Rectangle(x, y - height, width, height);
     }
     public void draw(Graphics2D g2){
-        if (isInInventory) return;
+        if (isInInventory && !isAttacking) return;
 
-        int renderTopY = y - height;
+        int renderX = isAttacking ? (int) currentAttackX : x;
+        int renderY = (isAttacking ? (int) currentAttackY : y) - height;
+
         g2.setColor(color);
-        g2.fillRect(x, renderTopY, width, height);
+        g2.fillRect(renderX, renderY, width, height);
         g2.setColor(Color.BLACK);
-        g2.drawRect(x, renderTopY, width, height);
+        g2.drawRect(renderX, renderY, width, height);
     }
 
     public void resetToStart(){
@@ -50,5 +68,8 @@ public class Item {
             this.x = this.startX;
             this.y = this.startY;
         }
+        this.isAttacking = false;
+        this.attackWaypointIndex = 0;
+        this.attackProgress = 0.0;
     }
 }

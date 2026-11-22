@@ -1,6 +1,7 @@
 package src.game;
 import java.awt.Rectangle;
 import java.util.ArrayList;
+import java.awt.Point;
 
 public class Movement {
 
@@ -201,6 +202,53 @@ public class Movement {
 
                     enemy.aiTick(objects, playerX, playerY);
 
+                }
+            }
+        }
+        if(equippedWeapon != null && equippedWeapon.isAttacking){
+            ArrayList<Integer> ax = equippedWeapon.attackX;
+            ArrayList<Integer> ay = equippedWeapon.attackY;
+
+            ArrayList<Point> atkPoints = new ArrayList<>();
+            atkPoints.add(new Point((int) playerX, (int) playerY));
+            for(int i = 0; i < ax.size(); i++){
+                atkPoints.add(new Point((int) playerX + ax.get(i), (int) playerY + ay.get(i)));
+            }
+            atkPoints.add(new Point((int) playerX, (int) playerY));
+
+            int targetIdx = equippedWeapon.attackWaypointIndex;
+            if(targetIdx < atkPoints.size() - 1){
+                Point p1 = atkPoints.get(targetIdx);
+                Point p2 = atkPoints.get(targetIdx + 1);
+
+                double speedVal = (targetIdx < equippedWeapon.speed.size()) ? equippedWeapon.speed.get(targetIdx) : 5.0;
+                double dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                if(dist < 1) dist = 1;
+
+                equippedWeapon.attackProgress += speedVal / dist;
+                if(equippedWeapon.attackProgress >= 1.0){
+                    equippedWeapon.attackProgress = 0.0;
+                    equippedWeapon.attackWaypointIndex++;
+                    if(equippedWeapon.attackWaypointIndex >= atkPoints.size() - 1){
+                        equippedWeapon.isAttacking = false;
+                        equippedWeapon.attackWaypointIndex = 0;
+                    }
+                }else{
+                    double prog = equippedWeapon.attackProgress;
+                    equippedWeapon.currentAttackX = p1.x + (p2.x - p1.x) * prog;
+                    equippedWeapon.currentAttackY = p1.y + (p2.y - p1.y) * prog;
+                }
+            }
+
+            Rectangle weaponHitbox = equippedWeapon.getBounds();
+            for(Enemy enemy : enemies){
+                if(enemy.mapID == currentMap && !enemy.isDead){
+                    if(weaponHitbox.intersects(enemy.getBounds())){
+                        enemy.isDead = true;
+                        if(MapEditorWindow.instance != null && MapEditorWindow.instance.gameCanvas != null){
+                            MapEditorWindow.instance.gameCanvas.spawnDeathParticles(enemy.x, enemy.y, enemy.width, enemy.height, enemy.getParticleColor());
+                        }
+                    }
                 }
             }
         }
@@ -799,6 +847,18 @@ public class Movement {
         this.hasDoubleJumped = false;
     }
     
+    public void triggerWeaponAttack(){
+        if(equippedWeapon != null && equippedWeapon.type == Item.ItemType.WEAPON){
+            if(!equippedWeapon.isAttacking && equippedWeapon.attackX != null && !equippedWeapon.attackX.isEmpty()){
+                equippedWeapon.isAttacking = true;
+                equippedWeapon.attackWaypointIndex = 0;
+                equippedWeapon.attackProgress = 0.0;
+                equippedWeapon.currentAttackX = playerX + equippedWeapon.attackX.get(0);
+                equippedWeapon.currentAttackY = playerY + equippedWeapon.attackY.get(0);
+            }
+        }
+    }
+
     //inputs
     public void setLeft(boolean pressed) { this.left = pressed;}
     public void setRight(boolean pressed) { this.right = pressed;}
