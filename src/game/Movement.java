@@ -70,6 +70,7 @@ public class Movement {
     //items
     public ArrayList<Item> worldItems = new ArrayList<>();
     public ArrayList<Item> inventory = new ArrayList<>();
+    private final ArrayList<Item> checkpointInventory = new ArrayList<>();
     public Item equippedWeapon = null;
     private boolean pickUpKey = false;
     
@@ -654,6 +655,8 @@ public class Movement {
                     spawnX = actualX;
                     spawnY = obj.currentY;
                     savedCheckpointTriggeredObjects.addAll(sessionTriggeredObjects);
+                    checkpointInventory.clear();
+                    checkpointInventory.addAll(inventory);
                 }
                 if(obj.type == GameObject.Type.ladder){
                     isOnLadder = true;
@@ -768,8 +771,17 @@ public class Movement {
                     enemy.isGrounded = false;
                 }
             }
-            for(Item item : worldItems){
-                item.resetToStart();
+            for(int i = inventory.size() - 1; i >= 0; i--){
+                Item item = inventory.get(i);
+                if(!checkpointInventory.contains(item)){
+                    item.isInInventory = false;
+                    item.resetToStart();
+                    worldItems.add(item);
+                    inventory.remove(i);
+                    if(item == equippedWeapon){
+                        equippedWeapon = null;
+                    }
+                }
             }
         }
     }

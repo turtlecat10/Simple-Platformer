@@ -436,6 +436,8 @@ public class MapEditorWindow extends JFrame{
                 activeEditingMapID = Integer.parseInt(txtMapID.getText().trim());
                 gameCanvas.setEditorMode(false);
                 gameCanvas.loadLevel(activeEditingMapID);
+                btnDelete.setEnabled(false);
+                btnEditProperties.setEnabled(false);
                 btnPlay.setEnabled(false);
                 btnExit.setEnabled(true);
                 btnSave.setEnabled(false);
@@ -445,6 +447,7 @@ public class MapEditorWindow extends JFrame{
                 btnSelectLevelMenu.setEnabled(false);
                 selectedEnemy = null;
                 selectedObject = null;
+                selectedItem = null;
                 for(Enemy enemy : gameCanvas.getMovement().getEnemies()){
                     if(enemy instanceof FlyingEnemy){
                         FlyingEnemy fe = (FlyingEnemy) enemy;
@@ -843,7 +846,7 @@ public class MapEditorWindow extends JFrame{
                     return;
                 }
 
-                if(propertyEditingEnemy != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))){
+                if(selectedEnemy != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))){
                     if(gameCanvas.getMovement() != null){
                         ArrayList<Enemy> enemies = gameCanvas.getMovement().getEnemies();
                         if(enemies != null){
@@ -868,14 +871,14 @@ public class MapEditorWindow extends JFrame{
 
                 }
 
-                if(propertyEditingItem != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))){
+                if(selectedItem != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))){
                     if(gameCanvas.getMovement().worldItems != null){
                         ArrayList<Item> items = gameCanvas.getMovement().worldItems;
                         if(items != null){
                             for(int i = items.size() - 1; i >= 0; i--){
                                 Item item = items.get(i);
                                 int objTop = item.y - item.height;
-                                if(item.mapID == activeEditingMapID && gamePoint.y >= item.x && gamePoint.x <= (item.x + item.width) && gamePoint.y >= objTop && gamePoint.y <= item.y){
+                                if(item.mapID == activeEditingMapID && gamePoint.x >= item.x && gamePoint.x <= (item.x + item.width) && gamePoint.y >= objTop && gamePoint.y <= item.y){
                                     draggedItem = item;
                                     selectedItem = item;
                                     selectedEnemy = null;
@@ -1091,6 +1094,10 @@ public class MapEditorWindow extends JFrame{
                             if(obj.mapID == activeEditingMapID && gamePoint.x >= obj.x && gamePoint.x <= (obj.x + obj.width) && gamePoint.y >= objTop && gamePoint.y <= obj.y){
                                 selectedItem = obj;
                                 propertyEditingItem = obj;
+                                selectedObject = null;
+                                selectedEnemy = null;
+                                propertyEditingObject = null;
+                                propertyEditingEnemy = null;
                                 btnDelete.setEnabled(true);
                                 btnEditProperties.setEnabled(true);
                                 break;
@@ -1104,6 +1111,7 @@ public class MapEditorWindow extends JFrame{
             @Override 
             public void mouseReleased(MouseEvent e){
                 draggedEnemy = null;
+                draggedItem = null;
                 isDraggingStartPos = false;
                 isDraggingTriggeredStart = false;
                 currentResizeMode = ResizeMode.NONE;
@@ -1123,7 +1131,7 @@ public class MapEditorWindow extends JFrame{
                 Point gamePoint = getTransformedGamePoint(e);
                 int snapSize = gameCanvas.getTileSize();
 
-                Object target = propertyEditingObject != null ? propertyEditingObject : selectedEnemy;
+                Object target = propertyEditingObject != null ? propertyEditingObject : (selectedEnemy != null ? selectedEnemy : selectedItem);
                 if(target != null && currentResizeMode != ResizeMode.NONE){
                     int newX = freePlace ? gamePoint.x : Math.round(gamePoint.x / (float) snapSize) * snapSize;
                     int newY = freePlace ? gamePoint.y : Math.round(gamePoint.y / (float) snapSize) * snapSize;
@@ -2074,6 +2082,18 @@ public class MapEditorWindow extends JFrame{
             }
         }
 
+        if(gameCanvas.getMovement() != null && gameCanvas.getMovement().worldItems != null){
+            for(Item item : gameCanvas.getMovement().worldItems){
+                if(item.mapID == activeEditingMapID){
+                    if(!first) sb.append(",\n");
+                    first = false;
+                    String jsonStr = String.format("  {\"kind\":\"item\", \"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"effects\":\"%s\"}", 
+                            item.name, item.type.name(), item.color.getRGB(), item.startX, item.startY, item.width, item.height, item.effects);
+                    sb.append(jsonStr);
+                }
+            }
+        }
+
         // if(gameCanvas.getMovement() != null && gameCanvas.getMovement().worldItems != null){
         //     for(Item e : )
         // }
@@ -2136,6 +2156,7 @@ public class MapEditorWindow extends JFrame{
         String[] rawItems = jsonStringData.split("\\},\\s*\\{");
         ArrayList<GameObject> importedObjects = new ArrayList<>();
         ArrayList<Enemy> importedEnemies = new ArrayList<>();
+        ArrayList<Item> importedItems = new ArrayList<>();
 
         for(String rawItem : rawItems){
             rawItem = rawItem.replace("{", "").replace("}", "").trim();
@@ -2273,6 +2294,29 @@ public class MapEditorWindow extends JFrame{
                     }
                     importedEnemies.add(enemy);
                 }
+            }else if(kind.equals("item")){
+                int x = 0, y = 0, width = 32, height = 32;
+                String name = "COIN", type = "MISC", effects = "";
+                Color color = Color.YELLOW;
+
+                for(String prop : properties){
+                    int colonIdx = prop.indexOf(":");
+                    if(colonIdx == -1) continue;
+                    String key = prop.substring(0, colonIdx).replace("\"", "").trim();
+                    String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
+                    switch(key){
+                        case "x": x = Integer.parseInt(val); break;
+                        case "y": y = Integer.parseInt(val); break;
+                        case "width": width = Integer.parseInt(val); break;
+                        case "height": height = Integer.parseInt(val); break;
+                        case "name": name = val; break;
+                        case "type": type = val; break;
+                        case "effects": effects = val; break;
+                        case "colorRGB": color = new Color(Integer.parseInt(val)); break;
+                    }
+                }
+                Item importedItem = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, newMapID, effects);
+                importedItems.add(importedItem);
             }
         }
 
@@ -2282,6 +2326,10 @@ public class MapEditorWindow extends JFrame{
 
         if(gameCanvas.getMovement().getEnemies() != null){
             gameCanvas.getMovement().getEnemies().addAll(importedEnemies);
+        }
+
+        if(gameCanvas.getMovement().worldItems != null){
+            gameCanvas.getMovement().worldItems.addAll(importedItems);
         }
 
         activeEditingMapID = newMapID;
