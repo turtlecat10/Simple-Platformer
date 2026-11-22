@@ -64,10 +64,10 @@ public class Item {
     }
 
     public void resetToStart(){
-        if(!isInInventory){
-            this.x = this.startX;
-            this.y = this.startY;
-        }
+        this.x = this.startX;
+        this.y = this.startY;
+        this.isInInventory = false;
+        this.isEquipped = false;
         this.isAttacking = false;
         this.attackWaypointIndex = 0;
         this.attackProgress = 0.0;

@@ -212,7 +212,9 @@ public class Movement {
             ArrayList<Point> atkPoints = new ArrayList<>();
             atkPoints.add(new Point((int) playerX, (int) playerY));
             for(int i = 0; i < ax.size(); i++){
-                atkPoints.add(new Point((int) playerX + ax.get(i), (int) playerY + ay.get(i)));
+                int offX = ax.get(i) - equippedWeapon.startX;
+                int offY = ay.get(i) - equippedWeapon.startY;
+                atkPoints.add(new Point((int) playerX + offX, (int) playerY + offY));
             }
             atkPoints.add(new Point((int) playerX, (int) playerY));
 
@@ -822,7 +824,6 @@ public class Movement {
             for(int i = inventory.size() - 1; i >= 0; i--){
                 Item item = inventory.get(i);
                 if(!checkpointInventory.contains(item)){
-                    item.isInInventory = false;
                     item.resetToStart();
                     worldItems.add(item);
                     inventory.remove(i);
@@ -849,12 +850,20 @@ public class Movement {
     
     public void triggerWeaponAttack(){
         if(equippedWeapon != null && equippedWeapon.type == Item.ItemType.WEAPON){
-            if(!equippedWeapon.isAttacking && equippedWeapon.attackX != null && !equippedWeapon.attackX.isEmpty()){
+            if(!equippedWeapon.isAttacking){
                 equippedWeapon.isAttacking = true;
                 equippedWeapon.attackWaypointIndex = 0;
                 equippedWeapon.attackProgress = 0.0;
-                equippedWeapon.currentAttackX = playerX + equippedWeapon.attackX.get(0);
-                equippedWeapon.currentAttackY = playerY + equippedWeapon.attackY.get(0);
+
+                if(equippedWeapon.attackX != null && !equippedWeapon.attackX.isEmpty()){
+                    int offX = equippedWeapon.attackX.get(0) - equippedWeapon.startX;
+                    int offY = equippedWeapon.attackY.get(0) - equippedWeapon.startY;
+                    equippedWeapon.currentAttackX = playerX + offX;
+                    equippedWeapon.currentAttackY = playerY + offY;
+                } else {
+                    equippedWeapon.currentAttackX = playerX + 40;
+                    equippedWeapon.currentAttackY = playerY;
+                }
             }
         }
     }

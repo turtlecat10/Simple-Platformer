@@ -582,7 +582,7 @@ public class Graphics extends JPanel implements ActionListener {
         
         if(movement != null && movement.worldItems != null){
             for(Item item : movement.worldItems){
-                if(item.mapID == mapID && !item.isInInventory){
+                if(item.mapID == mapID && (!item.isInInventory || item.isEquipped)){
                     item.draw(g2);
                     Item currentSelected = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.getSelectedItem() : null;
                     if(item == currentSelected && isEditorMode){
@@ -597,6 +597,9 @@ public class Graphics extends JPanel implements ActionListener {
                     }
                 }
             }
+        }
+        if(movement != null && movement.equippedWeapon != null && movement.equippedWeapon.isAttacking){
+            movement.equippedWeapon.draw(g2);
         }
 
         Enemy currentSelected = (MapEditorWindow.instance != null) ? MapEditorWindow.instance.getSelectedEnemy() : null;
@@ -957,6 +960,7 @@ public class Graphics extends JPanel implements ActionListener {
             }else{
                 g2.setColor(Color.MAGENTA);
             }
+            Stroke oldStroke = g2.getStroke();
             g2.setStroke(new java.awt.BasicStroke(2.5f, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_MITER, 1.0f, new float[]{6f}, 0f));
             g2.drawLine(p1CenterX, p1CenterY, p2CenterX, p2CenterY);
 
@@ -990,6 +994,7 @@ public class Graphics extends JPanel implements ActionListener {
                 }
                 g2.drawRect(p2.x, renderTopY, item.width, item.height);
             }
+            g2.setStroke(oldStroke);
         }
     }
 

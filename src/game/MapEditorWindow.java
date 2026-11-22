@@ -115,6 +115,8 @@ public class MapEditorWindow extends JFrame{
     private JComboBox<String> itemSegmentDropdown;
     private JTextField itemTxtWpX, itemTxtWpY, itemTxtSpeedVal;
     private JComboBox<String> itemCmbSpeedOrTime;
+    private boolean isDraggingItemWaypoint = false;
+    private int activeDraggedItemWaypointIndex = -1;
     
 
     public MapEditorWindow(){
@@ -466,6 +468,18 @@ public class MapEditorWindow extends JFrame{
         btnExit.addActionListener(e -> {
             if (gameCanvas.getMovement() != null) {
                 gameCanvas.getMovement().resetTriggerTrackingState();
+
+                Movement movement = gameCanvas.getMovement();
+                if(movement.inventory != null && !movement.inventory.isEmpty()){
+                    for(Item invItem : new ArrayList<>(movement.inventory)){
+                        invItem.resetToStart();
+                        movement.worldItems.add(invItem);
+                    }
+                    movement.inventory.clear();
+                }
+                if(movement.equippedWeapon != null){
+                    movement.equippedWeapon = null;
+                }
             }
             gameCanvas.getMovement().setDeathCount(0);
             gameCanvas.setEditorMode(true);
@@ -634,7 +648,7 @@ public class MapEditorWindow extends JFrame{
                 }
 
                 if(gameCanvas.lastIndicatorBounds != null && gameCanvas.lastIndicatorBounds.contains(gamePoint)){
-                    Object sel = selectedObject != null ? selectedObject : selectedEnemy;
+                    Object sel = selectedObject != null ? selectedObject : (selectedEnemy != null ? selectedEnemy : selectedItem);
                     if(sel != null){
                         int itemCenterX = 0, itemCenterY = 0;
                         if(sel instanceof GameObject){
@@ -643,6 +657,10 @@ public class MapEditorWindow extends JFrame{
                             itemCenterY = (o.y - o.height / 2);
                         }else if(sel instanceof Enemy){
                             Enemy o = (Enemy) sel;
+                            itemCenterX = o.x + o.width / 2;
+                            itemCenterY = o.y - o.height / 2;
+                        }else if(sel instanceof Item){
+                            Item o = (Item) sel;
                             itemCenterX = o.x + o.width / 2;
                             itemCenterY = o.y - o.height / 2;
                         }
@@ -875,18 +893,89 @@ public class MapEditorWindow extends JFrame{
 
                 if(selectedItem != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))){
                     if(gameCanvas.getMovement().worldItems != null){
-                        ArrayList<Item> items = gameCanvas.getMovement().worldItems;
-                        if(items != null){
-                            for(int i = items.size() - 1; i >= 0; i--){
-                                Item item = items.get(i);
-                                int objTop = item.y - item.height;
-                                if(item.mapID == activeEditingMapID && gamePoint.x >= item.x && gamePoint.x <= (item.x + item.width) && gamePoint.y >= objTop && gamePoint.y <= item.y){
-                                    draggedItem = item;
-                                    selectedItem = item;
-                                    dragOffsetX = gamePoint.x - item.x;
-                                    dragOffsetY = gamePoint.y - objTop;
-                                    btnDelete.setEnabled(true);
-                                    btnEditProperties.setEnabled(true);
+                        Item item = selectedItem;
+
+                        if(item.attackX != null && !item.attackX.isEmpty() && item.mapID == activeEditingMapID){
+                            ArrayList<Point> points = new ArrayList<>();
+                            points.add(new Point(item.x, item.y));
+                            for(int i = 0; i < item.attackX.size(); i++){
+                                points.add(new Point(item.attackX.get(i), item.attackY.get(i)));
+                            }
+                            points.add(new Point(item.x, item.y));
+
+                            for(int i = 0; i < points.size() - 1; i++){
+                                Point p1 = points.get(i);
+                                Point p2 = points.get(i + 1);
+
+                                int p1CenterX = p1.x + item.width / 2;
+                                int p1CenterY = p1.y - item.height / 2;
+                                int p2CenterX = p2.x + item.width / 2;
+                                int p2CenterY = p2.y - item.height / 2;
+
+                                int midX = (p1CenterX + p2CenterX) / 2;
+                                int midY = (p1CenterY + p2CenterY) / 2 - 10;
+
+                                double val = (i < item.speed.size()) ? item.speed.get(i) : 2.0;
+                                boolean isSpd = (i < item.isSpeed.size()) ? item.isSpeed.get(i) : true;
+                                String labelText = val + (isSpd ? " px/f" : " frames");
+
+                                int boxWidth = labelText.length() * 7 + 10;
+                                int boxHeight = 16;
+                                Rectangle labelRect = new Rectangle(midX - boxWidth / 2, midY - boxHeight + 2, boxWidth, boxHeight);
+
+                                if(labelRect.contains(gamePoint)){long now = System.currentTimeMillis();
+                                    if(now - lastSegmentClickTime <= 500 && lastClickedSegmentIdx == i && !lastClickedIsTriggeredPath){
+                                        while(item.speed.size() <= i) item.speed.add(2.0);
+                                        while(item.isSpeed.size() <= i) item.isSpeed.add(true);
+                                    
+                                        int splitX = midX;
+                                        if(gamePoint.x > splitX){
+                                            boolean currentMode = item.isSpeed.get(i);
+                                            item.isSpeed.set(i, !currentMode);
+                                        }else{
+                                            String response = JOptionPane.showInputDialog(MapEditorWindow.this, "Enter new Speed / Time value:", val);
+                                            if(response != null && !response.trim().isEmpty()){
+                                                try{
+                                                    double newVal = Double.parseDouble(response.trim());
+                                                    item.speed.set(i, newVal);
+                                                }catch(NumberFormatException ex){
+                                                    JOptionPane.showMessageDialog(MapEditorWindow.this, "Invalid number format");
+                                                }
+                                            }
+                                        }
+                                        gameCanvas.repaint();
+                                        lastSegmentClickTime = 0;
+                                        return;
+                                    }
+                                    lastSegmentClickTime = now;
+                                    lastClickedSegmentIdx = i;
+                                    lastClickedIsTriggeredPath = false;
+                                    return;
+                                }
+                            }
+                        }
+
+
+                        int objTop = item.y - item.height;
+                        if(item.mapID == activeEditingMapID && gamePoint.x >=item.x && gamePoint.x <= (item.x + item.width) && gamePoint.y >= objTop && gamePoint.y <= item.y){
+                            draggedItem = item;
+                            dragOffsetX = gamePoint.x - item.x;
+                            dragOffsetY = gamePoint.y - objTop;
+                            System.out.println("true");
+                            gameCanvas.repaint();
+                            return;
+                        }
+                        if(item.attackX != null && item.attackY != null && item.mapID == activeEditingMapID){
+                            for(int i = 0; i < item.attackX.size(); i++){
+                                int wpX = item.attackX.get(i);
+                                int wpY = item.attackY.get(i);
+                                Rectangle wpRect = new Rectangle(wpX, wpY - item.height, item.width, item.height);
+                                if(wpRect.contains(gamePoint)){
+                                    isDraggingItemWaypoint = true;
+                                    activeDraggedItemWaypointIndex = i;
+                                    selectedItemWaypointIndex = i;
+                                    dragOffsetX = gamePoint.x - wpX;
+                                    dragOffsetY = gamePoint.y - (wpY - item.height);
                                     gameCanvas.repaint();
                                     return;
                                 }
@@ -1075,6 +1164,8 @@ public class MapEditorWindow extends JFrame{
                             int objTop = obj.y - obj.height;
                             if(obj.mapID == activeEditingMapID && gamePoint.x >= obj.x && gamePoint.x <= (obj.x + obj.width) && gamePoint.y >= objTop && gamePoint.y <= obj.y){
                                 selectedItem = obj;
+                                activeItemBrush = null;
+                                activeEnemyBrush = EnemyRegistry.NONE;
                                 lblSelectedInfo.setText(String.format("Selection: Item (%dx%d)", obj.width, obj.height));
                                 lblWidth.setText("Width Status: " + obj.width);
                                 lblHeight.setText("Height Status: " + obj.height);
@@ -1094,6 +1185,8 @@ public class MapEditorWindow extends JFrame{
                 draggedItem = null;
                 isDraggingStartPos = false;
                 isDraggingTriggeredStart = false;
+                isDraggingItemWaypoint = false;
+                activeDraggedItemWaypointIndex = -1;
                 currentResizeMode = ResizeMode.NONE;
                 if(isDraggingWaypoint && propertyEditingObject != null){
                     isDraggingWaypoint = false;
@@ -1291,20 +1384,62 @@ public class MapEditorWindow extends JFrame{
                     draggedEnemy.startX = newX;
                     draggedEnemy.startY = newY;
                     gameCanvas.repaint();
-                }else if(draggedItem != null){
+                }else if(selectedItem != null && activeDraggedItemWaypointIndex == -1 && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))){
+                    Item it = selectedItem;
                     int rawX = gamePoint.x - dragOffsetX;
                     int rawTopLeftY = gamePoint.y - dragOffsetY;
                     int newX = freePlace ? rawX : Math.round(rawX / (float) snapSize) * snapSize;
                     int newTopLeftY = freePlace ? rawTopLeftY : Math.round(rawTopLeftY / (float) snapSize) * snapSize;
-                    int newY = newTopLeftY + draggedItem.height;
+                    int newY = newTopLeftY + it.height;
 
-                    draggedItem.x = newX;
-                    draggedItem.y = newY;
-                    draggedItem.startX = newX;
-                    draggedItem.startY = newY;
+                    int deltaX = newX - it.x;
+                    int deltaY = newY - it.y;
+
+                    it.x = newX;
+                    it.y = newY;
+                    it.startX = newX;
+                    it.startY = newY;
+
+                    if(e.isControlDown()){
+                        for(int i = 0; i < it.attackX.size(); i++){
+                            it.attackX.set(i, it.attackX.get(i) + deltaX);
+                            it.attackY.set(i, it.attackY.get(i) + deltaY);
+                        }
+                    }
                     gameCanvas.repaint();
+                    return;
                 }
-                
+                else if(isDraggingItemWaypoint && activeDraggedItemWaypointIndex >= 0 && selectedItem != null){
+                    Item it = selectedItem;
+                    int rawX = gamePoint.x - dragOffsetX;
+                    int rawTopLeftY = gamePoint.y - dragOffsetY;
+                    int newX = freePlace ? rawX : Math.round(rawX / (float) snapSize) * snapSize;
+                    int newTopLeftY = freePlace ? rawTopLeftY : Math.round(rawTopLeftY / (float) snapSize) * snapSize;
+                    int newY = newTopLeftY + it.height;
+
+                    int oldX = it.attackX.get(activeDraggedItemWaypointIndex);
+                    int oldY = it.attackY.get(activeDraggedItemWaypointIndex);
+                    int deltaX = newX - oldX;
+                    int deltaY = newY - oldY;
+
+                    it.attackX.set(activeDraggedItemWaypointIndex, newX);
+                    it.attackY.set(activeDraggedItemWaypointIndex, newY);
+
+                    if(e.isControlDown()){
+                        it.x += deltaX;
+                        it.y += deltaY;
+                        it.startX += deltaX;
+                        it.startY += deltaY;
+                        for(int i = 0; i < it.attackX.size(); i++){
+                            if(i != activeDraggedItemWaypointIndex){
+                                it.attackX.set(i, it.attackX.get(i) + deltaX);
+                                it.attackY.set(i, it.attackY.get(i) + deltaY);
+                            }
+                        }
+                    }
+                    gameCanvas.repaint();
+                    return;
+                }
             }
 
             @Override 
