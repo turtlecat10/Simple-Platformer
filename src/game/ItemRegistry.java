@@ -4,11 +4,11 @@ import java.awt.Color;
 import java.util.ArrayList;
 
 public enum ItemRegistry {
-    NONE("NONE", Item.ItemType.NONE, null, 0, 0, "");
-    // SWORD("SWORD", Item.ItemType.WEAPON, Color.ORANGE, 32, 32, "Damage: 10"),
-    // POTION("POTION", Item.ItemType.CONSUMABLE, Color.RED, 24, 24, "Heal: 50"),
-    // COIN("COIN", Item.ItemType.MISC, Color.YELLOW, 20, 20, "Value: 10"),
-    // GEM("GEM", Item.ItemType.MISC, Color.CYAN, 24, 24, "Value: 100");
+    NONE("NONE", Item.ItemType.NONE, null, 0, 0, ""),
+    SWORD("SWORD", Item.ItemType.WEAPON, Color.ORANGE, 32, 32, "Damage: 10"),
+    POTION("POTION", Item.ItemType.CONSUMABLE, Color.RED, 24, 24, "Heal: 50"),
+    COIN("COIN", Item.ItemType.MISC, Color.YELLOW, 20, 20, "Value: 10"),
+    GEM("GEM", Item.ItemType.MISC, Color.CYAN, 24, 24, "Value: 100");
     
 
     private final String displayName;
