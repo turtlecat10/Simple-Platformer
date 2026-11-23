@@ -45,6 +45,13 @@ UPDATE 4
     Delete Level: this deletes everything from the current level, you can get the progress back by not saving
     and quitting out of the game, be sure you want to before pressing this (does have a confirmation screen).
 
+UPDATE 5:
+    added items to the game, when you place an item, if it is a weapon you can add waypoints to the weapon
+    these waypoints are where the item moves to when you attack with it equipped relative to you, (if there is a waypoint
+    ahead of it's start position by 100 pixels at a rate of 2 px/f when you attack it will move in front of you by 100 pixels
+    at a rate of 2 px/f). you can also save items as templates, where you can select that item later and place it down
+    fully made.
+    Weapons when they hit an enemy kill the enemy. 
 
 
 if you enjoyed playing please message me with what features you think i should add! (feedback is appreciated)
