@@ -206,49 +206,48 @@ public class Movement {
             }
         }
         if(equippedWeapon != null && equippedWeapon.isAttacking){
-            ArrayList<Integer> ax = equippedWeapon.attackX;
-            ArrayList<Integer> ay = equippedWeapon.attackY;
+            ArrayList<Point> atkPoints = equippedWeapon.activeAttackPoints;
+            if(atkPoints == null || atkPoints.isEmpty()){
+                equippedWeapon.isAttacking = false;
+            }else{
+                atkPoints.set(atkPoints.size() - 1, new Point((int) playerX, (int) playerY));
 
-            ArrayList<Point> atkPoints = new ArrayList<>();
-            atkPoints.add(new Point((int) playerX, (int) playerY));
-            for(int i = 0; i < ax.size(); i++){
-                int offX = ax.get(i) - equippedWeapon.startX;
-                int offY = ay.get(i) - equippedWeapon.startY;
-                atkPoints.add(new Point((int) playerX + offX, (int) playerY + offY));
-            }
-            atkPoints.add(new Point((int) playerX, (int) playerY));
+                int targetIdx = equippedWeapon.attackWaypointIndex;
+                if(targetIdx < atkPoints.size() - 1){
+                    Point p1 = atkPoints.get(targetIdx);
+                    Point p2 = atkPoints.get(targetIdx + 1);
 
-            int targetIdx = equippedWeapon.attackWaypointIndex;
-            if(targetIdx < atkPoints.size() - 1){
-                Point p1 = atkPoints.get(targetIdx);
-                Point p2 = atkPoints.get(targetIdx + 1);
+                    double speedVal = (targetIdx < equippedWeapon.speed.size()) ? equippedWeapon.speed.get(targetIdx) : 5.0;
+                    boolean isSpd = (targetIdx < equippedWeapon.isSpeed.size()) ? equippedWeapon.isSpeed.get(targetIdx) : true;
 
-                double speedVal = (targetIdx < equippedWeapon.speed.size()) ? equippedWeapon.speed.get(targetIdx) : 5.0;
-                double dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-                if(dist < 1) dist = 1;
+                    double dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    if(dist < 1) dist = 1;
 
-                equippedWeapon.attackProgress += speedVal / dist;
-                if(equippedWeapon.attackProgress >= 1.0){
-                    equippedWeapon.attackProgress = 0.0;
-                    equippedWeapon.attackWaypointIndex++;
-                    if(equippedWeapon.attackWaypointIndex >= atkPoints.size() - 1){
-                        equippedWeapon.isAttacking = false;
-                        equippedWeapon.attackWaypointIndex = 0;
+                    double progressIncrement = isSpd ? (speedVal / dist) : (1.0 / Math.max(1.0, speedVal));
+
+                    equippedWeapon.attackProgress += progressIncrement;
+
+                    if(equippedWeapon.attackProgress >= 1.0){
+                        equippedWeapon.attackProgress = 0.0;
+                        equippedWeapon.attackWaypointIndex++;
+                        if(equippedWeapon.attackWaypointIndex >= atkPoints.size() - 1){
+                            equippedWeapon.isAttacking = false;
+                            equippedWeapon.attackWaypointIndex = 0;
+                        }
+                    }else{
+                        double prog = equippedWeapon.attackProgress;
+                        equippedWeapon.currentAttackX = p1.x + (p2.x - p1.x) * prog;
+                        equippedWeapon.currentAttackY = p1.y + (p2.y - p1.y) * prog;
                     }
-                }else{
-                    double prog = equippedWeapon.attackProgress;
-                    equippedWeapon.currentAttackX = p1.x + (p2.x - p1.x) * prog;
-                    equippedWeapon.currentAttackY = p1.y + (p2.y - p1.y) * prog;
                 }
-            }
-
-            Rectangle weaponHitbox = equippedWeapon.getBounds();
-            for(Enemy enemy : enemies){
-                if(enemy.mapID == currentMap && !enemy.isDead){
-                    if(weaponHitbox.intersects(enemy.getBounds())){
-                        enemy.isDead = true;
-                        if(MapEditorWindow.instance != null && MapEditorWindow.instance.gameCanvas != null){
-                            MapEditorWindow.instance.gameCanvas.spawnDeathParticles(enemy.x, enemy.y, enemy.width, enemy.height, enemy.getParticleColor());
+                Rectangle weaponHitbox = equippedWeapon.getBounds();
+                for(Enemy enemy : enemies){
+                    if(enemy.mapID == currentMap && !enemy.isDead){
+                        if(weaponHitbox.intersects(enemy.getBounds())){
+                            enemy.isDead = true;
+                            if(MapEditorWindow.instance != null && MapEditorWindow.instance.gameCanvas != null){
+                                MapEditorWindow.instance.gameCanvas.spawnDeathParticles(enemy.x, enemy.y, enemy.width, enemy.height, enemy.getParticleColor());
+                            }
                         }
                     }
                 }
@@ -544,7 +543,7 @@ public class Movement {
 
             if (!collidedY) {
                 if (targetY > worldHeight) {
-                    respawnPlayer(spawnX, spawnY);
+                    triggerDeathSequence(currentMap);
                     return;
                 }
                 playerY = targetY;
@@ -854,19 +853,29 @@ public class Movement {
                 equippedWeapon.isAttacking = true;
                 equippedWeapon.attackWaypointIndex = 0;
                 equippedWeapon.attackProgress = 0.0;
+                if(equippedWeapon.activeAttackPoints != null){
+                    equippedWeapon.activeAttackPoints.clear();
+                }
+                equippedWeapon.activeAttackPoints.add(new Point((int) playerX, (int) playerY));
 
                 if(equippedWeapon.attackX != null && !equippedWeapon.attackX.isEmpty()){
-                    int offX = equippedWeapon.attackX.get(0) - equippedWeapon.startX;
-                    int offY = equippedWeapon.attackY.get(0) - equippedWeapon.startY;
-                    equippedWeapon.currentAttackX = playerX + offX;
-                    equippedWeapon.currentAttackY = playerY + offY;
-                } else {
-                    equippedWeapon.currentAttackX = playerX + 40;
-                    equippedWeapon.currentAttackY = playerY;
+                    for(int i = 0; i < equippedWeapon.attackX.size(); i++){
+                        int offX = equippedWeapon.attackX.get(i) - equippedWeapon.startX;
+                        int offY = equippedWeapon.attackY.get(i) - equippedWeapon.startY;
+                        equippedWeapon.activeAttackPoints.add(new Point((int) playerX + offX, (int) playerY + offY));
+                    }
+                }
+                equippedWeapon.activeAttackPoints.add(new Point((int) playerX, (int) playerY));
+
+                if(!equippedWeapon.activeAttackPoints.isEmpty()){
+                    Point p = equippedWeapon.activeAttackPoints.get(0);
+                    equippedWeapon.currentAttackX = p.x;
+                    equippedWeapon.currentAttackY = p.y;
                 }
             }
         }
     }
+
 
     //inputs
     public void setLeft(boolean pressed) { this.left = pressed;}
@@ -900,6 +909,28 @@ public class Movement {
             Item item = worldItems.get(i);
             if(!item.isInInventory && playerBounds.intersects(item.getBounds())){
                 item.isInInventory = true;
+
+                java.util.HashSet<Integer> takenNumbers = new java.util.HashSet<>();
+                for(Item existing : inventory){
+                    if(existing.name.equalsIgnoreCase(item.name) && existing.type == item.type){
+                        if(existing.inventoryNumber > 0){
+                            takenNumbers.add(existing.inventoryNumber);
+                        }else{
+                            takenNumbers.add(0);
+                        }
+                    }
+                }
+
+                if(!takenNumbers.isEmpty()){
+                    int lowestNum = 1;
+                    while(takenNumbers.contains(lowestNum)){
+                        lowestNum++;
+                    }
+                    item.inventoryNumber = lowestNum;
+                }else{
+                    item.inventoryNumber = 0;
+                }
+
                 inventory.add(item);
                 worldItems.remove(i);
                 break;

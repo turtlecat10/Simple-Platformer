@@ -4,6 +4,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.util.ArrayList;
+import java.awt.Point;
 
 public class Item {
     public enum ItemType{ WEAPON, CONSUMABLE, MISC, NONE}
@@ -26,7 +27,10 @@ public class Item {
     public int attackWaypointIndex = 0;
     public double attackProgress = 0.0;
     public double currentAttackX, currentAttackY;
-    
+
+    public ArrayList<Point> activeAttackPoints = new ArrayList<>();
+
+    public int inventoryNumber = 0;
 
     public Item(String name, ItemType type, Color color, int x, int y, int width, int height, int mapID, String effects, ArrayList<Integer> attackX, ArrayList<Integer> attackY, ArrayList<Double> speed, ArrayList<Boolean> isSpeed){
         this.name = name;
@@ -71,5 +75,9 @@ public class Item {
         this.isAttacking = false;
         this.attackWaypointIndex = 0;
         this.attackProgress = 0.0;
+        this.inventoryNumber = 0;
+        if(activeAttackPoints != null){
+            activeAttackPoints = null;
+        }
     }
 }
