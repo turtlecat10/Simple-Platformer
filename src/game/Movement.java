@@ -855,8 +855,9 @@ public class Movement {
                 equippedWeapon.attackProgress = 0.0;
                 if(equippedWeapon.activeAttackPoints != null){
                     equippedWeapon.activeAttackPoints.clear();
+                    equippedWeapon.activeAttackPoints.add(new Point((int) playerX, (int) playerY));
                 }
-                equippedWeapon.activeAttackPoints.add(new Point((int) playerX, (int) playerY));
+                
 
                 if(equippedWeapon.attackX != null && !equippedWeapon.attackX.isEmpty()){
                     for(int i = 0; i < equippedWeapon.attackX.size(); i++){
