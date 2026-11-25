@@ -196,10 +196,12 @@ public class Movement {
                 if(enemy.mapID == currentMap && !enemy.isDead){
                     boolean wasDead = enemy.isDead;
                     enemy.applyPlatformInteractions(objects, currentMap);
+                    if(enemy.currentHealth < enemy.maxHealth){
+                        enemy.currentHealth = Math.min(enemy.maxHealth, enemy.currentHealth + enemy.regeneration);
+                    }
                     if(!wasDead && enemy.isDead){
                         MapEditorWindow.instance.gameCanvas.spawnDeathParticles(enemy.x, enemy.y, enemy.width, enemy.height, enemy.getParticleColor());
                     }
-
                     enemy.aiTick(objects, playerX, playerY);
 
                 }
@@ -244,11 +246,27 @@ public class Movement {
                 for(Enemy enemy : enemies){
                     if(enemy.mapID == currentMap && !enemy.isDead){
                         if(weaponHitbox.intersects(enemy.getBounds())){
-                            enemy.isDead = true;
-                            if(MapEditorWindow.instance != null && MapEditorWindow.instance.gameCanvas != null){
-                                MapEditorWindow.instance.gameCanvas.spawnDeathParticles(enemy.x, enemy.y, enemy.width, enemy.height, enemy.getParticleColor());
+                            if(equippedWeapon.effects == null || equippedWeapon.effects.isEmpty()) continue;
+
+                            double totalDamage = 0;
+                            String[] effectsList = equippedWeapon.effects.split(",");
+                            for(String fx : effectsList){
+                                String[] kv = fx.split(":");
+                                if(kv.length == 2){
+                                    String key = kv[0].trim().toUpperCase();
+                                    if(key.contains("DAMAGE")){
+                                        try{
+                                            totalDamage += Double.parseDouble(kv[1].trim());
+                                        }catch(NumberFormatException e){}
+                                    }
+                                }
+                            }
+                            enemy.currentHealth -= totalDamage;
+                            if(enemy.currentHealth <= 0){
+                                enemy.isDead = true;
                             }
                         }
+
                     }
                 }
             }

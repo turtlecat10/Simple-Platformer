@@ -13,6 +13,9 @@ public abstract class Enemy {
     public int mapID;
     public boolean isGrounded;
     public String type;
+    public double maxHealth = 100.0;
+    public double currentHealth = 100.0;
+    public double regeneration = 0.0;
     public boolean isDead = false;
     public boolean hasPathfinding = false;
     public GameObject standingOnPlatform = null;

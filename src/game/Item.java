@@ -28,11 +28,13 @@ public class Item {
     public double attackProgress = 0.0;
     public double currentAttackX, currentAttackY;
 
+    public boolean reverseDirection;
+
     public ArrayList<Point> activeAttackPoints = new ArrayList<>();
 
     public int inventoryNumber = 0;
 
-    public Item(String name, ItemType type, Color color, int x, int y, int width, int height, int mapID, String effects, ArrayList<Integer> attackX, ArrayList<Integer> attackY, ArrayList<Double> speed, ArrayList<Boolean> isSpeed){
+    public Item(String name, ItemType type, Color color, int x, int y, int width, int height, int mapID, String effects, boolean reverse, ArrayList<Integer> attackX, ArrayList<Integer> attackY, ArrayList<Double> speed, ArrayList<Boolean> isSpeed){
         this.name = name;
         this.type = type;
         this.color = color;
@@ -44,6 +46,7 @@ public class Item {
         this.height = height;
         this.mapID = mapID;
         this.effects = effects;
+        this.reverseDirection = reverse;
         this.attackX = attackX;
         this.attackY = attackY; 
         this.speed = speed;

@@ -4,11 +4,11 @@ import java.awt.Color;
 import java.util.ArrayList;
 
 public enum ItemRegistry {
-    NONE("NONE", Item.ItemType.NONE, null, 0, 0, ""),
-    SWORD("SWORD", Item.ItemType.WEAPON, Color.ORANGE, 32, 32, "Damage: 10"),
-    POTION("POTION", Item.ItemType.CONSUMABLE, Color.RED, 24, 24, "Heal: 50"),
-    COIN("COIN", Item.ItemType.MISC, Color.YELLOW, 20, 20, "Value: 10"),
-    GEM("GEM", Item.ItemType.MISC, Color.CYAN, 24, 24, "Value: 100");
+    NONE("NONE", Item.ItemType.NONE, null, 0, 0, "", false),
+    SWORD("SWORD", Item.ItemType.WEAPON, Color.ORANGE, 32, 32, "Damage: 10", true),
+    POTION("POTION", Item.ItemType.CONSUMABLE, Color.RED, 24, 24, "Heal: 50", false),
+    COIN("COIN", Item.ItemType.MISC, Color.YELLOW, 20, 20, "Value: 10", false),
+    GEM("GEM", Item.ItemType.MISC, Color.CYAN, 24, 24, "Value: 100", false);
     
 
     private final String displayName;
@@ -17,14 +17,16 @@ public enum ItemRegistry {
     private final int width;
     private final int height;
     private final String effects;
+    private final Boolean reverse;
 
-    ItemRegistry(String displayName, Item.ItemType type, Color color, int width, int height, String effects){
+    ItemRegistry(String displayName, Item.ItemType type, Color color, int width, int height, String effects, boolean reverse){
         this.displayName = displayName;
         this.type = type;
         this.color = color;
         this.width = width;
         this.height = height;
         this.effects = effects;
+        this.reverse = reverse;
     }
 
     // ItemRegistry(String displayName){
@@ -36,7 +38,7 @@ public enum ItemRegistry {
     public String getDisplayName(){ return displayName;}
 
     public Item create(int x, int y, int mapID){
-        return new Item(name(), type, color, x, y, width, height, mapID, effects, new java.util.ArrayList<>(), new java.util.ArrayList<>(), new java.util.ArrayList<>(), new java.util.ArrayList<>());
+        return new Item(name(), type, color, x, y, width, height, mapID, effects, reverse, new java.util.ArrayList<>(), new java.util.ArrayList<>(), new java.util.ArrayList<>(), new java.util.ArrayList<>());
     }
 
     public static String[] getDisplayChoices(){

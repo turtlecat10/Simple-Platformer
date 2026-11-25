@@ -49,6 +49,10 @@ public class MapEditorWindow extends JFrame{
     private int currentlyLoadedMapID = -1;
     private int highlightedBroadcastChannel = 0;
 
+
+    private JComboBox<String> cmbEnemyTemplate = new JComboBox<>();
+    private JComboBox<String> cmbObjectTemplate = new JComboBox<>();
+
     //sidebar
     private long lastSegmentClickTime = 0;
     private int lastClickedSegmentIdx = -1;
@@ -257,23 +261,56 @@ public class MapEditorWindow extends JFrame{
 
         String[] enemyTypeNames = java.util.Arrays.copyOf(EnemyRegistry.getDisplayChoices(), EnemyRegistry.getDisplayChoices().length);
         JComboBox<String> cmbEnemyType = new JComboBox<>(enemyTypeNames);
-        cmbEnemyType.setMaximumSize(new Dimension(200, 32));
+        cmbEnemyType.setMaximumSize(new Dimension(98, 32));
         cmbEnemyType.setAlignmentX(Component.LEFT_ALIGNMENT);
         cmbEnemyType.setSelectedItem(activeEnemyBrush.getDisplayName());
+
+        cmbEnemyTemplate.setMaximumSize(new Dimension(98, 32));
+        cmbEnemyTemplate.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        Runnable updateEnemyTemplates = () -> {
+            cmbEnemyTemplate.removeAllItems();
+            String selectedDisplay = (String) cmbEnemyType.getSelectedItem();
+            EnemyRegistry selectedType = EnemyRegistry.fromDisplayName(selectedDisplay);
+            java.util.List<String> templates = getTemplatesForEnemy(selectedType);
+            for(String tName : templates){
+                cmbEnemyTemplate.addItem(tName);
+            }
+        };
+
         cmbEnemyType.addActionListener(e -> {
             String selected = (String) cmbEnemyType.getSelectedItem();
             if(selected != null){
                 activeBrushMode = BrushMode.ENEMY;
                 activeEnemyBrush = EnemyRegistry.fromDisplayName(selected);
-                lblBrush.setText("Selected Brush: ENEMY ["+activeEnemyBrush.name()+"]");
+                updateEnemyTemplates.run();
+                lblBrush.setText("Selected Brush: ENEMY [" + activeEnemyBrush.name() + "]");
             }
         });
-        controlPanel.add(cmbEnemyType);
+
+        cmbEnemyTemplate.addActionListener(e -> {
+            activeBrushMode = BrushMode.ENEMY;
+            if(cmbEnemyTemplate.getSelectedItem() != null){
+                lblBrush.setText("Selected Brush: ENEMY [" + cmbEnemyTemplate.getSelectedItem() + "]");
+            }
+        });
+
+        updateEnemyTemplates.run();
+
+        JPanel enemyComboRow = new JPanel(new GridLayout(1, 2, 4, 0));
+        enemyComboRow.setBackground(new Color(240, 240, 240));
+        enemyComboRow.setMaximumSize(new Dimension(200, 32));
+        enemyComboRow.setMinimumSize(new Dimension(200, 32));
+        enemyComboRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        enemyComboRow.add(cmbEnemyType);
+        enemyComboRow.add(cmbEnemyTemplate);
+
+        controlPanel.add(enemyComboRow);
         controlPanel.add(Box.createVerticalStrut(5));
 
-        cmbItemTemplate.setMaximumSize(new Dimension(200, 32));
+        cmbItemTemplate.setMaximumSize(new Dimension(98, 32));
         cmbItemTemplate.setAlignmentX(Component.LEFT_ALIGNMENT);
-        cmbItemType.setMaximumSize(new Dimension(200, 32));
+        cmbItemType.setMaximumSize(new Dimension(98, 32));
         cmbItemType.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         Runnable updateTemplates = () -> {
@@ -298,12 +335,17 @@ public class MapEditorWindow extends JFrame{
             }
         });
 
-
-
         updateTemplates.run();
-        controlPanel.add(cmbItemType);
-        controlPanel.add(Box.createVerticalStrut(5));
-        controlPanel.add(cmbItemTemplate);
+        // activeBrushMode = BrushMode.OBJECT;
+        JPanel comboRow = new JPanel(new GridLayout(1, 2, 4, 0));
+        comboRow.setBackground(new Color(240, 240, 240));
+        comboRow.setMaximumSize(new Dimension(200, 32));
+        comboRow.setMinimumSize(new Dimension(200, 32));
+        comboRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        comboRow.add(cmbItemType);
+        comboRow.add(cmbItemTemplate);
+
+        controlPanel.add(comboRow);
         controlPanel.add(Box.createVerticalStrut(5));
 
         btnDelete.setMaximumSize(new Dimension(200,32));
@@ -315,7 +357,7 @@ public class MapEditorWindow extends JFrame{
                 gameCanvas.getGameObjects().remove(selectedObject);
                 selectedObject = null;
                 propertyEditingObject = null;
-                lblSelectedInfo.setText("selection: Delete");
+                lblSelectedInfo.setText("Selection: Delete");
                 btnDelete.setEnabled(false);
                 btnEditProperties.setEnabled(false);
                 gameCanvas.repaint();
@@ -324,7 +366,7 @@ public class MapEditorWindow extends JFrame{
                 gameCanvas.getMovement().getEnemies().remove(selectedEnemy);
                 selectedEnemy = null;
                 propertyEditingEnemy = null;
-                lblSelectedInfo.setText("selection: Delete");
+                lblSelectedInfo.setText("Selection: Delete");
                 btnDelete.setEnabled(false);
                 btnEditProperties.setEnabled(false);
                 gameCanvas.repaint();
@@ -521,6 +563,7 @@ public class MapEditorWindow extends JFrame{
             if(allEnemies != null){
                 for(Enemy obj : allEnemies){
                     obj.resetToStart();
+                    obj.currentHealth = obj.maxHealth;
                 }
             }
             btnPlay.setEnabled(true);
@@ -595,6 +638,12 @@ public class MapEditorWindow extends JFrame{
         btnDeleteLevel.addActionListener(e -> {
             int choice = JOptionPane.showConfirmDialog(controlPanel, "Do you want to continue?", "Confirm Action", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
             if(choice == JOptionPane.YES_OPTION){
+                propertyEditingEnemy = null;
+                propertyEditingItem = null;
+                propertyEditingObject = null;
+                selectedEnemy = null;
+                selectedItem = null;
+                selectedObject = null;
                 int currentMap = gameCanvas.getCurrentMap();
                 gameCanvas.getGameObjects().removeIf(obj -> obj.mapID == currentMap);
                 gameCanvas.getMovement().getEnemies().removeIf(enemy -> enemy.mapID == currentMap);
@@ -1043,7 +1092,10 @@ public class MapEditorWindow extends JFrame{
                             placementY = gamePoint.y;
                         }
                         ArrayList<Enemy> currentEnemyList = gameCanvas.getMovement().getEnemies();
-                        Enemy newEnemy = activeEnemyBrush.create(placementX, placementY, 36, 36, activeEditingMapID, 0);
+                        String selEnemyTemplate = (String) cmbEnemyTemplate.getSelectedItem();
+                        Enemy newEnemy = (selEnemyTemplate != null) ? 
+                                createEnemyFromTemplate(selEnemyTemplate, placementX, placementY, activeEditingMapID)
+                                : activeEnemyBrush.create(placementX, placementY, 36, 36, activeEditingMapID, 0);
                         if(newEnemy != null){
                             currentEnemyList.add(newEnemy);
                             selectedEnemy = newEnemy;
@@ -1056,7 +1108,7 @@ public class MapEditorWindow extends JFrame{
                         return;
                     } 
 
-                    if(bottomLeftCorner == null && activeBrushMode == BrushMode.OBJECT){
+                    if(bottomLeftCorner == null && activeBrushMode == BrushMode.OBJECT && selectedEnemy == null && selectedObject == null && selectedItem == null){
                         int finalX = freePlace ? snapX : Math.floorDiv(gamePoint.x, snapSize) * snapSize;
                         int finalY = freePlace ? snapY : ((Math.floorDiv(gamePoint.y, snapSize) + 1) * snapSize);
                         bottomLeftCorner = new Point(finalX, finalY);
@@ -1879,6 +1931,7 @@ public class MapEditorWindow extends JFrame{
                     int intervalMin = 60, intervalMax = 180;
                     double velX = 0;
                     double xRange = 64.0, yRange = 32.0;
+                    double maxHealth = 100.0, regeneration = 0.0;
                     String type = "PATROL";
                     Boolean hasPathfinding = false;
 
@@ -1893,6 +1946,8 @@ public class MapEditorWindow extends JFrame{
                             case "y": y = Integer.parseInt(val); break;
                             case "width" : width = Integer.parseInt(val); break;
                             case "height" : height = Integer.parseInt(val); break;
+                            case "maxHealth": maxHealth = Double.parseDouble(val); break;
+                            case "regeneration": regeneration = Double.parseDouble(val); break;
                             case "mapID" : mapID = Integer.parseInt(val); break;
                             case "velX" : velX = Double.parseDouble(val); break;
                             case "xRange" : xRange = Double.parseDouble(val); break;
@@ -1907,6 +1962,8 @@ public class MapEditorWindow extends JFrame{
                     Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
                     if(enemy != null){
                         enemy.hasPathfinding = hasPathfinding;
+                        enemy.maxHealth = maxHealth;
+                        enemy.regeneration = regeneration;
                     }
                     if(enemy instanceof FlyingEnemy){
                         ((FlyingEnemy) enemy).setXRange(xRange);
@@ -1937,15 +1994,15 @@ public class MapEditorWindow extends JFrame{
 
                 if(e instanceof FlyingEnemy){
                     FlyingEnemy fe = (FlyingEnemy) e;
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
-                    e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.hasPathfinding, e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
+                    e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.maxHealth, e.regeneration, e.hasPathfinding, e.mapID, e.type);
                 }else if(e instanceof JumpingEnemy){
                     JumpingEnemy je = (JumpingEnemy) e;
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
-                    e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.hasPathfinding, e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
+                    e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.maxHealth, e.regeneration, e.hasPathfinding, e.mapID, e.type);
                 }else{
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
-                    e.startX, e.startY, e.width, e.height, initialSpeed, e.hasPathfinding, e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
+                    e.startX, e.startY, e.width, e.height, initialSpeed, e.maxHealth, e.regeneration, e.hasPathfinding, e.mapID, e.type);
                 }
                 writer.write(" " + jsonStr);
                 if(i < masterEnemyList.size() - 1) writer.write(",\n");
@@ -1985,6 +2042,7 @@ public class MapEditorWindow extends JFrame{
                     int intervalMax = 180, intervalMin = 60;
                     double xRange = 64.0;
                     double yRange = 32.0;
+                    double maxHealth = 100.0, regeneration = 0.0;
                     String type = "PATROL";
                     boolean hasPathfinding = false;
 
@@ -2002,6 +2060,8 @@ public class MapEditorWindow extends JFrame{
                             case "velX": velX = Double.parseDouble(val); break;
                             case "xRange": xRange = Double.parseDouble(val); break;
                             case "yRange": yRange = Double.parseDouble(val); break;
+                            case "maxHealth": maxHealth = Double.parseDouble(val); break;
+                            case "regeneration": regeneration = Double.parseDouble(val); break;
                             case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
                             case "intervalMin": intervalMin = Integer.parseInt(val); break;
                             case "intervalMax": intervalMax = Integer.parseInt(val); break;
@@ -2013,6 +2073,9 @@ public class MapEditorWindow extends JFrame{
                     Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
                     if(enemy != null){
                         enemy.hasPathfinding = hasPathfinding;
+                        enemy.currentHealth = maxHealth;
+                        enemy.maxHealth = maxHealth;
+                        enemy.regeneration = regeneration;
                     }
                     if(enemy instanceof FlyingEnemy){
                         ((FlyingEnemy) enemy).setXRange(xRange);
@@ -2063,6 +2126,8 @@ public class MapEditorWindow extends JFrame{
                     String name = "COIN", type = "MISC", effects = "";
                     Color color = Color.YELLOW;
 
+                    Boolean reverse = false;
+
                     ArrayList<Integer> attX = new ArrayList<>();
                     ArrayList<Integer> attY = new ArrayList<>();
                     ArrayList<Double> spd = new ArrayList<>();
@@ -2083,6 +2148,7 @@ public class MapEditorWindow extends JFrame{
                             case "name": name = val; break;
                             case "type": type = val; break;
                             case "effects": effects = val; break;
+                            case "reverseDirection": reverse = Boolean.parseBoolean(val); break;
                             case "colorRGB": color = new Color(Integer.parseInt(val)); break;
                             case "attackX":
                                 if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attX.add(Integer.parseInt(s.trim()));
@@ -2098,7 +2164,7 @@ public class MapEditorWindow extends JFrame{
                                 break;
                         }
                     }
-                    Item item = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, mapID, effects, attX, attY, spd, isSpd);
+                    Item item = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, mapID, effects, reverse, attX, attY, spd, isSpd);
                     masterItemList.add(item);
                 }
             }
@@ -2113,8 +2179,8 @@ public class MapEditorWindow extends JFrame{
             writer.write("[\n");
             for(int i = 0; i < masterItemList.size(); i++){
                 Item item = masterItemList.get(i);
-                String jsonStr = String.format("{\"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"mapID\":%d, \"effects\":\"%s\", \"attackX\":%s, \"attackY\":%s, \"speed\":%s, \"isSpeed\":%s}",
-                    item.name, item.type.name(), item.color.getRGB(), item.startX, item.startY, item.width, item.height, item.mapID, item.effects,
+                String jsonStr = String.format("{\"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"mapID\":%d, \"effects\":\"%s\", \"reverseDirection\":\"%b\" ,\"attackX\":%s, \"attackY\":%s, \"speed\":%s, \"isSpeed\":%s}",
+                    item.name, item.type.name(), item.color.getRGB(), item.startX, item.startY, item.width, item.height, item.mapID, item.effects, item.reverseDirection,
                     item.attackX.toString(), item.attackY.toString(), item.speed.toString(), item.isSpeed.toString());
                 writer.write(" " + jsonStr);
                 if(i < masterItemList.size() - 1) writer.write(",\n");
@@ -2152,6 +2218,8 @@ public class MapEditorWindow extends JFrame{
                     String name = "COIN", type = "MISC", effects = "";
                     Color color = Color.YELLOW;
 
+                    Boolean reverse = false;
+
                     ArrayList<Integer> attX = new ArrayList<>();
                     ArrayList<Integer> attY = new ArrayList<>();
                     ArrayList<Double> spd = new ArrayList<>();
@@ -2172,6 +2240,7 @@ public class MapEditorWindow extends JFrame{
                             case "name": name = val; break;
                             case "type": type = val; break;
                             case "effects": effects = val; break;
+                            case "reverseDirection": reverse = Boolean.parseBoolean(val); break;
                             case "colorRGB": color = new Color(Integer.parseInt(val)); break;
                             case "attackX":
                                 if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attX.add(Integer.parseInt(s.trim()));
@@ -2187,7 +2256,7 @@ public class MapEditorWindow extends JFrame{
                                 break;
                         }
                     }
-                    loadedItems.add(new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, mapID, effects, attX, attY, spd, isSpd));
+                    loadedItems.add(new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, mapID, effects, reverse, attX, attY, spd, isSpd));
                 }
             }
         }
@@ -2290,15 +2359,15 @@ public class MapEditorWindow extends JFrame{
                     String jsonStr;
                     if(e instanceof FlyingEnemy){
                         FlyingEnemy fe = (FlyingEnemy) e;
-                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}", 
-                           e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.hasPathfinding, e.type);
+                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}", 
+                           e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.maxHealth, e.regeneration, e.hasPathfinding, e.type);
                     }else if(e instanceof JumpingEnemy){
                         JumpingEnemy je = (JumpingEnemy) e;
-                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"hasPathfinding\":%b, \"type\":\"%s\"}", 
-                           e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.hasPathfinding, e.type);
+                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}", 
+                           e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.maxHealth, e.regeneration, e.hasPathfinding, e.type);
                     }else{
-                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"hasPathfinding\":%b, \"type\":\"%s\"}", 
-                           e.startX, e.startY, e.width, e.height, initialSpeed, e.hasPathfinding, e.type);
+                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}", 
+                           e.startX, e.startY, e.width, e.height, initialSpeed, e.maxHealth, e.regeneration, e.hasPathfinding, e.type);
                     }
                     sb.append(jsonStr);
                 }
@@ -2310,8 +2379,8 @@ public class MapEditorWindow extends JFrame{
                 if(item.mapID == activeEditingMapID){
                     if(!first) sb.append(",\n");
                     first = false;
-                    String jsonStr = String.format("  {\"kind\":\"item\", \"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"effects\":\"%s\", \"attackX\":%s, \"attackY\":%s, \"speed\":%s, \"isSpeed\":%s}", 
-                            item.name, item.type.name(), item.color.getRGB(), item.startX, item.startY, item.width, item.height, item.effects,
+                    String jsonStr = String.format("  {\"kind\":\"item\", \"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"effects\":\"%s\", \"reverseDirection\":\"%b\", \"attackX\":%s, \"attackY\":%s, \"speed\":%s, \"isSpeed\":%s}", 
+                            item.name, item.type.name(), item.color.getRGB(), item.startX, item.startY, item.width, item.height, item.effects, item.reverseDirection,
                             item.attackX.toString(), item.attackY.toString(), item.speed.toString(), item.isSpeed.toString());
                     sb.append(jsonStr);
                 }
@@ -2479,6 +2548,7 @@ public class MapEditorWindow extends JFrame{
                 double xRange = 64.0, yRange = 32.0;
                 boolean hasPathfinding = false;
                 String type = "PATROL";
+                double maxHealth = 100.0, regeneration = 0.0;
 
                 for (String prop : properties) {
                     int colonIdx = prop.indexOf(":");
@@ -2493,6 +2563,8 @@ public class MapEditorWindow extends JFrame{
                         case "velX": velX = Double.parseDouble(val); break;
                         case "xRange": xRange = Double.parseDouble(val); break;
                         case "yRange": yRange = Double.parseDouble(val); break;
+                        case "maxHealth": maxHealth = Double.parseDouble(val); break;
+                        case "regeneration": regeneration = Double.parseDouble(val); break;
                         case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
                         case "intervalMin": intervalMin = Integer.parseInt(val); break;
                         case "intervalMax": intervalMax = Integer.parseInt(val); break;
@@ -2503,6 +2575,9 @@ public class MapEditorWindow extends JFrame{
                 Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, newMapID, velX);
                 if (enemy != null) {
                     enemy.hasPathfinding = hasPathfinding;
+                    enemy.maxHealth = maxHealth;
+                    enemy.currentHealth = maxHealth;
+                    enemy.regeneration = regeneration;
                     if (enemy instanceof FlyingEnemy) {
                         ((FlyingEnemy) enemy).setXRange(xRange);
                         ((FlyingEnemy) enemy).setYRange(yRange);
@@ -2518,6 +2593,7 @@ public class MapEditorWindow extends JFrame{
                 int x = 0, y = 0, width = 32, height = 32;
                 String name = "COIN", type = "MISC", effects = "";
                 Color color = Color.YELLOW;
+                Boolean reverse = false;
 
                 ArrayList<Integer> attX = new ArrayList<>();
                 ArrayList<Integer> attY = new ArrayList<>();
@@ -2537,6 +2613,7 @@ public class MapEditorWindow extends JFrame{
                         case "name": name = val; break;
                         case "type": type = val; break;
                         case "effects": effects = val; break;
+                        case "reverseDirection": reverse = Boolean.parseBoolean(val); break;
                         case "colorRGB": color = new Color(Integer.parseInt(val)); break;
                         case "attackX":
                             if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attX.add(Integer.parseInt(s.trim()));
@@ -2552,7 +2629,7 @@ public class MapEditorWindow extends JFrame{
                             break;
                     }
                 }
-                Item importedItem = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, newMapID, effects, attX, attY, spd, isSpd);
+                Item importedItem = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, newMapID, effects, reverse, attX, attY, spd, isSpd);
                 importedItems.add(importedItem);
             }
         }
@@ -2605,13 +2682,14 @@ public class MapEditorWindow extends JFrame{
                     String[] parts = content.split("\\},\\s*\\{");
                     for(String p : parts){
                         String jsonBlock = "{" + p.replace("{", "").replace("}", "") + "}";
-                        if(jsonBlock.contains("\"name\":\"" + templateName + "\"") && jsonBlock.contains("\"type\":\"" + type.name() + "\"")){
+                        if(jsonBlock.contains("\"kind\":\"item\"") && jsonBlock.contains("\"name\":\"" + templateName + "\"") && jsonBlock.contains("\"type\":\"" + type.name() + "\"")){
                             // Parse properties
                             int width = 32, height = 32;
                             String effects = "";
                             Color color = Color.YELLOW;
-                            ArrayList<Integer> attX = new ArrayList<>();
-                            ArrayList<Integer> attY = new ArrayList<>();
+                            boolean reverse = false;
+                            ArrayList<Integer> relX = new ArrayList<>();
+                            ArrayList<Integer> relY = new ArrayList<>();
                             ArrayList<Double> spd = new ArrayList<>();
                             ArrayList<Boolean> isSpd = new ArrayList<>();
 
@@ -2626,11 +2704,12 @@ public class MapEditorWindow extends JFrame{
                                     case "height": height = Integer.parseInt(v); break;
                                     case "effects": effects = v; break;
                                     case "colorRGB": color = new Color(Integer.parseInt(v)); break;
+                                    case "reverseDirection": reverse = Boolean.parseBoolean(v); break;
                                     case "attackX":
-                                        if(!v.isEmpty() && !v.equals("[]")) for(String s : v.replace("[","").replace("]","").split(",")) if(!s.trim().isEmpty()) attX.add(Integer.parseInt(s.trim()));
+                                        if(!v.isEmpty() && !v.equals("[]")) for(String s : v.replace("[","").replace("]","").split(",")) if(!s.trim().isEmpty()) relX.add(Integer.parseInt(s.trim()));
                                         break;
                                     case "attackY":
-                                        if(!v.isEmpty() && !v.equals("[]")) for(String s : v.replace("[","").replace("]","").split(",")) if(!s.trim().isEmpty()) attY.add(Integer.parseInt(s.trim()));
+                                        if(!v.isEmpty() && !v.equals("[]")) for(String s : v.replace("[","").replace("]","").split(",")) if(!s.trim().isEmpty()) relY.add(Integer.parseInt(s.trim()));
                                         break;
                                     case "speed":
                                         if(!v.isEmpty() && !v.equals("[]")) for(String s : v.replace("[","").replace("]","").split(",")) if(!s.trim().isEmpty()) spd.add(Double.parseDouble(s.trim()));
@@ -2640,13 +2719,21 @@ public class MapEditorWindow extends JFrame{
                                         break;
                                 }
                             }
-                            return new Item(templateName, type, color, x, y, width, height, mapID, effects, attX, attY, spd, isSpd);
+                            ArrayList<Integer> absAttackX = new ArrayList<>();
+                            ArrayList<Integer> absAttackY = new ArrayList<>();
+                            for(int i = 0; i < relX.size(); i++){
+                                absAttackX.add(x + relX.get(i));
+                                absAttackY.add(y + relY.get(i));
+                            }
+                            Item created = new Item(templateName, type, color, x, y, width, height, mapID, effects, reverse, absAttackX, absAttackY, spd, isSpd);
+                            // created.reverseDirection = reverse;
+                            return created;
                         }
                     }
                 }
             }catch(Exception ex){}
         }
-        return new Item(templateName, type, Color.YELLOW, x, y, 32, 32, mapID, "", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+        return new Item(templateName, type, Color.YELLOW, x, y, 32, 32, mapID, "", false, new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
     }
 
     //clearing points
@@ -2894,6 +2981,7 @@ public class MapEditorWindow extends JFrame{
                 }
                 selectedWaypointIndex = -1;
                 propDialog.dispose();
+                selectedObject = null;
                 this.propertyEditingObject = null;
                 gameCanvas.repaint();
             }catch (NumberFormatException ex){
@@ -2918,7 +3006,7 @@ public class MapEditorWindow extends JFrame{
         enemyProperty.setLayout(new BorderLayout());
         enemyProperty.getRootPane().setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        JPanel formPanel = new JPanel(new GridLayout(5, 2, 10, 10));
+        JPanel formPanel = new JPanel(new GridLayout(7, 2, 10, 10));
 
         formPanel.add(new JLabel("Speed"));
         double initialSpeed = enemy.velX;
@@ -2935,6 +3023,14 @@ public class MapEditorWindow extends JFrame{
         formPanel.add(new JLabel("Size (height)"));
         txtHeight = new JTextField(String.valueOf(enemy.height));
         formPanel.add(txtHeight);
+
+        formPanel.add(new JLabel("Max Health:"));
+        JTextField txtMaxHealth = new JTextField(String.valueOf(enemy.maxHealth));
+        formPanel.add(txtMaxHealth);
+
+        formPanel.add(new JLabel("Regeneration:"));
+        JTextField txtRegen = new JTextField(String.valueOf(enemy.regeneration));
+        formPanel.add(txtRegen);
 
         formPanel.add(new JLabel("Enable Pathfinding:"));
         JCheckBox chkPathfinding = new JCheckBox("", enemy.hasPathfinding);
@@ -3013,67 +3109,105 @@ public class MapEditorWindow extends JFrame{
         contentWrapper.add(conditionalPanelFlying);
         contentWrapper.add(conditionalPanelJumping);
 
-        enemyProperty.add(new JLabel(""));
+        JButton btnSaveEnemyTemplate = new JButton("Save as Template");
+        btnSaveEnemyTemplate.addActionListener(e ->{
+            String tName = JOptionPane.showInputDialog(enemyProperty, "Enter Enemy Template Name:");
+            if(tName != null && !tName.trim().isEmpty()){
+                saveEnemyTemplateManual(tName.trim(), enemy, "src/savedObjects.json");
+                if(activeEnemyBrush != null && activeEnemyBrush.name().equalsIgnoreCase(enemy.type)){
+                    cmbEnemyTemplate.addItem(tName.trim());
+                }
+                JOptionPane.showMessageDialog(enemyProperty, "Enemy template saved!");
+            }
+        });
+        JPanel bottomPanel = new JPanel();
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        bottomPanel.add(btnSaveEnemyTemplate);
+
         JButton confirm = new JButton("Confirm");
         confirm.addActionListener(e -> {
             try{
                 double newVelX = Double.parseDouble(txtSpeed.getText().trim());
                 int newWidth = Integer.parseInt(txtWidth.getText().trim());
                 int newHeight = Integer.parseInt(txtHeight.getText().trim());
+                double newMaxHealth = Double.parseDouble(txtMaxHealth.getText().trim());
+                double newRegen = Double.parseDouble(txtRegen.getText().trim());
                 boolean newPathfinding = chkPathfinding.isSelected();
 
-                String selectedDisplayName = (String) enemyTypeDropdown.getSelectedItem();
-                EnemyRegistry selectedRegistry = EnemyRegistry.fromDisplayName(selectedDisplayName);
+                propertyEditingEnemy.velX = newVelX;
+                propertyEditingEnemy.width = newWidth;
+                propertyEditingEnemy.height = newHeight;
+                propertyEditingEnemy.maxHealth = newMaxHealth;
+                propertyEditingEnemy.regeneration = newRegen;
+                propertyEditingEnemy.hasPathfinding = newPathfinding;
 
-                ArrayList<Enemy> enemiesList = gameCanvas.getMovement().getEnemies();
-                int index = enemiesList.indexOf(propertyEditingEnemy);
-                if(selectedRegistry != null && index != -1){
-                    Enemy updatedEnemy = selectedRegistry.create(
-                        propertyEditingEnemy.x,
-                        propertyEditingEnemy.y,
-                        newWidth,
-                        newHeight,
-                        propertyEditingEnemy.mapID,
-                        newVelX
-                    );
-                    if(updatedEnemy != null){
-                        updatedEnemy.hasPathfinding = chkPathfinding.isSelected();
-                        if(updatedEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
-                            try{
-                                ((FlyingEnemy)updatedEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
-                                ((FlyingEnemy)updatedEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
-                            }catch (NumberFormatException ex){}
-                        }
-                        if(updatedEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
-                            try{
-                                ((JumpingEnemy)updatedEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
-                                ((JumpingEnemy)updatedEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
-                                ((JumpingEnemy)updatedEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
-                            }catch(NumberFormatException ex){}
-                        }
-                        enemiesList.set(index, updatedEnemy);
-                        selectedEnemy = updatedEnemy;
-                    }
-                }else if(propertyEditingEnemy != null){
-                    propertyEditingEnemy.velX = newVelX;
-                    propertyEditingEnemy.width = newWidth;
-                    propertyEditingEnemy.height = newHeight;
-                    propertyEditingEnemy.hasPathfinding = chkPathfinding.isSelected();
-                    if(propertyEditingEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
-                        try{
-                            ((FlyingEnemy)propertyEditingEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
-                            ((FlyingEnemy)propertyEditingEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
-                        }catch (NumberFormatException ex){
-                        }
-                    }
-                    if(propertyEditingEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
-                        try{
-                            ((JumpingEnemy)propertyEditingEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
-                            ((JumpingEnemy)propertyEditingEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
-                            ((JumpingEnemy)propertyEditingEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
-                        }catch(NumberFormatException ex){}
+                if(propertyEditingEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
+                    try{
+                        ((FlyingEnemy)propertyEditingEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
+                        ((FlyingEnemy)propertyEditingEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
+                    }catch (NumberFormatException ex){
                     }
                 }
+                if(propertyEditingEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
+                    try{
+                        ((JumpingEnemy)propertyEditingEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
+                        ((JumpingEnemy)propertyEditingEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
+                        ((JumpingEnemy)propertyEditingEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
+                    }catch(NumberFormatException ex){}
+                }
+
+                // String selectedDisplayName = (String) enemyTypeDropdown.getSelectedItem();
+                // EnemyRegistry selectedRegistry = EnemyRegistry.fromDisplayName(selectedDisplayName);
+
+                // ArrayList<Enemy> enemiesList = gameCanvas.getMovement().getEnemies();
+                // int index = enemiesList.indexOf(propertyEditingEnemy);
+                // if(selectedRegistry != null && index != -1){
+                //     Enemy updatedEnemy = selectedRegistry.create(
+                //         propertyEditingEnemy.x,
+                //         propertyEditingEnemy.y,
+                //         newWidth,
+                //         newHeight,
+                //         propertyEditingEnemy.mapID,
+                //         newVelX
+                //     );
+                //     if(updatedEnemy != null){
+                //         updatedEnemy.hasPathfinding = chkPathfinding.isSelected();
+                //         if(updatedEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
+                //             try{
+                //                 ((FlyingEnemy)updatedEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
+                //                 ((FlyingEnemy)updatedEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
+                //             }catch (NumberFormatException ex){}
+                //         }
+                //         if(updatedEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
+                //             try{
+                //                 ((JumpingEnemy)updatedEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
+                //                 ((JumpingEnemy)updatedEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
+                //                 ((JumpingEnemy)updatedEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
+                //             }catch(NumberFormatException ex){}
+                //         }
+                //         enemiesList.set(index, updatedEnemy);
+                //         selectedEnemy = updatedEnemy;
+                //     }
+                // }else if(propertyEditingEnemy != null){
+                //     propertyEditingEnemy.velX = newVelX;
+                //     propertyEditingEnemy.width = newWidth;
+                //     propertyEditingEnemy.height = newHeight;
+                //     propertyEditingEnemy.hasPathfinding = chkPathfinding.isSelected();
+                //     if(propertyEditingEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
+                //         try{
+                //             ((FlyingEnemy)propertyEditingEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
+                //             ((FlyingEnemy)propertyEditingEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
+                //         }catch (NumberFormatException ex){
+                //         }
+                //     }
+                //     if(propertyEditingEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
+                //         try{
+                //             ((JumpingEnemy)propertyEditingEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
+                //             ((JumpingEnemy)propertyEditingEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
+                //             ((JumpingEnemy)propertyEditingEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
+                //         }catch(NumberFormatException ex){}
+                //     }
+                // }
 
                 selectedEnemy = null;
                 this.propertyEditingEnemy = null;
@@ -3085,8 +3219,7 @@ public class MapEditorWindow extends JFrame{
                 JOptionPane.showMessageDialog(enemyProperty, "Please verify all numerical text entries are clean integer values");
             }
         });
-        JPanel bottomPanel = new JPanel();
-        bottomPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        
         bottomPanel.add(confirm);
 
         enemyProperty.add(contentWrapper, BorderLayout.CENTER);
@@ -3147,6 +3280,81 @@ public class MapEditorWindow extends JFrame{
             }
         });
         formPanel.add(btnColor);
+
+        JPanel effectsPanel = new JPanel(new BorderLayout(5, 5));
+        effectsPanel.setBorder(BorderFactory.createTitledBorder("Item Effects Manager"));
+
+        JPanel effectInputRow = new JPanel(new GridLayout(1, 4, 5, 0));
+        JComboBox<String> cmbEffectType = new JComboBox<>(new String[]{"DAMAGE", "VALUE", "DURABILITY", "HEALING", "FIRE_DAMAGE", "COLD_DAMAGE", "LIGHTNING"});
+        JTextField txtEffectVal = new JTextField(5);
+        JButton btnAddOrUpdateEffect = new JButton("Set Effect");
+        JButton btnRemoveEffect = new JButton("Remove Selected");
+
+        effectInputRow.add(cmbEffectType);
+        effectInputRow.add(txtEffectVal);
+        effectInputRow.add(btnAddOrUpdateEffect);
+        effectInputRow.add(btnRemoveEffect);
+
+        java.util.Map<String, String> effectMap = new java.util.LinkedHashMap<>();
+        if(item.effects != null && !item.effects.trim().isEmpty()){
+            String[] pairs = item.effects.split(",");
+            for(String p : pairs){
+                String[] kv = p.split(":");
+                if(kv.length == 2){
+                    effectMap.put(kv[0].trim().toUpperCase(), kv[1].trim());
+                }
+            }
+        }
+
+        DefaultListModel<String> effectListModel = new DefaultListModel<>();
+        Runnable refreshEffectList = () -> {
+            effectListModel.clear();
+            for(java.util.Map.Entry<String, String> entry : effectMap.entrySet()){
+                effectListModel.addElement(entry.getKey() + " : " + entry.getValue());
+            }
+        };
+        refreshEffectList.run();
+        JList<String> lstEffects = new JList<>(effectListModel);
+        JScrollPane effectScrollPane = new JScrollPane(lstEffects);
+        effectScrollPane.setPreferredSize(new Dimension(200, 80));
+
+        btnAddOrUpdateEffect.addActionListener(ae -> {
+            String selectedType = (String) cmbEffectType.getSelectedItem();
+            String val = txtEffectVal.getText().trim();
+            if(!val.isEmpty()){
+                effectMap.put(selectedType, val);
+                refreshEffectList.run();
+                txtEffectVal.setText("");
+            }else{
+                JOptionPane.showMessageDialog(itemDialog, "Please enter a value for the effect.");
+            }
+        });
+
+        btnRemoveEffect.addActionListener(ae -> {
+            String selectedItemStr = lstEffects.getSelectedValue();
+            if(selectedItemStr != null){
+                String key = selectedItemStr.split(":")[0].trim();
+                effectMap.remove(key);
+                refreshEffectList.run();
+            }
+        });
+
+        lstEffects.addListSelectionListener(ae -> {
+            if(!ae.getValueIsAdjusting()){
+                String selectedItemStr = lstEffects.getSelectedValue();
+                if(selectedItemStr != null){
+                    String[] parts = selectedItemStr.split(":");
+                    if(parts.length == 2){
+                        cmbEffectType.setSelectedItem(parts[0].trim());
+                        txtEffectVal.setText(parts[1].trim());
+                    }
+                }
+            }
+        });
+
+        effectsPanel.add(effectInputRow, BorderLayout.NORTH);
+        effectsPanel.add(effectScrollPane, BorderLayout.CENTER);
+
 
         JPanel waypointPanel = new JPanel(new GridLayout(0, 2, 10, 10));
         waypointPanel.setBorder(BorderFactory.createTitledBorder("Weapon Attack Waypoints"));
@@ -3230,6 +3438,14 @@ public class MapEditorWindow extends JFrame{
             }
         });
 
+        JToggleButton btnReverseDirection = new JToggleButton("Reverse Direction on Face: " + (item.reverseDirection ? "ON" : "OFF"), item.reverseDirection);
+        btnReverseDirection.addActionListener(e -> {
+            item.reverseDirection = btnReverseDirection.isSelected();
+            btnReverseDirection.setText("Reverse Direction on Face: " + (item.reverseDirection ? "ON" : "OFF"));
+        });
+        waypointPanel.add(new JLabel("Attack Facing Mode:"));
+        waypointPanel.add(btnReverseDirection);
+
         itemSegmentDropdown.addActionListener(e -> {
             if(itemSegmentDropdown.getItemCount() > 0 && itemSegmentDropdown.getSelectedIndex() != -1){
                 selectedItemWaypointIndex = itemSegmentDropdown.getSelectedIndex();
@@ -3243,6 +3459,7 @@ public class MapEditorWindow extends JFrame{
 
         JPanel centerPanel = new JPanel(new BorderLayout());
         centerPanel.add(formPanel, BorderLayout.NORTH);
+        centerPanel.add(effectsPanel, BorderLayout.CENTER);
         centerPanel.add(waypointPanel, BorderLayout.SOUTH);
 
         JButton btnSaveTemplate = new JButton("Save as Template");
@@ -3261,6 +3478,15 @@ public class MapEditorWindow extends JFrame{
             }
         });
 
+        JButton btnRemoveTemplate = new JButton("Remove Template");
+        btnRemoveTemplate.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(itemDialog, "Are you sure you want to delete template '" + item.name + "'?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+            if(confirm == JOptionPane.YES_OPTION){
+                removeItemTemplateManual(item.name, "src/savedObjects.json");
+                JOptionPane.showMessageDialog(itemDialog, "Template removed successfully.");
+                itemDialog.dispose();
+            }
+        });
 
         JButton btnConfirm = new JButton("Confirm");
         btnConfirm.addActionListener(e -> {
@@ -3276,14 +3502,22 @@ public class MapEditorWindow extends JFrame{
                 item.type = (Item.ItemType) cmbType.getSelectedItem();
                 item.color = chosenColor[0];
 
-                int idx = itemSegmentDropdown.getSelectedIndex();
-                if(idx >= 0 && idx < item.attackX.size() && !itemTxtWpX.getText().isEmpty()){
-                    item.attackX.set(idx, Integer.parseInt(itemTxtWpX.getText().trim()));
-                    item.attackY.set(idx, Integer.parseInt(itemTxtWpY.getText().trim()));
-                    while(item.speed.size() <= idx) item.speed.add(2.0);
-                    while(item.isSpeed.size() <= idx) item.isSpeed.add(true);
-                    item.speed.set(idx, Double.parseDouble(itemTxtSpeedVal.getText().trim()));
-                    item.isSpeed.set(idx, itemCmbSpeedOrTime.getSelectedIndex() == 0);
+                StringBuilder sb = new StringBuilder();
+                int idx = 0;
+                for(java.util.Map.Entry<String, String> entry : effectMap.entrySet()){
+                    if(idx > 0) sb.append(", ");
+                    sb.append(entry.getKey()).append(":").append(entry.getValue());
+                    idx++;
+                }
+
+                int wpIdx = itemSegmentDropdown.getSelectedIndex();
+                if(wpIdx >= 0 && wpIdx < item.attackX.size() && !itemTxtWpX.getText().isEmpty()){
+                    item.attackX.set(wpIdx, Integer.parseInt(itemTxtWpX.getText().trim()));
+                    item.attackY.set(wpIdx, Integer.parseInt(itemTxtWpY.getText().trim()));
+                    while(item.speed.size() <= wpIdx) item.speed.add(2.0);
+                    while(item.isSpeed.size() <= wpIdx) item.isSpeed.add(true);
+                    item.speed.set(wpIdx, Double.parseDouble(itemTxtSpeedVal.getText().trim()));
+                    item.isSpeed.set(wpIdx, itemCmbSpeedOrTime.getSelectedIndex() == 0);
                 }
 
                 propertyEditingItem = null;
@@ -3308,6 +3542,40 @@ public class MapEditorWindow extends JFrame{
         itemDialog.setVisible(true);
     }
 
+    private void removeItemTemplateManual(String templateName, String filePath){
+        java.io.File file = new java.io.File(filePath);
+        if(!file.exists()) return;
+        ArrayList<String> remainingTemplates = new ArrayList<>();
+        try(java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))){
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while((line = reader.readLine()) != null) sb.append(line);
+            String content = sb.toString().trim();
+            if(content.startsWith("[") && content.endsWith("]")){
+                content = content.substring(1, content.length() - 1).trim();
+            }
+            if(!content.isEmpty()){
+                String[] parts = content.split("\\},\\s*\\{");
+                for(String p : parts){
+                    String block = "{" + p.replace("{", "").replace("}", "") + "}";
+                    if(!block.contains("\"name\":\"" + templateName + "\"")){
+                        remainingTemplates.add(block);
+                    }
+                }
+            }
+        }catch(Exception e){}
+
+        try(java.io.FileWriter writer = new java.io.FileWriter(filePath)){
+            writer.write("[\n");
+            for(int i = 0; i < remainingTemplates.size(); i++){
+                writer.write(" " + remainingTemplates.get(i));
+                if(i < remainingTemplates.size() - 1) writer.write(",\n");
+                else writer.write("\n");
+            }
+            writer.write("]");
+        }catch(Exception e){}
+    }
+    
     private void saveItemTemplateManual(Item item, String filePath){
         java.io.File file = new java.io.File(filePath);
         ArrayList<String> existingTemplates = new ArrayList<>();
@@ -3332,9 +3600,16 @@ public class MapEditorWindow extends JFrame{
             }catch (Exception e){}
         }
 
-        String jsonStr = String.format("{\"kind\":\"item\", \"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"width\":%d, \"height\":%d, \"effects\":\"%s\", \"attackX\":%s, \"attackY\":%s, \"speed\":%s, \"isSpeed\":%s}",
+        ArrayList<Integer> relX = new ArrayList<>();
+        ArrayList<Integer> relY = new ArrayList<>();
+        for(int i = 0; i < item.attackX.size(); i++){
+            relX.add(item.attackX.get(i) - item.x);
+            relY.add(item.attackY.get(i) - item.y);
+        }
+
+        String jsonStr = String.format("{\"kind\":\"item\", \"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"width\":%d, \"height\":%d, \"effects\":\"%s\", \"attackX\":%s, \"attackY\":%s, \"speed\":%s, \"isSpeed\":%s, \"reverseDirection\":%b}",
             item.name, item.type.name(), item.color.getRGB(), item.width, item.height, item.effects,
-            item.attackX.toString(), item.attackY.toString(), item.speed.toString(), item.isSpeed.toString());
+            relX.toString(), relY.toString(), item.speed.toString(), item.isSpeed.toString(), item.reverseDirection);
         
         existingTemplates.add(jsonStr);
 
@@ -3342,16 +3617,12 @@ public class MapEditorWindow extends JFrame{
             writer.write("[\n");
             for(int i = 0; i < existingTemplates.size(); i++){
                 writer.write(" " + existingTemplates.get(i));
-                if(i < existingTemplates.size() - 1){
-                    writer.write(",\n");
-                }else{
-                    writer.write("\n");
-                }
+                if(i < existingTemplates.size() - 1) writer.write(",\n");
+                else writer.write("\n");
             }
             writer.write("]");
         }catch(java.io.IOException e){}
     }
-
 
     //for map button
     public int getNextUnusedMapID(){
@@ -3497,7 +3768,6 @@ public class MapEditorWindow extends JFrame{
         }
     }
 
-
     private java.util.List<String> getTemplatesForType(Item.ItemType targetType){
         java.util.List<String> result = new java.util.ArrayList<>();
 
@@ -3524,7 +3794,7 @@ public class MapEditorWindow extends JFrame{
                     String[] parts = content.split("\\},\\s*\\{");
                     for(String p : parts){
                         String jsonBlock = "{" + p.replace("{", "").replace("}", "") + "}";
-                        if(jsonBlock.contains("\"type\":\"" + targetType.name() + "\"")){
+                        if(jsonBlock.contains("\"kind\":\"item\"") && jsonBlock.contains("\"type\":\"" + targetType.name() + "\"")){
                             int nameIdx = jsonBlock.indexOf("\"name\":\"");
                             if(nameIdx != -1){
                                 int start = nameIdx + 8;
@@ -3547,7 +3817,172 @@ public class MapEditorWindow extends JFrame{
         }
         return result;
     }
+ 
+    private java.util.List<String> getTemplatesForEnemy(EnemyRegistry targetType){
+        java.util.List<String> result = new java.util.ArrayList<>();
 
+        if(targetType == null || targetType == EnemyRegistry.NONE){
+            result.add(EnemyRegistry.NONE.getDisplayName());
+            return result;
+        }
+
+        result.add(targetType.getDisplayName());
+
+        java.io.File file = new java.io.File("src/savedObjects.json");
+        if(file.exists()){
+            try(java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))){
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while((line = reader.readLine()) != null){
+                    sb.append(line);
+                }
+                String content = sb.toString().trim();
+                if(content.startsWith("[") && content.endsWith("]")){
+                    content = content.substring(1, content.length() - 1).trim();
+                }
+                if(!content.isEmpty()){
+                    String[] parts = content.split("\\},\\s*\\{");
+                    for(String p : parts){
+                        String jsonBlock = "{" + p.replace("{", "").replace("}", "") + "}";
+                        if(jsonBlock.contains("\"kind\":\"enemy\"")){
+                            int nameIdx = jsonBlock.indexOf("\"name\":\"");
+                            if(nameIdx != -1){
+                                int start = nameIdx + 8;
+                                int end = jsonBlock.indexOf("\"", start);
+                                if(end != -1){
+                                    String name = jsonBlock.substring(start, end);
+                                    if(!result.contains(name)){
+                                        result.add(name);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }catch(IOException ex){}
+        }
+
+        return result;
+    }
+
+    private void saveEnemyTemplateManual(String templateName, Enemy e, String filePath){
+        java.io.File file = new java.io.File(filePath);
+        ArrayList<String> existingTemplates = new ArrayList<>();
+
+        if(file.exists()){
+            try(java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))){
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while((line = reader.readLine()) != null) sb.append(line);
+                String content = sb.toString().trim();
+                if(content.startsWith("[") && content.endsWith("]")){
+                    content = content.substring(1, content.length() - 1).trim();
+                }
+                if(!content.isEmpty()){
+                    String[] parts = content.split("\\},\\s*\\{");
+                    for(String p : parts){
+                        existingTemplates.add("{" + p.replace("{", "").replace("}", "") + "}");
+                    }
+                }
+            }catch(IOException ex){}
+        }
+
+        double initialSpeed = (e instanceof FlyingEnemy) ? ((FlyingEnemy) e).getXSpeed() : e.velX;
+        String jsonStr;
+
+        if(e instanceof FlyingEnemy){
+            FlyingEnemy fe = (FlyingEnemy) e;
+            jsonStr = String.format("{\"kind\":\"enemy\", \"name\":\"%s\", \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}",
+                templateName, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.hasPathfinding, e.type);
+        }else if(e instanceof JumpingEnemy){
+            JumpingEnemy je = (JumpingEnemy) e;
+            jsonStr = String.format("{\"kind\":\"enemy\", \"name\":\"%s\", \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"hasPathfinding\":%b, \"type\":\"%s\"}",
+                templateName, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.hasPathfinding, e.type);
+        }else{
+            jsonStr = String.format("{\"kind\":\"enemy\", \"name\":\"%s\", \"width\":%d, \"height\":%d, \"velX\":%.4f, \"hasPathfinding\":%b, \"type\":\"%s\"}",
+                templateName, e.width, e.height, initialSpeed, e.hasPathfinding, e.type);
+        }
+
+        existingTemplates.add(jsonStr);
+
+        try(java.io.FileWriter writer = new java.io.FileWriter(filePath)){
+            writer.write("[\n");
+            for(int i = 0; i < existingTemplates.size(); i++){
+                writer.write(" " + existingTemplates.get(i));
+                if(i < existingTemplates.size() - 1) writer.write(",\n");
+                else writer.write("\n");
+            }
+            writer.write("]");
+        }catch(java.io.IOException ex){}
+    }
+
+    private Enemy createEnemyFromTemplate(String templateName, int x, int y, int mapID){
+        EnemyRegistry reg = EnemyRegistry.fromDisplayName(templateName);
+        if(reg != null && reg != EnemyRegistry.NONE){
+            return reg.create(x, y, 36, 36, mapID, 0);
+        }
+
+        java.io.File file = new java.io.File("src/savedObjects.json");
+        if(file.exists()){
+            try(java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))){
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while((line = reader.readLine()) != null) sb.append(line);
+                String content = sb.toString().trim();
+                if(content.startsWith("[") && content.endsWith("]")){
+                    content = content.substring(1, content.length() - 1).trim();
+                }
+                if(!content.isEmpty()){
+                    String[] parts = content.split("\\},\\s*\\{");
+                    for(String p : parts){
+                        String jsonBlock = "{" + p.replace("{", "").replace("}", "") + "}";
+                        if(jsonBlock.contains("\"kind\":\"enemy\"") && jsonBlock.contains("\"name\":\"" + templateName + "\"")){
+                            int width = 36, height = 36, intervalMax = 180, intervalMin = 60;
+                            double velX = 0.1, jumpHeight = -15.5, xRange = 64.0, yRange = 32.0;
+                            boolean hasPathfinding = false;
+                            String type = "PATROL";
+
+                            String[] props = jsonBlock.replace("{","").replace("}","").split(",");
+                            for(String prop : props){
+                                String[] kv = prop.split(":", 2);
+                                if(kv.length != 2) continue;
+                                String k = kv[0].replace("\"", "").trim();
+                                String v = kv[1].replace("\"", "").trim();
+                                switch(k){
+                                    case "width": width = Integer.parseInt(v); break;
+                                    case "height": height = Integer.parseInt(v); break;
+                                    case "velX": velX = Double.parseDouble(v); break;
+                                    case "xRange": xRange = Double.parseDouble(v); break;
+                                    case "yRange": yRange = Double.parseDouble(v); break;
+                                    case "jumpHeight": jumpHeight = Double.parseDouble(v); break;
+                                    case "intervalMin": intervalMin = Integer.parseInt(v); break;
+                                    case "intervalMax": intervalMax = Integer.parseInt(v); break;
+                                    case "hasPathfinding": hasPathfinding = Boolean.parseBoolean(v); break;
+                                    case "type": type = v; break;
+                                }
+                            }
+                            Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
+                            if(enemy != null){
+                                enemy.hasPathfinding = hasPathfinding;
+                                if(enemy instanceof FlyingEnemy){
+                                    ((FlyingEnemy) enemy).setXRange(xRange);
+                                    ((FlyingEnemy) enemy).setYRange(yRange);
+                                }
+                                if(enemy instanceof JumpingEnemy){
+                                    ((JumpingEnemy) enemy).setJumpHeight(jumpHeight);
+                                    ((JumpingEnemy) enemy).setIntervalMax(intervalMax);
+                                    ((JumpingEnemy) enemy).setIntervalMin(intervalMin);
+                                }
+                                return enemy;
+                            }
+                        }
+                    }
+                }
+            }catch(Exception ex){}
+        }
+        return null;
+    }
+ 
     public void updateMapIDField(String text){ if(txtMapID != null) txtMapID.setText(text);}
     public void setCurrentlyLoadedMapID(int id){ this.currentlyLoadedMapID = id;}
     
