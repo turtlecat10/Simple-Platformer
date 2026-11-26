@@ -96,7 +96,7 @@ public class Graphics extends JPanel implements ActionListener {
             repaint();
         });
 
-        this.gameTimer = new Timer(16, this);
+        this.gameTimer = new Timer(14, this);
         if(!isEditorMode){
             this.gameTimer.start();
         }
@@ -576,6 +576,24 @@ public class Graphics extends JPanel implements ActionListener {
                         g2.drawRect(enemy.x, enemy.y - enemy.height, enemy.width, enemy.height);
                         g2.setStroke(oldStroke);
                     }
+                    if(enemy.currentHealth < enemy.maxHealth){
+                        int barWidth = enemy.width;
+                        int barHeight = 6;
+                        int barX = enemy.x;
+                        int barY = enemy.y - enemy.height - 10;
+
+                        g2.setColor(Color.GRAY);
+                        g2.fillRect(barX, barY, barWidth, barHeight);
+
+                        double healthPercent = Math.max(0.0, enemy.currentHealth / enemy.maxHealth);
+                        int currentBarWidth = (int) (barWidth * healthPercent);
+
+                        g2.setColor(Color.RED);
+                        g2.fillRect(barX, barY, currentBarWidth, barHeight);
+
+                        g2.setColor(Color.BLACK);
+                        g2.drawRect(barX, barY, barWidth, barHeight);
+                    }
                 }
             }
         }
@@ -662,6 +680,21 @@ public class Graphics extends JPanel implements ActionListener {
                 g2.fillRect(movement.getPlayerX(), movement.getPlayerY() - playerSize, playerSize, playerSize);
                 g2.setColor(Color.BLUE);
                 g2.drawRect(movement.getPlayerX(), movement.getPlayerY() - playerSize, playerSize, playerSize);
+
+                int barWidth = playerSize;
+                int barHeight = 6;
+                int barX = movement.getPlayerX();
+                int barY = movement.getPlayerY() - playerSize - 10;
+
+                g2.setColor(Color.GRAY);
+                g2.fillRect(barX, barY, barWidth, barHeight);
+
+                double healthPercent = Math.max(0.0, movement.playerCurrentHealth / movement.playerMaxHealth);
+                int currentBarWidth = (int) (barWidth * healthPercent);
+                g2.setColor(Color.RED);
+
+                g2.setColor(Color.BLACK);
+                g2.drawRect(barX, barY, currentBarWidth, barHeight);
             }
         }
 

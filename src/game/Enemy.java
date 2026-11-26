@@ -16,9 +16,12 @@ public abstract class Enemy {
     public double maxHealth = 100.0;
     public double currentHealth = 100.0;
     public double regeneration = 0.0;
+    public double damage = 10.0;
     public boolean isDead = false;
     public boolean hasPathfinding = false;
     public GameObject standingOnPlatform = null;
+
+    public boolean canBeHit = true;
 
     public Enemy(int x, int y, int width, int height, int mapID, double velX){
         this.x = x;
@@ -261,5 +264,13 @@ public abstract class Enemy {
     public Rectangle getBounds(){
         // y is bottom-left, so top-left for Rectangle is y - height
         return new Rectangle(this.x, this.y - this.height, this.width, this.height);
+    }
+
+    public void takeDamage(double amount){
+        if(canBeHit){
+            currentHealth -= amount;
+            canBeHit = false;
+            if(currentHealth < 0) currentHealth = 0;
+        }
     }
 }

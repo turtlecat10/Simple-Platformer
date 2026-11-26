@@ -17,6 +17,12 @@ public class Movement {
     private final double terminalVelocity = 20;
     private double currentVelocityX = 0.0;
 
+
+    public double playerMaxHealth = 100.0;
+    public double playerCurrentHealth = 100.0;
+    private int playerInvulnerabilityTimer = 0;
+    public double playerRegeneration = 0.02;
+
     // Inputs 
     private boolean left, right, up, down, zoom, dash, reset;
     
@@ -79,6 +85,8 @@ public class Movement {
     private int totalframes = 0;
     private int fps = 0;
     private long lastFrameCheck = System.nanoTime();
+    
+    Graphics gameCanvas = new Graphics();
      
     public Movement(int tileSize, int worldWidth, int worldHeight, ArrayList<GameObject> objects, int startGridX, int startGridY, int speed){
         this.tileSize = tileSize;
@@ -127,6 +135,8 @@ public class Movement {
             triggerDeathSequence(currentMap);
             reset = false;
         }
+        
+        gameCanvas.repaint();
     }
     
     //movement update
@@ -179,6 +189,10 @@ public class Movement {
     }
     
     private void move(int currentMap){
+        if(playerInvulnerabilityTimer > 0){
+            playerInvulnerabilityTimer--;
+        }
+
         if(isGrounded){
             hasDoubleJumped = false;
         }
@@ -203,7 +217,6 @@ public class Movement {
                         MapEditorWindow.instance.gameCanvas.spawnDeathParticles(enemy.x, enemy.y, enemy.width, enemy.height, enemy.getParticleColor());
                     }
                     enemy.aiTick(objects, playerX, playerY);
-
                 }
             }
         }
@@ -261,15 +274,20 @@ public class Movement {
                                     }
                                 }
                             }
-                            enemy.currentHealth -= totalDamage;
+                            enemy.takeDamage(totalDamage);
                             if(enemy.currentHealth <= 0){
                                 enemy.isDead = true;
                             }
+                        }else{
+                            enemy.canBeHit = true;
                         }
-
                     }
                 }
             }
+        }
+
+        if(!isDead && playerCurrentHealth < playerMaxHealth){
+            playerCurrentHealth = Math.min(playerMaxHealth, playerCurrentHealth + playerRegeneration);
         }
 
         // --- DASH INPUT TRIGGER ---
@@ -350,7 +368,6 @@ public class Movement {
         }
 
         int moveX = (int) Math.round(velocityX);
-        
         int moveY = (int) Math.round(velocityY);
 
         if(isDashing){
@@ -758,8 +775,14 @@ public class Movement {
         for(Enemy enemy : enemies){
             if(enemy.mapID != currentMap || enemy.isDead) continue;
             if(playerBounds.intersects(enemy.getBounds())){
-                triggerDeathSequence(currentMap);
-                return;
+                if(playerInvulnerabilityTimer <= 0){
+                    playerCurrentHealth -= enemy.damage;
+                    playerInvulnerabilityTimer = 45;
+
+                    if(playerCurrentHealth <= 0){
+                        triggerDeathSequence(currentMap);
+                    }
+                }
             }
         }
     }
@@ -798,6 +821,7 @@ public class Movement {
         this.dashAble = false;
         this.isJumping = false;
         this.isDroppingThrough = false;
+        this.playerCurrentHealth = playerMaxHealth;
         for(Enemy enemy : enemies){
             enemy.resetToStart();
         }
@@ -871,12 +895,12 @@ public class Movement {
                 equippedWeapon.isAttacking = true;
                 equippedWeapon.attackWaypointIndex = 0;
                 equippedWeapon.attackProgress = 0.0;
-                if(equippedWeapon.activeAttackPoints != null){
-                    equippedWeapon.activeAttackPoints.clear();
-                    equippedWeapon.activeAttackPoints.add(new Point((int) playerX, (int) playerY));
+                if(equippedWeapon.activeAttackPoints == null){
+                    equippedWeapon.activeAttackPoints = new ArrayList<>();
                 }
+                equippedWeapon.activeAttackPoints.clear();
+                equippedWeapon.activeAttackPoints.add(new Point((int) playerX, (int) playerY));
                 
-
                 if(equippedWeapon.attackX != null && !equippedWeapon.attackX.isEmpty()){
                     for(int i = 0; i < equippedWeapon.attackX.size(); i++){
                         int offX = equippedWeapon.attackX.get(i) - equippedWeapon.startX;
@@ -884,8 +908,8 @@ public class Movement {
                         equippedWeapon.activeAttackPoints.add(new Point((int) playerX + offX, (int) playerY + offY));
                     }
                 }
-                equippedWeapon.activeAttackPoints.add(new Point((int) playerX, (int) playerY));
 
+                equippedWeapon.activeAttackPoints.add(new Point((int) playerX, (int) playerY));
                 if(!equippedWeapon.activeAttackPoints.isEmpty()){
                     Point p = equippedWeapon.activeAttackPoints.get(0);
                     equippedWeapon.currentAttackX = p.x;
@@ -894,7 +918,6 @@ public class Movement {
             }
         }
     }
-
 
     //inputs
     public void setLeft(boolean pressed) { this.left = pressed;}

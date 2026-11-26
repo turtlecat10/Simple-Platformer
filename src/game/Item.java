@@ -29,9 +29,7 @@ public class Item {
     public double currentAttackX, currentAttackY;
 
     public boolean reverseDirection;
-
     public ArrayList<Point> activeAttackPoints = new ArrayList<>();
-
     public int inventoryNumber = 0;
 
     public Item(String name, ItemType type, Color color, int x, int y, int width, int height, int mapID, String effects, boolean reverse, ArrayList<Integer> attackX, ArrayList<Integer> attackY, ArrayList<Double> speed, ArrayList<Boolean> isSpeed){
@@ -80,7 +78,9 @@ public class Item {
         this.attackProgress = 0.0;
         this.inventoryNumber = 0;
         if(activeAttackPoints != null){
-            activeAttackPoints = null;
+            activeAttackPoints.clear();
+        }else{
+            activeAttackPoints = new ArrayList<>();
         }
     }
 }

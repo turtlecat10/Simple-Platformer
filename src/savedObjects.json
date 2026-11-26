@@ -5,5 +5,11 @@
  {"kind":"item", "name":"NONE", "type":"WEAPON", "colorRGB":-256, "width":40, "height":40, "effects":"", "attackX":[136, 166, 196, 226], "attackY":[164, 164, 164, 164], "speed":[2.0, 2.0, 2.0, 2.0], "isSpeed":[true, true, true, true]},
  {"kind":"enemy", "name":"adshjadsf", "width":36, "height":36, "velX":3.0000, "jumpHeight":-15.5000, "intervalMax":180, "intervalMin":60, "hasPathfinding":false, "type":"JUMPING"},
  {"kind":"item", "name":"large damage sword", "type":"WEAPON", "colorRGB":-14336, "width":32, "height":32, "effects":"Damage: 10", "attackX":[40, 70, 100, 130, 160, 190], "attackY":[0, 0, 0, 0, 0, 0], "speed":[2.0, 2.0, 2.0, 2.0, 2.0, 2.0], "isSpeed":[true, true, true, true, true, true], "reverseDirection":true},
- {"kind":"item", "name":"Testing", "type":"WEAPON", "colorRGB":-14336, "width":32, "height":32, "effects":"Damage: 10", "attackX":[], "attackY":[], "speed":[], "isSpeed":[], "reverseDirection":true}
+ {"kind":"item", "name":"Testing", "type":"WEAPON", "colorRGB":-14336, "width":32, "height":32, "effects":"Damage: 10", "attackX":[], "attackY":[], "speed":[], "isSpeed":[], "reverseDirection":true},
+ {"kind":"item", "name":"SWORD1234", "type":"WEAPON", "colorRGB":-14336, "width":32, "height":32, "effects":"Damage: 10", "attackX":[], "attackY":[], "speed":[], "isSpeed":[], "reverseDirection":true},
+ {"kind":"item", "name":"SWORD1234", "type":"WEAPON", "colorRGB":-14336, "width":32, "height":32, "effects":"Damage: 10", "attackX":[40, 70, 100], "attackY":[0, 0, 0], "speed":[2.0, 2.0, 2.0], "isSpeed":[true, true, true], "reverseDirection":true},
+ {"kind":"enemy", "name":"template", "width":36, "height":36, "velX":8.5000, "hasPathfinding":false, "type":"PATROL"},
+ {"kind":"item", "name":"SWORD13412", "type":"WEAPON", "colorRGB":-14336, "width":32, "height":32, "effects":"Damage: 10", "attackX":[40, 70, 100, 130], "attackY":[0, 0, 0, 0], "speed":[2.0, 2.0, 2.0, 2.0], "isSpeed":[true, true, true, true], "reverseDirection":true},
+ {"kind":"item", "name":"SWORD12345678", "type":"WEAPON", "colorRGB":-14336, "width":32, "height":32, "effects":"DAMAGE:10, VALUE:1234", "attackX":[40, 70, 100, 130, 160], "attackY":[0, 0, 0, 0, 0], "speed":[2.0, 2.0, 2.0, 2.0, 2.0], "isSpeed":[true, true, true, true, true], "reverseDirection":true},
+ {"kind":"enemy", "name":"asdfgasfsdfasdf", "width":36, "height":36, "velX":3.0000, "jumpHeight":-15.5000, "intervalMax":180, "intervalMin":60, "hasPathfinding":false, "type":"JUMPING"}
 ]

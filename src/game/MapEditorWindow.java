@@ -1116,7 +1116,7 @@ public class MapEditorWindow extends JFrame{
 
                         currentHoverPoint = new Point(gamePoint.x, gamePoint.y);
                         gameCanvas.repaint();
-                    }else if (activeBrushMode == BrushMode.OBJECT){
+                    }else if (activeBrushMode == BrushMode.OBJECT && bottomLeftCorner != null){
                         try { activeEditingMapID = Integer.parseInt(txtMapID.getText().trim()); } catch (NumberFormatException ex) { activeEditingMapID = 1; }
                         
                         int realX, realY, realWidth, realHeight;
@@ -1931,6 +1931,7 @@ public class MapEditorWindow extends JFrame{
                     int intervalMin = 60, intervalMax = 180;
                     double velX = 0;
                     double xRange = 64.0, yRange = 32.0;
+                    double damage = 10.0;
                     double maxHealth = 100.0, regeneration = 0.0;
                     String type = "PATROL";
                     Boolean hasPathfinding = false;
@@ -1952,6 +1953,7 @@ public class MapEditorWindow extends JFrame{
                             case "velX" : velX = Double.parseDouble(val); break;
                             case "xRange" : xRange = Double.parseDouble(val); break;
                             case "yRange" : yRange = Double.parseDouble(val); break;
+                            case "damage": damage = Double.parseDouble(val); break;
                             case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
                             case "intervalMin": intervalMin = Integer.parseInt(val); break;
                             case "intervalMax": intervalMax = Integer.parseInt(val); break;
@@ -1964,6 +1966,7 @@ public class MapEditorWindow extends JFrame{
                         enemy.hasPathfinding = hasPathfinding;
                         enemy.maxHealth = maxHealth;
                         enemy.regeneration = regeneration;
+                        enemy.damage = damage;
                     }
                     if(enemy instanceof FlyingEnemy){
                         ((FlyingEnemy) enemy).setXRange(xRange);
@@ -1994,15 +1997,15 @@ public class MapEditorWindow extends JFrame{
 
                 if(e instanceof FlyingEnemy){
                     FlyingEnemy fe = (FlyingEnemy) e;
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
-                    e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.maxHealth, e.regeneration, e.hasPathfinding, e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"damage\":%.2f, \"mapID\":%d, \"type\":\"%s\"}", 
+                    e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.maxHealth, e.regeneration, e.hasPathfinding, e.damage, e.mapID, e.type);
                 }else if(e instanceof JumpingEnemy){
                     JumpingEnemy je = (JumpingEnemy) e;
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
-                    e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.maxHealth, e.regeneration, e.hasPathfinding, e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"damage\":%.2f, \"mapID\":%d, \"type\":\"%s\"}", 
+                    e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.maxHealth, e.regeneration, e.hasPathfinding, e.damage, e.mapID, e.type);
                 }else{
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"mapID\":%d, \"type\":\"%s\"}", 
-                    e.startX, e.startY, e.width, e.height, initialSpeed, e.maxHealth, e.regeneration, e.hasPathfinding, e.mapID, e.type);
+                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"damage\":%.2f, \"mapID\":%d, \"type\":\"%s\"}", 
+                    e.startX, e.startY, e.width, e.height, initialSpeed, e.maxHealth, e.regeneration, e.hasPathfinding, e.damage, e.mapID, e.type);
                 }
                 writer.write(" " + jsonStr);
                 if(i < masterEnemyList.size() - 1) writer.write(",\n");
@@ -2042,6 +2045,7 @@ public class MapEditorWindow extends JFrame{
                     int intervalMax = 180, intervalMin = 60;
                     double xRange = 64.0;
                     double yRange = 32.0;
+                    double damage = 10.0;
                     double maxHealth = 100.0, regeneration = 0.0;
                     String type = "PATROL";
                     boolean hasPathfinding = false;
@@ -2066,6 +2070,7 @@ public class MapEditorWindow extends JFrame{
                             case "intervalMin": intervalMin = Integer.parseInt(val); break;
                             case "intervalMax": intervalMax = Integer.parseInt(val); break;
                             case "hasPathfinding" : hasPathfinding = Boolean.parseBoolean(val); break;
+                            case "damage": damage = Double.parseDouble(val); break;
                             case "mapID": mapID = Integer.parseInt(val); break;
                             case "type": type = val; break;
                         }
@@ -2076,6 +2081,7 @@ public class MapEditorWindow extends JFrame{
                         enemy.currentHealth = maxHealth;
                         enemy.maxHealth = maxHealth;
                         enemy.regeneration = regeneration;
+                        enemy.damage = damage;
                     }
                     if(enemy instanceof FlyingEnemy){
                         ((FlyingEnemy) enemy).setXRange(xRange);
@@ -2693,7 +2699,7 @@ public class MapEditorWindow extends JFrame{
                             ArrayList<Double> spd = new ArrayList<>();
                             ArrayList<Boolean> isSpd = new ArrayList<>();
 
-                            String[] props = jsonBlock.replace("{","").replace("}","").split(",(?![^\\[]*\\])");
+                            String[] props = jsonBlock.replace("{","").replace("}","").split(",(?![^\\[]*\\])(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
                             for(String prop : props){
                                 int colon = prop.indexOf(":");
                                 if(colon == -1) continue;
@@ -3048,6 +3054,10 @@ public class MapEditorWindow extends JFrame{
         formPanel.add(new JLabel("Enemy Type"));
         formPanel.add(enemyTypeDropdown);
 
+        JTextField txtDamage = new JTextField(propertyEditingEnemy != null ? String.valueOf(propertyEditingEnemy.damage) : "10", 10);
+        formPanel.add(new JLabel("Damage:"));
+        formPanel.add(txtDamage);
+
         JPanel flyingFieldsPanel = new JPanel(new GridLayout(2, 2, 10, 10));
         flyingFieldsPanel.setBorder(BorderFactory.createTitledBorder("Flying Properties"));
 
@@ -3102,7 +3112,6 @@ public class MapEditorWindow extends JFrame{
             enemyProperty.pack();
         });
 
-
         JPanel contentWrapper = new JPanel();
         contentWrapper.setLayout(new BoxLayout(contentWrapper, BoxLayout.Y_AXIS));
         contentWrapper.add(formPanel);
@@ -3126,6 +3135,7 @@ public class MapEditorWindow extends JFrame{
 
         JButton confirm = new JButton("Confirm");
         confirm.addActionListener(e -> {
+            double newDamage = (propertyEditingEnemy != null) ? propertyEditingEnemy.damage : 10;
             try{
                 double newVelX = Double.parseDouble(txtSpeed.getText().trim());
                 int newWidth = Integer.parseInt(txtWidth.getText().trim());
@@ -3133,81 +3143,91 @@ public class MapEditorWindow extends JFrame{
                 double newMaxHealth = Double.parseDouble(txtMaxHealth.getText().trim());
                 double newRegen = Double.parseDouble(txtRegen.getText().trim());
                 boolean newPathfinding = chkPathfinding.isSelected();
+                newDamage = Double.parseDouble(txtDamage.getText().trim());
 
-                propertyEditingEnemy.velX = newVelX;
-                propertyEditingEnemy.width = newWidth;
-                propertyEditingEnemy.height = newHeight;
-                propertyEditingEnemy.maxHealth = newMaxHealth;
-                propertyEditingEnemy.regeneration = newRegen;
-                propertyEditingEnemy.hasPathfinding = newPathfinding;
+                // propertyEditingEnemy.velX = newVelX;
+                // propertyEditingEnemy.width = newWidth;
+                // propertyEditingEnemy.height = newHeight;
+                // propertyEditingEnemy.maxHealth = newMaxHealth;
+                // propertyEditingEnemy.regeneration = newRegen;
+                // propertyEditingEnemy.hasPathfinding = newPathfinding;
 
-                if(propertyEditingEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
-                    try{
-                        ((FlyingEnemy)propertyEditingEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
-                        ((FlyingEnemy)propertyEditingEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
-                    }catch (NumberFormatException ex){
-                    }
-                }
-                if(propertyEditingEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
-                    try{
-                        ((JumpingEnemy)propertyEditingEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
-                        ((JumpingEnemy)propertyEditingEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
-                        ((JumpingEnemy)propertyEditingEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
-                    }catch(NumberFormatException ex){}
-                }
-
-                // String selectedDisplayName = (String) enemyTypeDropdown.getSelectedItem();
-                // EnemyRegistry selectedRegistry = EnemyRegistry.fromDisplayName(selectedDisplayName);
-
-                // ArrayList<Enemy> enemiesList = gameCanvas.getMovement().getEnemies();
-                // int index = enemiesList.indexOf(propertyEditingEnemy);
-                // if(selectedRegistry != null && index != -1){
-                //     Enemy updatedEnemy = selectedRegistry.create(
-                //         propertyEditingEnemy.x,
-                //         propertyEditingEnemy.y,
-                //         newWidth,
-                //         newHeight,
-                //         propertyEditingEnemy.mapID,
-                //         newVelX
-                //     );
-                //     if(updatedEnemy != null){
-                //         updatedEnemy.hasPathfinding = chkPathfinding.isSelected();
-                //         if(updatedEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
-                //             try{
-                //                 ((FlyingEnemy)updatedEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
-                //                 ((FlyingEnemy)updatedEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
-                //             }catch (NumberFormatException ex){}
-                //         }
-                //         if(updatedEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
-                //             try{
-                //                 ((JumpingEnemy)updatedEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
-                //                 ((JumpingEnemy)updatedEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
-                //                 ((JumpingEnemy)updatedEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
-                //             }catch(NumberFormatException ex){}
-                //         }
-                //         enemiesList.set(index, updatedEnemy);
-                //         selectedEnemy = updatedEnemy;
-                //     }
-                // }else if(propertyEditingEnemy != null){
-                //     propertyEditingEnemy.velX = newVelX;
-                //     propertyEditingEnemy.width = newWidth;
-                //     propertyEditingEnemy.height = newHeight;
-                //     propertyEditingEnemy.hasPathfinding = chkPathfinding.isSelected();
-                //     if(propertyEditingEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
-                //         try{
-                //             ((FlyingEnemy)propertyEditingEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
-                //             ((FlyingEnemy)propertyEditingEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
-                //         }catch (NumberFormatException ex){
-                //         }
-                //     }
-                //     if(propertyEditingEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
-                //         try{
-                //             ((JumpingEnemy)propertyEditingEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
-                //             ((JumpingEnemy)propertyEditingEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
-                //             ((JumpingEnemy)propertyEditingEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
-                //         }catch(NumberFormatException ex){}
+                // if(propertyEditingEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
+                //     try{
+                //         ((FlyingEnemy)propertyEditingEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
+                //         ((FlyingEnemy)propertyEditingEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
+                //     }catch (NumberFormatException ex){
                 //     }
                 // }
+                // if(propertyEditingEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
+                //     try{
+                //         ((JumpingEnemy)propertyEditingEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
+                //         ((JumpingEnemy)propertyEditingEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
+                //         ((JumpingEnemy)propertyEditingEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
+                //     }catch(NumberFormatException ex){}
+                // }
+
+                String selectedDisplayName = (String) enemyTypeDropdown.getSelectedItem();
+                EnemyRegistry selectedRegistry = EnemyRegistry.fromDisplayName(selectedDisplayName);
+
+                ArrayList<Enemy> enemiesList = gameCanvas.getMovement().getEnemies();
+                int index = enemiesList.indexOf(propertyEditingEnemy);
+                if(selectedRegistry != null && index != -1){
+                    Enemy updatedEnemy = selectedRegistry.create(
+                        propertyEditingEnemy.x,
+                        propertyEditingEnemy.y,
+                        newWidth,
+                        newHeight,
+                        propertyEditingEnemy.mapID,
+                        newVelX
+                    );
+                    if(updatedEnemy != null){
+                        updatedEnemy.hasPathfinding = newPathfinding;
+                        updatedEnemy.maxHealth = newMaxHealth;
+                        updatedEnemy.currentHealth = newMaxHealth;
+                        updatedEnemy.regeneration = newRegen;
+                        updatedEnemy.damage = newDamage;
+
+                        if(updatedEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
+                            try{
+                                ((FlyingEnemy)updatedEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
+                                ((FlyingEnemy)updatedEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
+                            }catch (NumberFormatException ex){}
+                        }
+                        if(updatedEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
+                            try{
+                                ((JumpingEnemy)updatedEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
+                                ((JumpingEnemy)updatedEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
+                                ((JumpingEnemy)updatedEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
+                            }catch(NumberFormatException ex){}
+                        }
+                        enemiesList.set(index, updatedEnemy);
+                        selectedEnemy = updatedEnemy;
+                    }
+                }else if(propertyEditingEnemy != null){
+                    propertyEditingEnemy.velX = newVelX;
+                    propertyEditingEnemy.width = newWidth;
+                    propertyEditingEnemy.height = newHeight;
+                    propertyEditingEnemy.hasPathfinding = newPathfinding;
+                    propertyEditingEnemy.maxHealth = newMaxHealth;
+                    propertyEditingEnemy.currentHealth = newMaxHealth;
+                    propertyEditingEnemy.regeneration = newRegen;
+                    propertyEditingEnemy.damage = newDamage;
+                    if(propertyEditingEnemy instanceof FlyingEnemy && conditionalPanelFlying.isVisible()){
+                        try{
+                            ((FlyingEnemy)propertyEditingEnemy).setXRange(Double.parseDouble(txtXRange.getText().trim()));
+                            ((FlyingEnemy)propertyEditingEnemy).setYRange(Double.parseDouble(txtYRange.getText().trim()));
+                        }catch (NumberFormatException ex){
+                        }
+                    }
+                    if(propertyEditingEnemy instanceof JumpingEnemy && conditionalPanelJumping.isVisible()){
+                        try{
+                            ((JumpingEnemy)propertyEditingEnemy).setJumpHeight(Double.parseDouble(txtJumpHeight.getText().trim()));
+                            ((JumpingEnemy)propertyEditingEnemy).setIntervalMax(Integer.parseInt(txtIntervalMax.getText().trim()));
+                            ((JumpingEnemy)propertyEditingEnemy).setIntervalMin(Integer.parseInt(txtIntervalMin.getText().trim()));
+                        }catch(NumberFormatException ex){}
+                    }
+                }
 
                 selectedEnemy = null;
                 this.propertyEditingEnemy = null;
@@ -3354,7 +3374,6 @@ public class MapEditorWindow extends JFrame{
 
         effectsPanel.add(effectInputRow, BorderLayout.NORTH);
         effectsPanel.add(effectScrollPane, BorderLayout.CENTER);
-
 
         JPanel waypointPanel = new JPanel(new GridLayout(0, 2, 10, 10));
         waypointPanel.setBorder(BorderFactory.createTitledBorder("Weapon Attack Waypoints"));
@@ -3509,6 +3528,7 @@ public class MapEditorWindow extends JFrame{
                     sb.append(entry.getKey()).append(":").append(entry.getValue());
                     idx++;
                 }
+                item.effects = sb.toString();
 
                 int wpIdx = itemSegmentDropdown.getSelectedIndex();
                 if(wpIdx >= 0 && wpIdx < item.attackX.size() && !itemTxtWpX.getText().isEmpty()){
@@ -3533,6 +3553,7 @@ public class MapEditorWindow extends JFrame{
 
         JPanel bottomPanel = new JPanel();
         bottomPanel.add(btnSaveTemplate);
+        bottomPanel.add(btnRemoveTemplate);
         bottomPanel.add(btnConfirm);
 
         itemDialog.add(centerPanel, BorderLayout.CENTER);
@@ -3892,15 +3913,15 @@ public class MapEditorWindow extends JFrame{
 
         if(e instanceof FlyingEnemy){
             FlyingEnemy fe = (FlyingEnemy) e;
-            jsonStr = String.format("{\"kind\":\"enemy\", \"name\":\"%s\", \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}",
-                templateName, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.hasPathfinding, e.type);
+            jsonStr = String.format("{\"kind\":\"enemy\", \"name\":\"%s\", \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"damage\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}",
+                templateName, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.maxHealth, e.regeneration, e.damage, e.hasPathfinding, e.type);
         }else if(e instanceof JumpingEnemy){
             JumpingEnemy je = (JumpingEnemy) e;
-            jsonStr = String.format("{\"kind\":\"enemy\", \"name\":\"%s\", \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"hasPathfinding\":%b, \"type\":\"%s\"}",
-                templateName, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.hasPathfinding, e.type);
+            jsonStr = String.format("{\"kind\":\"enemy\", \"name\":\"%s\", \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"damage\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}",
+                templateName, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.maxHealth, e.regeneration, e.damage, e.hasPathfinding, e.type);
         }else{
-            jsonStr = String.format("{\"kind\":\"enemy\", \"name\":\"%s\", \"width\":%d, \"height\":%d, \"velX\":%.4f, \"hasPathfinding\":%b, \"type\":\"%s\"}",
-                templateName, e.width, e.height, initialSpeed, e.hasPathfinding, e.type);
+            jsonStr = String.format("{\"kind\":\"enemy\", \"name\":\"%s\", \"width\":%d, \"height\":%d, \"velX\":%.4f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"damage\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}",
+                templateName, e.width, e.height, initialSpeed, e.maxHealth, e.regeneration, e.damage, e.hasPathfinding, e.type);
         }
 
         existingTemplates.add(jsonStr);
@@ -3939,6 +3960,7 @@ public class MapEditorWindow extends JFrame{
                         if(jsonBlock.contains("\"kind\":\"enemy\"") && jsonBlock.contains("\"name\":\"" + templateName + "\"")){
                             int width = 36, height = 36, intervalMax = 180, intervalMin = 60;
                             double velX = 0.1, jumpHeight = -15.5, xRange = 64.0, yRange = 32.0;
+                            double maxHealth = 100.0, regeneration = 0.02, damage = 10.0;
                             boolean hasPathfinding = false;
                             String type = "PATROL";
 
@@ -3954,6 +3976,9 @@ public class MapEditorWindow extends JFrame{
                                     case "velX": velX = Double.parseDouble(v); break;
                                     case "xRange": xRange = Double.parseDouble(v); break;
                                     case "yRange": yRange = Double.parseDouble(v); break;
+                                    case "damage": damage = Double.parseDouble(v); break;
+                                    case "maxHealth": maxHealth = Double.parseDouble(v); break;
+                                    case "regeneration": regeneration = Double.parseDouble(v); break;
                                     case "jumpHeight": jumpHeight = Double.parseDouble(v); break;
                                     case "intervalMin": intervalMin = Integer.parseInt(v); break;
                                     case "intervalMax": intervalMax = Integer.parseInt(v); break;
@@ -3964,6 +3989,10 @@ public class MapEditorWindow extends JFrame{
                             Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
                             if(enemy != null){
                                 enemy.hasPathfinding = hasPathfinding;
+                                enemy.maxHealth = maxHealth;
+                                enemy.currentHealth = maxHealth;
+                                enemy.regeneration = regeneration;
+                                enemy.damage = damage;
                                 if(enemy instanceof FlyingEnemy){
                                     ((FlyingEnemy) enemy).setXRange(xRange);
                                     ((FlyingEnemy) enemy).setYRange(yRange);
