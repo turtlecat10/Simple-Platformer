@@ -85,8 +85,6 @@ public class Movement {
     private int totalframes = 0;
     private int fps = 0;
     private long lastFrameCheck = System.nanoTime();
-    
-    Graphics gameCanvas = new Graphics();
      
     public Movement(int tileSize, int worldWidth, int worldHeight, ArrayList<GameObject> objects, int startGridX, int startGridY, int speed){
         this.tileSize = tileSize;
@@ -136,7 +134,6 @@ public class Movement {
             reset = false;
         }
         
-        gameCanvas.repaint();
     }
     
     //movement update
