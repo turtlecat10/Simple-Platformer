@@ -125,7 +125,9 @@ public class MapEditorWindow extends JFrame{
     private int activeDraggedItemWaypointIndex = -1;
     private JComboBox<Item.ItemType> cmbItemType = new JComboBox<>(Item.ItemType.values());
     private JComboBox<String> cmbItemTemplate = new JComboBox<>();
-    
+
+    private ArrayList<String> undoStack = new ArrayList<>();
+    private ArrayList<String> redoStack = new ArrayList<>();    
 
     public MapEditorWindow(){
         instance = this;
@@ -353,6 +355,7 @@ public class MapEditorWindow extends JFrame{
         btnDelete.setEnabled(false);
 
         btnDelete.addActionListener(e -> {
+            saveStateForUndo();
             if(selectedObject != null && gameCanvas.getGameObjects() != null){
                 gameCanvas.getGameObjects().remove(selectedObject);
                 selectedObject = null;
@@ -636,6 +639,7 @@ public class MapEditorWindow extends JFrame{
         });
 
         btnDeleteLevel.addActionListener(e -> {
+            saveStateForUndo();
             int choice = JOptionPane.showConfirmDialog(controlPanel, "Do you want to continue?", "Confirm Action", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
             if(choice == JOptionPane.YES_OPTION){
                 propertyEditingEnemy = null;
@@ -685,6 +689,22 @@ public class MapEditorWindow extends JFrame{
     //handling clicking
     private void setupEditorClickEngine(){
         if(gameCanvas == null) return;
+
+        gameCanvas.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.CTRL_DOWN_MASK), "UNDO_ACTION");
+        gameCanvas.getActionMap().put("UNDO_ACTION", new AbstractAction() {
+            @Override 
+            public void actionPerformed(ActionEvent e){
+                performUndo();
+            }
+        });
+
+        gameCanvas.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_Y, KeyEvent.CTRL_DOWN_MASK), "REDO_ACTION");
+        gameCanvas.getActionMap().put("REDO_ACTION", new AbstractAction() {
+            @Override 
+            public void actionPerformed(ActionEvent e){
+                performRedo();
+            }
+        });
 
         gameCanvas.addKeyListener(new KeyAdapter() {
             @Override
@@ -772,6 +792,7 @@ public class MapEditorWindow extends JFrame{
                     Rectangle innerBounds = new Rectangle(tX + handleThreshold, tY + handleThreshold, Math.max(1, tW - handleThreshold * 2), Math.max(1, tH - handleThreshold * 2));
 
                     if(bounds.contains(gamePoint) && !innerBounds.contains(gamePoint)){
+                        saveStateForUndo();
                         boolean isLeft = Math.abs(gamePoint.x - tX) <= handleThreshold;
                         boolean isRight = Math.abs(gamePoint.x - (tX + tW)) <= handleThreshold;
                         boolean isTop = Math.abs(gamePoint.y - tY) <= handleThreshold;
@@ -875,6 +896,7 @@ public class MapEditorWindow extends JFrame{
 
                     Rectangle startRect = new Rectangle(selectedObject.currentX, selectedObject.currentY - selectedObject.height, selectedObject.width, selectedObject.height);
                     if(startRect.contains(gamePoint)){
+                        saveStateForUndo();
                         isDraggingStartPos = true;
                         isEditingTriggeredPath = false;
                         selectedWaypointIndex = -1;
@@ -886,6 +908,7 @@ public class MapEditorWindow extends JFrame{
 
                     Rectangle trigStartRect = new Rectangle(selectedObject.triggeredX, selectedObject.triggeredY - selectedObject.height, selectedObject.width, selectedObject.height);
                     if(trigStartRect.contains(gamePoint)){
+                        saveStateForUndo();
                         isDraggingTriggeredStart = true;
                         isEditingTriggeredPath = true;
                         selectedWaypointIndex = -1;
@@ -921,6 +944,7 @@ public class MapEditorWindow extends JFrame{
 
 
                     if (clickedIdx != -1) {
+                        saveStateForUndo();
                         isDraggingWaypoint = true;
                         activeDraggedWaypointIndex = clickedIdx;
                         activeDraggedIsTriggered = clickedTriggered;
@@ -945,6 +969,7 @@ public class MapEditorWindow extends JFrame{
                                 Enemy enemy = enemies.get(i);
                                 int objTop = enemy.y - enemy.height;
                                 if(enemy.mapID == activeEditingMapID && gamePoint.x >= enemy.x && gamePoint.x <= (enemy.x + enemy.width) && gamePoint.y >= objTop && gamePoint.y <= enemy.y){
+                                    saveStateForUndo();
                                     draggedEnemy = enemy;
                                     selectedEnemy = enemy;
                                     dragOffsetX = gamePoint.x - enemy.x;
@@ -957,7 +982,6 @@ public class MapEditorWindow extends JFrame{
                             }
                         }
                     }
-
                 }
 
                 if(selectedItem != null && (SwingUtilities.isLeftMouseButton(e) || SwingUtilities.isRightMouseButton(e))){
@@ -1027,6 +1051,7 @@ public class MapEditorWindow extends JFrame{
 
                         int objTop = item.y - item.height;
                         if(item.mapID == activeEditingMapID && gamePoint.x >=item.x && gamePoint.x <= (item.x + item.width) && gamePoint.y >= objTop && gamePoint.y <= item.y){
+                            saveStateForUndo();
                             draggedItem = item;
                             dragOffsetX = gamePoint.x - item.x;
                             dragOffsetY = gamePoint.y - objTop;
@@ -1039,6 +1064,7 @@ public class MapEditorWindow extends JFrame{
                                 int wpY = item.attackY.get(i);
                                 Rectangle wpRect = new Rectangle(wpX, wpY - item.height, item.width, item.height);
                                 if(wpRect.contains(gamePoint)){
+                                    saveStateForUndo();
                                     isDraggingItemWaypoint = true;
                                     activeDraggedItemWaypointIndex = i;
                                     selectedItemWaypointIndex = i;
@@ -1068,6 +1094,7 @@ public class MapEditorWindow extends JFrame{
                         Item.ItemType selType = (Item.ItemType) cmbItemType.getSelectedItem();
                         String selTemplate = (String) cmbItemTemplate.getSelectedItem();
 
+                        saveStateForUndo();
                         Item newItem = createItemFromTemplate(selTemplate, selType, placementX, placementY, activeEditingMapID);
                         if(newItem != null){
                             gameCanvas.getMovement().worldItems.add(newItem);
@@ -1093,6 +1120,7 @@ public class MapEditorWindow extends JFrame{
                         }
                         ArrayList<Enemy> currentEnemyList = gameCanvas.getMovement().getEnemies();
                         String selEnemyTemplate = (String) cmbEnemyTemplate.getSelectedItem();
+                        saveStateForUndo();
                         Enemy newEnemy = (selEnemyTemplate != null) ? 
                                 createEnemyFromTemplate(selEnemyTemplate, placementX, placementY, activeEditingMapID)
                                 : activeEnemyBrush.create(placementX, placementY, 36, 36, activeEditingMapID, 0);
@@ -1151,6 +1179,7 @@ public class MapEditorWindow extends JFrame{
                         lblY.setText("Y Offset: " + realY);
 
                         if(gameCanvas.getGameObjects() != null){
+                            saveStateForUndo();
                             GameObject newlyCreatedObject = new GameObject(realX, realY, realWidth, realHeight, activeBrushType, activeEditingMapID);
                             gameCanvas.getGameObjects().add(newlyCreatedObject);
                             showPropertyConfigDialog(newlyCreatedObject);
@@ -1254,6 +1283,7 @@ public class MapEditorWindow extends JFrame{
             }
             @Override 
             public void mouseReleased(MouseEvent e){
+                saveStateForUndo();
                 draggedEnemy = null;
                 draggedItem = null;
                 isDraggingStartPos = false;
@@ -1277,7 +1307,9 @@ public class MapEditorWindow extends JFrame{
                 Point gamePoint = getTransformedGamePoint(e);
                 int snapSize = gameCanvas.getTileSize();
 
-               Object target = propertyEditingObject != null ? propertyEditingObject : (selectedObject != null ? selectedObject : (selectedEnemy != null ? selectedEnemy : selectedItem));
+                // saveStateForUndo();
+
+                Object target = propertyEditingObject != null ? propertyEditingObject : (selectedObject != null ? selectedObject : (selectedEnemy != null ? selectedEnemy : selectedItem));
                 if(target != null && currentResizeMode != ResizeMode.NONE){
                     int newX = freePlace ? gamePoint.x : Math.round(gamePoint.x / (float) snapSize) * snapSize;
                     int newY = freePlace ? gamePoint.y : Math.round(gamePoint.y / (float) snapSize) * snapSize;
@@ -2959,6 +2991,7 @@ public class MapEditorWindow extends JFrame{
         JButton btnConfirm = new JButton("Confirm & Save Changes");
         btnConfirm.addActionListener(e -> {
             try{
+                saveStateForUndo();
                 obj.triggeredBy = Integer.parseInt(txtTriggeredBy.getText().trim());
                 if (obj.type == GameObject.Type.trigger) {
                     obj.activatesChannel = Integer.parseInt(txtActivatesChannel.getText().trim());
@@ -3137,6 +3170,7 @@ public class MapEditorWindow extends JFrame{
         confirm.addActionListener(e -> {
             double newDamage = (propertyEditingEnemy != null) ? propertyEditingEnemy.damage : 10;
             try{
+                saveStateForUndo();
                 double newVelX = Double.parseDouble(txtSpeed.getText().trim());
                 int newWidth = Integer.parseInt(txtWidth.getText().trim());
                 int newHeight = Integer.parseInt(txtHeight.getText().trim());
@@ -3509,6 +3543,7 @@ public class MapEditorWindow extends JFrame{
 
         JButton btnConfirm = new JButton("Confirm");
         btnConfirm.addActionListener(e -> {
+            saveStateForUndo();
             try{
                 item.name = txtName.getText().trim();
                 item.x = Integer.parseInt(txtX.getText().trim());
@@ -4012,6 +4047,255 @@ public class MapEditorWindow extends JFrame{
         return null;
     }
  
+
+    public void saveStateForUndo(){
+        String currentState = generateExportJson();
+        undoStack.add(currentState);
+        redoStack.clear();
+    }
+
+    public void performUndo(){
+        if(undoStack.isEmpty()) return;
+        String currentState = generateExportJson();
+        redoStack.add(currentState);
+        String previousState = undoStack.remove(undoStack.size() - 1);
+        loadStateFromJsonIntoActiveMap(previousState);
+        clearSelectionPoints();
+    }
+
+    public void performRedo(){
+        if(redoStack.isEmpty()) return;
+        String currentState = generateExportJson();
+        undoStack.add(currentState);
+        String nextState = redoStack.remove(redoStack.size() - 1);
+        loadStateFromJsonIntoActiveMap(nextState);
+        clearSelectionPoints();
+    }
+
+    private void loadStateFromJsonIntoActiveMap(String jsonStringData){
+        if(jsonStringData == null || jsonStringData.trim().isEmpty()) return;
+        jsonStringData = jsonStringData.trim();
+        if(jsonStringData.startsWith("[")) jsonStringData = jsonStringData.substring(1);
+        if(jsonStringData.endsWith("]")) jsonStringData = jsonStringData.substring(0, jsonStringData.length() - 1);
+        jsonStringData = jsonStringData.trim();
+
+        int currentMap = activeEditingMapID;
+        gameCanvas.getGameObjects().removeIf(obj -> obj.mapID == currentMap);
+        gameCanvas.getMovement().getEnemies().removeIf(e -> e.mapID == currentMap);
+        gameCanvas.getMovement().worldItems.removeIf(i -> i.mapID == currentMap);
+
+        if(jsonStringData.isEmpty()){
+            gameCanvas.loadLevel(currentMap);
+            return;
+        }
+
+        processImportJsonIntoMap(jsonStringData, currentMap);
+        gameCanvas.loadLevel(currentMap);
+    }
+
+    private void processImportJsonIntoMap(String jsonStringData, int targetMapID){
+        if(jsonStringData == null || jsonStringData.trim().isEmpty()) return;
+        String[] rawItems = jsonStringData.split("\\},\\s*\\{");
+
+        for(String rawItem : rawItems){
+            rawItem = rawItem.replace("{", "").replace("}", "").trim();
+            if(rawItem.isEmpty()) continue;
+
+            String kind = "object";
+            String[] properties = rawItem.split(",(?![^\\[]*\\])");
+
+            for(String prop : properties){
+                String[] kv = prop.split(":", 2);
+                if(kv.length == 2){
+                    String key = kv[0].replace("\"", "").trim();
+                    String val = kv[1].replace("\"", "").trim();
+                    if(key.equals("kind")){
+                        kind = val;
+                        break;
+                    }
+                }
+            }
+
+            if(kind.equals("object")){
+                int x = 0, y = 0, width = 0, height = 0;
+                boolean isTriggered = false, triggeredDisplay = true;
+                int triggeredX = -1, triggeredY = -1, triggeredBy = 0, activatesChannel = 0;
+                int time = 0, timeElapsed = 0, moveX = 0, moveY = 0, triggerMoveX = 0, triggerMoveY = 0;
+                GameObject.Type type = GameObject.Type.solid;
+                GameObject.movement move = GameObject.movement.never;
+                boolean returnReverse = false;
+
+                ArrayList<Integer> pX = new ArrayList<>();
+                ArrayList<Integer> pY = new ArrayList<>();
+                ArrayList<Double> pSpd = new ArrayList<>();
+                ArrayList<Boolean> pIsSpd = new ArrayList<>();
+
+                ArrayList<Integer> tPX = new ArrayList<>();
+                ArrayList<Integer> tPY = new ArrayList<>();
+                ArrayList<Double> tPSpd = new ArrayList<>();
+                ArrayList<Boolean> tPIsSpd = new ArrayList<>();
+
+                for(String prop : properties){
+                    int colonIdx = prop.indexOf(":");
+                    if(colonIdx == -1) continue;
+                    String key = prop.substring(0, colonIdx).replace("\"", "").trim();
+                    String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
+                    switch(key){
+                        case "x": x = Integer.parseInt(val); break;
+                        case "y": y = Integer.parseInt(val); break;
+                        case "width": width = Integer.parseInt(val); break;
+                        case "height": height = Integer.parseInt(val); break;
+                        case "type": type = GameObject.Type.valueOf(val); break;
+                        case "isTriggered": isTriggered = Boolean.parseBoolean(val); break;
+                        case "triggeredX": triggeredX = Integer.parseInt(val); break;
+                        case "triggeredY": triggeredY = Integer.parseInt(val); break;
+                        case "triggeredDisplay": triggeredDisplay = Boolean.parseBoolean(val); break;
+                        case "triggeredBy": triggeredBy = Integer.parseInt(val); break;
+                        case "activatesChannel": activatesChannel = Integer.parseInt(val); break;
+                        case "time": time = Integer.parseInt(val); break;
+                        case "timeElapsed": timeElapsed = Integer.parseInt(val); break;
+                        case "move": move = GameObject.movement.valueOf(val); break;
+                        case "returnReverse": returnReverse = Boolean.parseBoolean(val); break;
+                        case "moveX": moveX = Integer.parseInt(val); break;
+                        case "moveY": moveY = Integer.parseInt(val); break;
+                        case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
+                        case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
+                        case "pathX":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pX.add(Integer.parseInt(s.trim()));
+                            break;
+                        case "pathY":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pY.add(Integer.parseInt(s.trim()));
+                            break;
+                        case "pathSpeed":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pSpd.add(Double.parseDouble(s.trim()));
+                            break;
+                        case "pathSpeedIsSpeed":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pIsSpd.add(Boolean.parseBoolean(s.trim()));
+                            break;
+                        case "triggeredPathX":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPX.add(Integer.parseInt(s.trim()));
+                            break;
+                        case "triggeredPathY":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPY.add(Integer.parseInt(s.trim()));
+                            break;
+                        case "triggeredPathSpeed":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPSpd.add(Double.parseDouble(s.trim()));
+                            break;
+                        case "triggeredSpeedIsSpeed":
+                        case "triggeredPathSpeedIsSpeed":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPIsSpd.add(Boolean.parseBoolean(s.trim()));
+                            break;
+                    }
+                }
+                if (triggeredX == -1 && triggeredY == -1) { triggeredX = x; triggeredY = y; }
+                if (moveX == 0 && moveY == 0) { moveX = x; moveY = y; }
+                if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
+
+                if(gameCanvas.getGameObjects() != null){
+                    gameCanvas.getGameObjects().add(new GameObject(x, y, width, height, type, targetMapID, isTriggered, triggeredX, triggeredY, triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, returnReverse, moveX, moveY, triggerMoveX, triggerMoveY, x, y, pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
+                }
+            }else if(kind.equals("enemy")){
+                int x = 0, y = 0, width = 36, height = 36;
+                double velX = 0.1;
+                double jumpHeight = -15.5;
+                int intervalMax = 180, intervalMin = 60;
+                double xRange = 64.0, yRange = 32.0;
+                boolean hasPathfinding = false;
+                String type = "PATROL";
+                double maxHealth = 100.0, regeneration = 0.0, damage = 10.0;
+                
+                for(String prop : properties){
+                    int colonIdx = prop.indexOf(":");
+                    if(colonIdx == -1) continue;
+                    String key = prop.substring(0, colonIdx).replace("\"", "").trim();
+                    String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
+                    switch(key){
+                        case "x": x = Integer.parseInt(val); break;
+                        case "y": y = Integer.parseInt(val); break;
+                        case "width": width = Integer.parseInt(val); break;
+                        case "height": height = Integer.parseInt(val); break;
+                        case "velX": velX = Double.parseDouble(val); break;
+                        case "xRange": xRange = Double.parseDouble(val); break;
+                        case "yRange": yRange = Double.parseDouble(val); break;
+                        case "maxHealth": maxHealth = Double.parseDouble(val); break;
+                        case "regeneration": regeneration = Double.parseDouble(val); break;
+                        case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
+                        case "intervalMin": intervalMin = Integer.parseInt(val); break;
+                        case "intervalMax": intervalMax = Integer.parseInt(val); break;
+                        case "hasPathfinding": hasPathfinding = Boolean.parseBoolean(val); break;
+                        case "damage": damage = Double.parseDouble(val); break;
+                        case "type": type = val; break;
+                    }
+                }
+                Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, targetMapID, velX);
+                if(enemy != null){
+                    enemy.hasPathfinding = hasPathfinding;
+                    enemy.maxHealth = maxHealth;
+                    enemy.currentHealth = maxHealth;
+                    enemy.regeneration = regeneration;
+                    enemy.damage = damage;
+                    if(enemy instanceof FlyingEnemy){
+                        ((FlyingEnemy) enemy).setXRange(xRange);
+                        ((FlyingEnemy) enemy).setYRange(yRange);
+                    }
+                    if(enemy instanceof JumpingEnemy){
+                        ((JumpingEnemy) enemy).setJumpHeight(jumpHeight);
+                        ((JumpingEnemy) enemy).setIntervalMax(intervalMax);
+                        ((JumpingEnemy) enemy).setIntervalMin(intervalMin);
+                    }
+                    if(gameCanvas.getMovement() != null && gameCanvas.getMovement().getEnemies() != null){
+                        gameCanvas.getMovement().getEnemies().add(enemy);
+                    }
+                }
+            }else if(kind.equals("item")){
+                int x = 0, y = 0, width = 32, height = 32;
+                String name = "COIN", type = "MISC", effects = "";
+                Color color = Color.YELLOW;
+                Boolean reverse = false;
+
+                ArrayList<Integer> attX = new ArrayList<>();
+                ArrayList<Integer> attY = new ArrayList<>();
+                ArrayList<Double> spd = new ArrayList<>();
+                ArrayList<Boolean> isSpd = new ArrayList<>();
+
+                for(String prop : properties){
+                    int colonIdx = prop.indexOf(":");
+                    if(colonIdx == -1) continue;
+                    String key = prop.substring(0, colonIdx).replace("\"", "").trim();
+                    String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
+                    switch(key){
+                        case "x": x = Integer.parseInt(val); break;
+                        case "y": y = Integer.parseInt(val); break;
+                        case "width": width = Integer.parseInt(val); break;
+                        case "height": height = Integer.parseInt(val); break;
+                        case "name": name = val; break;
+                        case "type": type = val; break;
+                        case "effects": effects = val; break;
+                        case "reverseDirection": reverse = Boolean.parseBoolean(val); break;
+                        case "colorRGB": color = new Color(Integer.parseInt(val)); break;
+                        case "attackX":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attX.add(Integer.parseInt(s.trim()));
+                            break;
+                        case "attackY":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attY.add(Integer.parseInt(s.trim()));
+                            break;
+                        case "speed":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) spd.add(Double.parseDouble(s.trim()));
+                            break;
+                        case "isSpeed":
+                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) isSpd.add(Boolean.parseBoolean(s.trim()));
+                            break;
+                    }
+                }
+                Item importedItem = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, targetMapID, effects, reverse, attX, attY, spd, isSpd);
+                if(gameCanvas.getMovement() != null && gameCanvas.getMovement().worldItems != null){
+                    gameCanvas.getMovement().worldItems.add(importedItem);
+                }
+            }
+        }
+    }
+
+
     public void updateMapIDField(String text){ if(txtMapID != null) txtMapID.setText(text);}
     public void setCurrentlyLoadedMapID(int id){ this.currentlyLoadedMapID = id;}
     

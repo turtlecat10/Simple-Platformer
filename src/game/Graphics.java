@@ -355,10 +355,19 @@ public class Graphics extends JPanel implements ActionListener {
             g2.fillRect((int)p.x, (int)p.y, p.size, p.size);
         }
 
-
         g2.setTransform(oldTransform);
 
-        Object selectedTarget = (MapEditorWindow.instance != null) ? (MapEditorWindow.instance.getPropertyEditingObject() != null ? MapEditorWindow.instance.getPropertyEditingObject() : MapEditorWindow.instance.getSelectedEnemy()) : null;
+        Object selectedTarget = null;
+
+        if(MapEditorWindow.instance != null){
+            if(MapEditorWindow.instance.getPropertyEditingObject() != null){
+                selectedTarget = MapEditorWindow.instance.getPropertyEditingObject();
+            }else if(MapEditorWindow.instance.getSelectedEnemy() != null){
+                selectedTarget = MapEditorWindow.instance.getSelectedEnemy();
+            }else if(MapEditorWindow.instance.getSelectedItem() != null){
+                selectedTarget = MapEditorWindow.instance.getSelectedItem();
+            }
+        }
 
         if(this.isEditorMode && selectedTarget != null){
             int targetX = 0, targetY = 0, targetW = 36, targetH = 36;
@@ -393,6 +402,15 @@ public class Graphics extends JPanel implements ActionListener {
                     targetW = en.width;
                     targetH = en.height;
                     indicatorColor = en.getParticleColor();
+                }
+            }else if(selectedTarget instanceof Item){
+                Item it = (Item) selectedTarget;
+                if(it.mapID == currentMap){
+                    targetX = it.x;
+                    targetY = it.y - it.height;
+                    targetW = it.width;
+                    targetH = it.height;
+                    indicatorColor = it.color != null ? it.color : Color.YELLOW;
                 }
             }
 
