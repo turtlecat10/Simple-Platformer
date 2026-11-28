@@ -711,8 +711,10 @@ public class Graphics extends JPanel implements ActionListener {
                 int currentBarWidth = (int) (barWidth * healthPercent);
                 g2.setColor(Color.RED);
 
+                g2.fillRect(barX, barY, currentBarWidth, barHeight);
+
                 g2.setColor(Color.BLACK);
-                g2.drawRect(barX, barY, currentBarWidth, barHeight);
+                g2.drawRect(barX, barY, barWidth, barHeight);
             }
         }
 

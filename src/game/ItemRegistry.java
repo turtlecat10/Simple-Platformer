@@ -19,6 +19,10 @@ public enum ItemRegistry {
     private final String effects;
     private final Boolean reverse;
 
+    public enum Effect{
+        DAMAGE, VALUE, DURABILITY, HEALING, FIRE_DAMAGE, COLD_DAMAGE, LIGHTNING_DAMAGE;
+    }
+
     ItemRegistry(String displayName, Item.ItemType type, Color color, int width, int height, String effects, boolean reverse){
         this.displayName = displayName;
         this.type = type;
@@ -55,4 +59,6 @@ public enum ItemRegistry {
         }
         return NONE;
     }
+
+    public static Effect[] getEffects(){ return Effect.values();}
 }

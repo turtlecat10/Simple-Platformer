@@ -7,8 +7,11 @@ import java.util.ArrayList;
 
 public class MapEditorWindow extends JFrame{
     //saving
+
+    //remove
     private final String externalSavePath = "src/levels.json";
     private final String externalEnemySavePath = "src/enemies.json";
+    //remove
 
     //stuff
     public Graphics gameCanvas;
@@ -116,7 +119,9 @@ public class MapEditorWindow extends JFrame{
     private Item propertyEditingItem = null;
     private ItemRegistry activeItemBrush = ItemRegistry.NONE;
     private Item draggedItem = null;
+    //remove
     private final String externalItemSavePath = "src/items.json";
+    //remove
     public int selectedItemWaypointIndex = -1;
     private JComboBox<String> itemSegmentDropdown;
     private JTextField itemTxtWpX, itemTxtWpY, itemTxtSpeedVal;
@@ -155,7 +160,7 @@ public class MapEditorWindow extends JFrame{
         createControlBar();
         setupEditorClickEngine();
 
-        editorCamTimer = new Timer(16, e ->{
+        editorCamTimer = new Timer(14, e ->{
             if(gameCanvas != null && gameCanvas.getOriginalEditorModeStatus()) {
                 int currentX = gameCanvas.getCameraX();
                 int currentY = gameCanvas.getCameraY();
@@ -180,8 +185,7 @@ public class MapEditorWindow extends JFrame{
         editorCamTimer.start();
 
         try{
-            loadMapManual(externalSavePath);
-            loadEnemiesManual(externalEnemySavePath);
+            loadAllLevels();
             gameCanvas.loadLevel(activeEditingMapID);
             currentlyLoadedMapID = activeEditingMapID;
             if(gameCanvas.getMovement() != null){
@@ -296,7 +300,6 @@ public class MapEditorWindow extends JFrame{
                 lblBrush.setText("Selected Brush: ENEMY [" + cmbEnemyTemplate.getSelectedItem() + "]");
             }
         });
-
         updateEnemyTemplates.run();
 
         JPanel enemyComboRow = new JPanel(new GridLayout(1, 2, 4, 0));
@@ -338,7 +341,6 @@ public class MapEditorWindow extends JFrame{
         });
 
         updateTemplates.run();
-        // activeBrushMode = BrushMode.OBJECT;
         JPanel comboRow = new JPanel(new GridLayout(1, 2, 4, 0));
         comboRow.setBackground(new Color(240, 240, 240));
         comboRow.setMaximumSize(new Dimension(200, 32));
@@ -455,10 +457,10 @@ public class MapEditorWindow extends JFrame{
                 if (gameCanvas.getMovement() != null) {
                     gameCanvas.getMovement().resetTriggerTrackingState();
                 }
-                activeEditingMapID = Integer.parseInt(txtMapID.getText().trim());
-                loadMapManual(externalSavePath);
-                loadEnemiesManual(externalEnemySavePath);
-                loadItemsManual(externalItemSavePath);
+                String mapText = txtMapID.getText().trim();
+                activeEditingMapID = mapText.isEmpty() ? 1 : Math.max(1, Integer.parseInt(mapText));
+                txtMapID.setText(String.valueOf(activeEditingMapID));
+                loadLevelManual(activeEditingMapID);
                 gameCanvas.loadLevel(activeEditingMapID);
                 currentlyLoadedMapID = activeEditingMapID;
                 JOptionPane.showMessageDialog(this, "Map " + activeEditingMapID + " loaded successfully!");
@@ -466,13 +468,14 @@ public class MapEditorWindow extends JFrame{
                 JOptionPane.showMessageDialog(this, "Error: Invalid Map ID format.");
             }
         });
-
         btnSave.addActionListener(e -> {
             try {
                 if (gameCanvas.getMovement() != null) {
                     gameCanvas.getMovement().resetTriggerTrackingState();
                 }
-                int targetSaveID = Integer.parseInt(txtMapID.getText().trim());
+                String mapText = txtMapID.getText().trim();
+                int targetSaveID = mapText.isEmpty() ? 1 : Math.max(1, Integer.parseInt(mapText));
+                txtMapID.setText(String.valueOf(targetSaveID));
 
                 if(currentlyLoadedMapID == -1){
                     JOptionPane.showMessageDialog(this, "ERROR: can't save, you must load a level to save", "Editor Safety Error", JOptionPane.ERROR_MESSAGE);
@@ -491,20 +494,21 @@ public class MapEditorWindow extends JFrame{
                 gameCanvas.repaint();
 
                 activeEditingMapID = targetSaveID;
-                saveMapManual(gameCanvas.getGameObjects(), externalSavePath);
-                saveEnemiesManual(gameCanvas.getMovement().getEnemies(), externalEnemySavePath);
-                saveItemsManual(gameCanvas.getMovement().worldItems, externalItemSavePath);
+                saveLevelManual(activeEditingMapID);
                 JOptionPane.showMessageDialog(this, "Level "+ activeEditingMapID +" changes successfully saved");
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(this, "Error: Invalid numeric input format passed for Map ID");
             }
         });
-
         btnPlay.addActionListener(e->{
             try{
                 gameCanvas.setEditorZoom(1.0);
                 updateZoomLabel();
-                activeEditingMapID = Integer.parseInt(txtMapID.getText().trim());
+
+                String mapText = txtMapID.getText().trim();
+                activeEditingMapID = mapText.isEmpty() ? 1 : Math.max(1, Integer.parseInt(mapText));
+                txtMapID.setText(String.valueOf(activeEditingMapID));
+
                 gameCanvas.setEditorMode(false);
                 gameCanvas.loadLevel(activeEditingMapID);
                 btnDelete.setEnabled(false);
@@ -529,7 +533,6 @@ public class MapEditorWindow extends JFrame{
                 gameCanvas.getMovement().resetTriggerTrackingState();
             }catch (Exception ex){}
         });
-
         btnExit.addActionListener(e -> {
             if (gameCanvas.getMovement() != null) {
                 gameCanvas.getMovement().resetTriggerTrackingState();
@@ -578,7 +581,6 @@ public class MapEditorWindow extends JFrame{
             btnSelectLevelMenu.setEnabled(true);
             gameCanvas.repaint();
         });
-
         btnFreePlace.addActionListener(e -> {
             freePlace = !freePlace;
             if(freePlace){
@@ -587,7 +589,6 @@ public class MapEditorWindow extends JFrame{
                 lblFreePlace.setText("Selection mode: Grid");
             }
         });
-
         btnNew.addActionListener(e -> {
             int nextID = getNextUnusedMapID();
             activeEditingMapID = nextID;
@@ -595,13 +596,23 @@ public class MapEditorWindow extends JFrame{
             txtMapID.setText(String.valueOf(nextID));
             gameCanvas.setCameraX(0);
             gameCanvas.setCameraY(0);
-            loadMapManual(externalSavePath);
-            loadEnemiesManual(externalEnemySavePath);
+            
+            if(gameCanvas.getGameObjects() != null){
+                gameCanvas.getGameObjects().removeIf(obj -> obj.mapID == activeEditingMapID);
+            }
+            if(gameCanvas.getMovement() != null){
+                if(gameCanvas.getMovement().getEnemies() != null){
+                    gameCanvas.getMovement().getEnemies().removeIf(en -> en.mapID == activeEditingMapID);
+                }
+                if(gameCanvas.getMovement().worldItems != null){
+                    gameCanvas.getMovement().worldItems.removeIf(item -> item.mapID == activeEditingMapID);
+                }
+            }
+
             gameCanvas.loadLevel(activeEditingMapID);
             gameCanvas.repaint();
             JOptionPane.showMessageDialog(this, "New Map " + activeEditingMapID + " created successfully");
         });
-
         btnSelectLevelMenu.addActionListener(e -> {
             levelGridMenuPanel.removeAll();
             btnPlay.setEnabled(false);
@@ -629,15 +640,12 @@ public class MapEditorWindow extends JFrame{
 
             windowLayoutSwitcher.show(mainContentCardContainer, "LEVEL_MENU");
         });
-
         btnExportLevel.addActionListener(e -> {
             openExportDialog();
         });
-
         btnImportLevel.addActionListener(e -> {
             openImportDialog();
         });
-
         btnDeleteLevel.addActionListener(e -> {
             saveStateForUndo();
             int choice = JOptionPane.showConfirmDialog(controlPanel, "Do you want to continue?", "Confirm Action", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
@@ -1639,671 +1647,6 @@ public class MapEditorWindow extends JFrame{
             }
         });
     }
-    
-    //saving + loading objects
-    private void saveMapManual(ArrayList<GameObject> currentEditingObjects, String filePath){
-        ArrayList<GameObject> masterList = new ArrayList<>();
-        java.io.File file = new java.io.File(filePath);
-        String json = "";
-
-        if(file.exists()){
-            try(java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))){
-                StringBuilder content = new StringBuilder();
-                String line;
-                while((line = reader.readLine()) != null){
-                    content.append(line);
-                }
-                json = content.toString().trim();
-            }catch(Exception e){}
-        }else{
-            try(java.io.InputStream is = getClass().getResourceAsStream("/levels.json")){
-                if(is != null){
-                    try(java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))){
-                        StringBuilder content = new StringBuilder();
-                        String line;
-                        while((line = reader.readLine()) != null){
-                            content.append(line);
-                        }
-                        json = content.toString().trim();
-                    }
-                }
-            }catch(Exception e){}
-        }
-
-        if(!json.isEmpty()){
-            if(json.startsWith("[") && json.endsWith("]")){
-                json = json.substring(1, json.length() - 1).trim();
-            }
-
-            if(!json.isEmpty()){
-                String[] objectsRaw = json.split("\\},\\s*\\{");
-                for(String rawObj: objectsRaw){
-                    rawObj = rawObj.replace("{", "").replace("}", "").trim();
-                    int x = 0, y = 0, width = 0, height = 0, mapID = 1;
-                    boolean isTriggered = false, triggeredDisplay = true;
-                    int triggeredX = -1, triggeredY = -1, triggeredBy = 0, activatesChannel = 0;
-                    int time = 0, timeElapsed = 0, moveX = 0, moveY = 0, triggerMoveX = 0, triggerMoveY = 0;
-                    GameObject.Type type = GameObject.Type.solid;
-                    GameObject.movement move = GameObject.movement.never;
-                    boolean returnReverse = false;
-
-                    ArrayList<Integer> pX = new ArrayList<>();
-                    ArrayList<Integer> pY = new ArrayList<>();
-                    ArrayList<Double> pSpd = new ArrayList<>();
-                    ArrayList<Boolean> pIsSpd = new ArrayList<>();
-
-                    ArrayList<Integer> tPX = new ArrayList<>();
-                    ArrayList<Integer> tPY = new ArrayList<>();
-                    ArrayList<Double> tPSpd = new ArrayList<>();
-                    ArrayList<Boolean> tPIsSpd = new ArrayList<>();
-
-                    String[] properties = rawObj.split(",(?![^\\[]*\\])");
-                    for(String prop : properties){
-                        int colonIdx = prop.indexOf(":");
-                        if(colonIdx == -1) continue;
-
-                        String key = prop.substring(0, colonIdx).replace("\"", "").trim();
-                        String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
-                        switch(key){
-                            case "x": x = Integer.parseInt(val); break;
-                            case "y": y = Integer.parseInt(val); break;
-                            case "width": width = Integer.parseInt(val); break;
-                            case "height": height = Integer.parseInt(val); break;
-                            case "mapID": mapID = Integer.parseInt(val); break;
-                            case "type": type = GameObject.Type.valueOf(val); break;
-                            case "isTriggered": isTriggered = Boolean.parseBoolean(val); break;
-                            case "triggeredX": triggeredX = Integer.parseInt(val); break;
-                            case "triggeredY": triggeredY = Integer.parseInt(val); break;
-                            case "triggeredDisplay": triggeredDisplay = Boolean.parseBoolean(val); break;
-                            case "triggeredBy": triggeredBy = Integer.parseInt(val); break;
-                            case "activatesChannel": activatesChannel = Integer.parseInt(val); break;
-                            case "time": time = Integer.parseInt(val); break;
-                            case "timeElapsed": timeElapsed = Integer.parseInt(val); break;
-                            case "move": move = GameObject.movement.valueOf(val); break;
-                            case "returnReverse" : returnReverse = Boolean.parseBoolean(val); break;
-                            case "moveX": moveX = Integer.parseInt(val); break;
-                            case "moveY": moveY = Integer.parseInt(val); break;
-                            case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
-                            case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
-                            case "pathX":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pX.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "pathY":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pY.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "pathSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pSpd.add(Double.parseDouble(s.trim()));
-                                break;
-                            case "pathSpeedIsSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pIsSpd.add(Boolean.parseBoolean(s.trim()));
-                                break;
-                            case "triggeredPathX":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPX.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "triggeredPathY":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPY.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "triggeredPathSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPSpd.add(Double.parseDouble(s.trim()));
-                                break;
-                            case "triggeredSpeedIsSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPIsSpd.add(Boolean.parseBoolean(s.trim()));
-                                break;
-                        }
-                    }
-                    if(triggeredX == -1 && triggeredY == -1){ triggeredX = x; triggeredY = y; }
-                    if (moveX == 0 && moveY == 0) { moveX = x; moveY = y; }
-                    if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
-
-                    masterList.add(new GameObject(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY, 
-                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, returnReverse, moveX, moveY, triggerMoveX, triggerMoveY, x, y,
-                        pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
-                }
-            }
-        }
-        masterList.removeIf(obj -> obj.mapID == activeEditingMapID);
-
-        for(GameObject activeObj : currentEditingObjects){
-            if(activeObj.mapID == activeEditingMapID){
-                masterList.add(activeObj);
-            }
-        }
-
-        try(java.io.FileWriter writer = new java.io.FileWriter(filePath)){
-            writer.write("[\n");
-            for(int i = 0; i < masterList.size(); i++){
-                GameObject obj = masterList.get(i);
-                String jsonStr = String.format(
-                    "{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"type\":\"%s\", \"mapID\":%d, \"isTriggered\":%b, " +
-                    "\"triggeredX\":%d, \"triggeredY\":%d, \"triggeredDisplay\":%b, \"triggeredBy\":%d, \"activatesChannel\":%d, " +
-                    "\"time\":%d, \"timeElapsed\":%d, \"move\":\"%s\", \"returnReverse\":%b, \"moveX\":%d, \"moveY\":%d, \"triggerMoveX\":%d, \"triggerMoveY\":%d, " +
-                    "\"pathX\":%s, \"pathY\":%s, \"pathSpeed\":%s, \"pathSpeedIsSpeed\":%s, " +
-                    "\"triggeredPathX\":%s, \"triggeredPathY\":%s, \"triggeredPathSpeed\":%s, \"triggeredPathSpeedIsSpeed\":%s}", 
-                    obj.x, obj.y, obj.width, obj.height, obj.type.name(), obj.mapID, obj.isTriggered, 
-                    obj.triggeredX, obj.triggeredY, obj.triggeredDisplay, obj.triggeredBy, obj.activatesChannel,
-                    obj.time, obj.timeElapsed, obj.move.name(),obj.returnReverse, obj.moveX, obj.moveY, obj.triggerMoveX, obj.triggerMoveY,
-                    obj.pathX.toString(), obj.pathY.toString(), obj.pathSpeed.toString(), obj.pathSpeedIsSpeed.toString(),
-                    obj.triggeredPathX.toString(), obj.triggeredPathY.toString(), obj.triggeredPathSpeed.toString(), obj.triggeredPathSpeedIsSpeed.toString()
-                );
-                writer.write(" "+ jsonStr);
-                if(i < masterList.size() - 1){
-                    writer.write(",\n");
-                }else{
-                    writer.write("\n");
-                }
-            }
-            writer.write("]");
-        }catch (java.io.IOException e){}
-    }
-    
-    private void loadMapManual(String filePath) {
-        ArrayList<GameObject> loadedObjects = new ArrayList<>();
-        java.io.File file = new java.io.File(filePath);
-        String jsonStringData = "";
-
-        if (file.exists()) {
-            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
-                StringBuilder content = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    content.append(line);
-                }
-                jsonStringData = content.toString().trim();
-            } catch (Exception e) {}
-        } else {
-            try (java.io.InputStream is = getClass().getResourceAsStream("/levels.json")) {
-                if (is != null) {
-                    try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))) {
-                        StringBuilder content = new StringBuilder();
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            content.append(line);
-                        }
-                        jsonStringData = content.toString().trim();
-                    }
-                }
-            } catch (Exception e) {}
-        }
-
-        if (!jsonStringData.isEmpty()) {
-            if (jsonStringData.startsWith("[") && jsonStringData.endsWith("]")) {
-                jsonStringData = jsonStringData.substring(1, jsonStringData.length() - 1).trim();
-            }
-
-            if (!jsonStringData.isEmpty()) {
-                String[] objectsRaw = jsonStringData.split("\\},\\s*\\{");
-                for (String rawObj : objectsRaw) {
-                    rawObj = rawObj.replace("{", "").replace("}", "").trim();
-
-                    int x = 0, y = 0, width = 0, height = 0, mapID = 1;
-                    boolean isTriggered = false, triggeredDisplay = true;
-                    int triggeredX = -1, triggeredY = -1, triggeredBy = 0, activatesChannel = 0;
-                    int time = 0, timeElapsed = 0, moveX = 0, moveY = 0, triggerMoveX = 0, triggerMoveY = 0;
-                    GameObject.Type type = GameObject.Type.solid;
-                    GameObject.movement move = GameObject.movement.never;
-                    boolean returnReverse = false;
-
-                    ArrayList<Integer> pX = new ArrayList<>();
-                    ArrayList<Integer> pY = new ArrayList<>();
-                    ArrayList<Double> pSpd = new ArrayList<>();
-                    ArrayList<Boolean> pIsSpd = new ArrayList<>();
-
-                    ArrayList<Integer> tPX = new ArrayList<>();
-                    ArrayList<Integer> tPY = new ArrayList<>();
-                    ArrayList<Double> tPSpd = new ArrayList<>();
-                    ArrayList<Boolean> tPIsSpd = new ArrayList<>();
-
-                    String[] properties = rawObj.split(",(?![^\\[]*\\])");
-                    for (String prop : properties) {
-                        String[] kv = prop.split(":");
-                        if (kv.length != 2) continue;
-
-                        String key = kv[0].replace("\"", "").trim();
-                        String val = kv[1].replace("\"", "").trim();
-                        switch (key) {
-                            case "x": x = Integer.parseInt(val); break;
-                            case "y": y = Integer.parseInt(val); break;
-                            case "width": width = Integer.parseInt(val); break;
-                            case "height": height = Integer.parseInt(val); break;
-                            case "mapID": mapID = Integer.parseInt(val); break;
-                            case "type": type = GameObject.Type.valueOf(val); break;
-                            case "isTriggered": isTriggered = Boolean.parseBoolean(val); break;
-                            case "triggeredX": triggeredX = Integer.parseInt(val); break;
-                            case "triggeredY": triggeredY = Integer.parseInt(val); break;
-                            case "triggeredDisplay": triggeredDisplay = Boolean.parseBoolean(val); break;
-                            case "triggeredBy": triggeredBy = Integer.parseInt(val); break;
-                            case "activatesChannel": activatesChannel = Integer.parseInt(val); break;
-                            case "time": time = Integer.parseInt(val); break;
-                            case "timeElapsed": timeElapsed = Integer.parseInt(val); break;
-                            case "move": move = GameObject.movement.valueOf(val); break;
-                            case "returnReverse" : returnReverse = Boolean.parseBoolean(val); break;
-                            case "moveX": moveX = Integer.parseInt(val); break;
-                            case "moveY": moveY = Integer.parseInt(val); break;
-                            case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
-                            case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
-                            case "pathX":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pX.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "pathY":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pY.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "pathSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pSpd.add(Double.parseDouble(s.trim()));
-                                break;
-                            case "pathSpeedIsSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pIsSpd.add(Boolean.parseBoolean(s.trim()));
-                                break;
-                            case "triggeredPathX":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPX.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "triggeredPathY":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPY.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "triggeredPathSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPSpd.add(Double.parseDouble(s.trim()));
-                                break;
-                            case "triggeredSpeedIsSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPIsSpd.add(Boolean.parseBoolean(s.trim()));
-                                break;
-                        }
-                    }
-                    if (triggeredX == -1 && triggeredY == -1) { triggeredX = x; triggeredY = y; }
-                    if (moveX == 0 && moveY == 0) { moveX = x; moveY = y; }
-                    if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
-                    
-                    loadedObjects.add(new GameObject(x, y, width, height, type, mapID, isTriggered, triggeredX, triggeredY,
-                        triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, returnReverse, moveX, moveY, triggerMoveX, triggerMoveY, x, y,
-                        pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
-                }
-            }
-        }
-
-        if (gameCanvas.getGameObjects() != null) {
-            gameCanvas.getGameObjects().clear();
-            gameCanvas.getGameObjects().addAll(loadedObjects);
-            for(GameObject obj : gameCanvas.getGameObjects()){
-                obj.currentX = obj.x;
-                obj.currentY = obj.y;
-                obj.lastX = obj.x;
-                obj.lastY = obj.y;
-                obj.deltaX = 0;
-                obj.deltaY = 0;
-                obj.timeElapsed = 0;
-            }
-            gameCanvas.repaint();
-        }
-    }
-
-    //saving + loading enemies
-    private void saveEnemiesManual(ArrayList<Enemy> currentEditingEnemies, String filePath){
-        ArrayList<Enemy> masterEnemyList = new ArrayList<>();
-        java.io.File file = new java.io.File(filePath);
-        String json = "";
-
-        if(file.exists()){
-            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
-                StringBuilder content = new StringBuilder();
-                String line;
-                while((line = reader.readLine()) != null){
-                    content.append(line);
-                }
-                json = content.toString().trim();
-            }catch (IOException e){}
-        }
-        if(!json.isEmpty()){
-            if(json.startsWith("[") && json.endsWith("]")){
-                json = json.substring(1, json.length() - 1).trim();
-            }
-            if(!json.isEmpty()){
-                String[] enemiesRaw = json.split("\\},\\s*\\{");
-                for(String rawEnemy : enemiesRaw){
-                    rawEnemy = rawEnemy.replace("{", "").replace("}", "").trim();
-                    int x = 0, y = 0, mapID = 1, width = 36, height = 36;
-                    double jumpHeight = -15.5;
-                    int intervalMin = 60, intervalMax = 180;
-                    double velX = 0;
-                    double xRange = 64.0, yRange = 32.0;
-                    double damage = 10.0;
-                    double maxHealth = 100.0, regeneration = 0.0;
-                    String type = "PATROL";
-                    Boolean hasPathfinding = false;
-
-                    String[] properties = rawEnemy.split(",");
-                    for(String prop : properties){
-                        String[] kv = prop.split(":");
-                        if(kv.length != 2) continue;
-                        String key = kv[0].replace("\"", "").trim();
-                        String val = kv[1].replace("\"", "").trim();
-                        switch (key){
-                            case "x": x = Integer.parseInt(val); break;
-                            case "y": y = Integer.parseInt(val); break;
-                            case "width" : width = Integer.parseInt(val); break;
-                            case "height" : height = Integer.parseInt(val); break;
-                            case "maxHealth": maxHealth = Double.parseDouble(val); break;
-                            case "regeneration": regeneration = Double.parseDouble(val); break;
-                            case "mapID" : mapID = Integer.parseInt(val); break;
-                            case "velX" : velX = Double.parseDouble(val); break;
-                            case "xRange" : xRange = Double.parseDouble(val); break;
-                            case "yRange" : yRange = Double.parseDouble(val); break;
-                            case "damage": damage = Double.parseDouble(val); break;
-                            case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
-                            case "intervalMin": intervalMin = Integer.parseInt(val); break;
-                            case "intervalMax": intervalMax = Integer.parseInt(val); break;
-                            case "hasPathfinding" : hasPathfinding = Boolean.parseBoolean(val); break;
-                            case "type": type = val; break;
-                        }
-                    }
-                    Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
-                    if(enemy != null){
-                        enemy.hasPathfinding = hasPathfinding;
-                        enemy.maxHealth = maxHealth;
-                        enemy.regeneration = regeneration;
-                        enemy.damage = damage;
-                    }
-                    if(enemy instanceof FlyingEnemy){
-                        ((FlyingEnemy) enemy).setXRange(xRange);
-                        ((FlyingEnemy) enemy).setYRange(yRange);
-                    }
-                    if(enemy instanceof JumpingEnemy){
-                        ((JumpingEnemy) enemy).setJumpHeight(jumpHeight);
-                        ((JumpingEnemy) enemy).setIntervalMax(intervalMax);
-                        ((JumpingEnemy) enemy).setIntervalMin(intervalMin);
-                    }
-                    if (enemy != null) masterEnemyList.add(enemy);
-                }
-            }
-        }
-        masterEnemyList.removeIf(enemy -> enemy.mapID == activeEditingMapID);
-        for(Enemy e : currentEditingEnemies){
-            if(e.mapID == activeEditingMapID){
-                masterEnemyList.add(e);
-            }
-        }
-        try(java.io.FileWriter writer = new java.io.FileWriter(filePath)){
-            writer.write("[\n");
-            for(int i = 0; i < masterEnemyList.size(); i++){
-                Enemy e = masterEnemyList.get(i);
-                String jsonStr;
-
-                double initialSpeed = (e instanceof FlyingEnemy) ? ((FlyingEnemy) e).getXSpeed() : e.velX;
-
-                if(e instanceof FlyingEnemy){
-                    FlyingEnemy fe = (FlyingEnemy) e;
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"damage\":%.2f, \"mapID\":%d, \"type\":\"%s\"}", 
-                    e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.maxHealth, e.regeneration, e.hasPathfinding, e.damage, e.mapID, e.type);
-                }else if(e instanceof JumpingEnemy){
-                    JumpingEnemy je = (JumpingEnemy) e;
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"damage\":%.2f, \"mapID\":%d, \"type\":\"%s\"}", 
-                    e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.maxHealth, e.regeneration, e.hasPathfinding, e.damage, e.mapID, e.type);
-                }else{
-                    jsonStr = String.format("{\"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"damage\":%.2f, \"mapID\":%d, \"type\":\"%s\"}", 
-                    e.startX, e.startY, e.width, e.height, initialSpeed, e.maxHealth, e.regeneration, e.hasPathfinding, e.damage, e.mapID, e.type);
-                }
-                writer.write(" " + jsonStr);
-                if(i < masterEnemyList.size() - 1) writer.write(",\n");
-                else writer.write("\n");
-            }
-            writer.write("]");
-        }catch (java.io.IOException e){}
-    }
-
-    private void loadEnemiesManual(String filePath) {
-        ArrayList<Enemy> loadedEnemies = new ArrayList<>();
-        java.io.File file = new java.io.File(filePath);
-        String jsonStringData = "";
-
-        if (file.exists()) {
-            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
-                StringBuilder content = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    content.append(line);
-                }
-                jsonStringData = content.toString().trim();
-            } catch (Exception e) {}
-        }
-
-        if (!jsonStringData.isEmpty()) {
-            if (jsonStringData.startsWith("[") && jsonStringData.endsWith("]")) {
-                jsonStringData = jsonStringData.substring(1, jsonStringData.length() - 1).trim();
-            }
-            if (!jsonStringData.isEmpty()) {
-                String[] enemiesRaw = jsonStringData.split("\\},\\s*\\{");
-                for (String rawEnemy : enemiesRaw) {
-                    rawEnemy = rawEnemy.replace("{", "").replace("}", "").trim();
-                    int x = 0, y = 0, mapID = 1, width = 36, height = 36;
-                    double velX = 0.1;
-                    double jumpHeight = -15.5;
-                    int intervalMax = 180, intervalMin = 60;
-                    double xRange = 64.0;
-                    double yRange = 32.0;
-                    double damage = 10.0;
-                    double maxHealth = 100.0, regeneration = 0.0;
-                    String type = "PATROL";
-                    boolean hasPathfinding = false;
-
-                    String[] properties = rawEnemy.split(",");
-                    for (String prop : properties) {
-                        String[] kv = prop.split(":");
-                        if (kv.length != 2) continue;
-                        String key = kv[0].replace("\"", "").trim();
-                        String val = kv[1].replace("\"", "").trim();
-                        switch (key) {
-                            case "x": x = Integer.parseInt(val); break;
-                            case "y": y = Integer.parseInt(val); break;
-                            case "width": width = Integer.parseInt(val); break;
-                            case "height": height = Integer.parseInt(val); break;
-                            case "velX": velX = Double.parseDouble(val); break;
-                            case "xRange": xRange = Double.parseDouble(val); break;
-                            case "yRange": yRange = Double.parseDouble(val); break;
-                            case "maxHealth": maxHealth = Double.parseDouble(val); break;
-                            case "regeneration": regeneration = Double.parseDouble(val); break;
-                            case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
-                            case "intervalMin": intervalMin = Integer.parseInt(val); break;
-                            case "intervalMax": intervalMax = Integer.parseInt(val); break;
-                            case "hasPathfinding" : hasPathfinding = Boolean.parseBoolean(val); break;
-                            case "damage": damage = Double.parseDouble(val); break;
-                            case "mapID": mapID = Integer.parseInt(val); break;
-                            case "type": type = val; break;
-                        }
-                    }
-                    Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, mapID, velX);
-                    if(enemy != null){
-                        enemy.hasPathfinding = hasPathfinding;
-                        enemy.currentHealth = maxHealth;
-                        enemy.maxHealth = maxHealth;
-                        enemy.regeneration = regeneration;
-                        enemy.damage = damage;
-                    }
-                    if(enemy instanceof FlyingEnemy){
-                        ((FlyingEnemy) enemy).setXRange(xRange);
-                        ((FlyingEnemy) enemy).setYRange(yRange);
-                    }
-                    if(enemy instanceof JumpingEnemy){
-                        ((JumpingEnemy)enemy).setJumpHeight(jumpHeight);
-                        ((JumpingEnemy)enemy).setIntervalMax(intervalMax);
-                        ((JumpingEnemy)enemy).setIntervalMin(intervalMin);
-                    }
-                    if (enemy != null) loadedEnemies.add(enemy);
-                }
-            }
-        }
-
-        if (gameCanvas.getMovement() != null) {
-            gameCanvas.getMovement().getEnemies().clear();
-            gameCanvas.getMovement().getEnemies().addAll(loadedEnemies);
-            gameCanvas.repaint();
-        }
-    }
-
-    //saving + loading items
-    private void saveItemsManual(ArrayList<Item> currentEditingItems, String filePath){
-        ArrayList<Item> masterItemList = new ArrayList<>();
-        java.io.File file = new java.io.File(filePath);
-        String json = "";
-
-        if(file.exists()){
-            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))) {
-                StringBuilder content = new StringBuilder();
-                String line;
-                while((line = reader.readLine()) != null){
-                    content.append(line);
-                }
-                json = content.toString().trim();
-            }catch(IOException e){}
-        }
-        if(!json.isEmpty()){
-            if(json.startsWith("[") && json.endsWith("]")){
-                json = json.substring(1, json.length() - 1).trim();
-            }
-            if(!json.isEmpty()){
-                String[] itemsRaw = json.split("\\},\\s*\\{");
-                for(String rawItem : itemsRaw){
-                    rawItem = rawItem.replace("{", "").replace("}", "").trim();
-                    int x = 0, y = 0, mapID = 1, width = 32, height = 32;
-                    String name = "COIN", type = "MISC", effects = "";
-                    Color color = Color.YELLOW;
-
-                    Boolean reverse = false;
-
-                    ArrayList<Integer> attX = new ArrayList<>();
-                    ArrayList<Integer> attY = new ArrayList<>();
-                    ArrayList<Double> spd = new ArrayList<>();
-                    ArrayList<Boolean> isSpd = new ArrayList<>();
-
-                    String[] properties = rawItem.split(",(?![^\\[]*\\])");
-                    for(String prop : properties){
-                        int colonIdx = prop.indexOf(":");
-                        if(colonIdx == -1) continue;
-                        String key = prop.substring(0, colonIdx).replace("\"", "").trim();
-                        String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
-                        switch(key){
-                            case "x": x = Integer.parseInt(val); break;
-                            case "y": y = Integer.parseInt(val); break;
-                            case "width": width = Integer.parseInt(val); break;
-                            case "height": height = Integer.parseInt(val); break;
-                            case "mapID": mapID = Integer.parseInt(val); break;
-                            case "name": name = val; break;
-                            case "type": type = val; break;
-                            case "effects": effects = val; break;
-                            case "reverseDirection": reverse = Boolean.parseBoolean(val); break;
-                            case "colorRGB": color = new Color(Integer.parseInt(val)); break;
-                            case "attackX":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attX.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "attackY":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attY.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "speed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) spd.add(Double.parseDouble(s.trim()));
-                                break;
-                            case "isSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) isSpd.add(Boolean.parseBoolean(s.trim()));
-                                break;
-                        }
-                    }
-                    Item item = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, mapID, effects, reverse, attX, attY, spd, isSpd);
-                    masterItemList.add(item);
-                }
-            }
-        }
-        masterItemList.removeIf(item -> item.mapID == activeEditingMapID);
-        for(Item i : currentEditingItems){
-            if(i.mapID == activeEditingMapID){
-                masterItemList.add(i);
-            }
-        }
-        try(java.io.FileWriter writer = new java.io.FileWriter(filePath)){
-            writer.write("[\n");
-            for(int i = 0; i < masterItemList.size(); i++){
-                Item item = masterItemList.get(i);
-                String jsonStr = String.format("{\"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"mapID\":%d, \"effects\":\"%s\", \"reverseDirection\":\"%b\" ,\"attackX\":%s, \"attackY\":%s, \"speed\":%s, \"isSpeed\":%s}",
-                    item.name, item.type.name(), item.color.getRGB(), item.startX, item.startY, item.width, item.height, item.mapID, item.effects, item.reverseDirection,
-                    item.attackX.toString(), item.attackY.toString(), item.speed.toString(), item.isSpeed.toString());
-                writer.write(" " + jsonStr);
-                if(i < masterItemList.size() - 1) writer.write(",\n");
-                else writer.write("\n");
-            }
-            writer.write("]");
-        }catch (java.io.IOException e){}
-    }
-
-    private void loadItemsManual(String filePath){
-        ArrayList<Item> loadedItems = new ArrayList<>();
-        java.io.File file = new java.io.File(filePath);
-        String jsonStringData = "";
-
-        if(file.exists()){
-            try(java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))){
-                StringBuilder content = new StringBuilder();
-                String line;
-                while((line = reader.readLine()) != null){
-                    content.append(line);
-                }
-                jsonStringData = content.toString().trim();
-            }catch(IOException e){}
-        }
-
-        if(!jsonStringData.isEmpty()){
-            if(jsonStringData.startsWith("[") && jsonStringData.endsWith("]")){
-                jsonStringData = jsonStringData.substring(1, jsonStringData.length() - 1);
-            }
-            if(!jsonStringData.isEmpty()){
-                String[] itemsRaw = jsonStringData.split("\\},\\s*\\{");
-                for(String rawItem : itemsRaw){
-                    rawItem = rawItem.replace("{", "").replace("}", "").trim();
-                    int x = 0, y = 0, mapID = 1, width = 32, height = 32;
-                    String name = "COIN", type = "MISC", effects = "";
-                    Color color = Color.YELLOW;
-
-                    Boolean reverse = false;
-
-                    ArrayList<Integer> attX = new ArrayList<>();
-                    ArrayList<Integer> attY = new ArrayList<>();
-                    ArrayList<Double> spd = new ArrayList<>();
-                    ArrayList<Boolean> isSpd = new ArrayList<>();
-
-                    String[] properties = rawItem.split(",(?![^\\[]*\\])");
-                    for(String prop : properties){
-                        int colonIdx = prop.indexOf(":");
-                        if(colonIdx == -1) continue;
-                        String key = prop.substring(0, colonIdx).replace("\"", "").trim();
-                        String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
-                        switch(key){
-                            case "x": x = Integer.parseInt(val); break;
-                            case "y": y = Integer.parseInt(val); break;
-                            case "width": width = Integer.parseInt(val); break;
-                            case "height": height = Integer.parseInt(val); break;
-                            case "mapID": mapID = Integer.parseInt(val); break;
-                            case "name": name = val; break;
-                            case "type": type = val; break;
-                            case "effects": effects = val; break;
-                            case "reverseDirection": reverse = Boolean.parseBoolean(val); break;
-                            case "colorRGB": color = new Color(Integer.parseInt(val)); break;
-                            case "attackX":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attX.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "attackY":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attY.add(Integer.parseInt(s.trim()));
-                                break;
-                            case "speed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) spd.add(Double.parseDouble(s.trim()));
-                                break;
-                            case "isSpeed":
-                                if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) isSpd.add(Boolean.parseBoolean(s.trim()));
-                                break;
-                        }
-                    }
-                    loadedItems.add(new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, mapID, effects, reverse, attX, attY, spd, isSpd));
-                }
-            }
-        }
-        if(gameCanvas.getMovement() != null){
-            gameCanvas.getMovement().worldItems.clear();
-            gameCanvas.getMovement().worldItems.addAll(loadedItems);
-            gameCanvas.repaint();
-        }
-    }
 
     //export
     private void openExportDialog(){
@@ -2362,73 +1705,6 @@ public class MapEditorWindow extends JFrame{
         exportDialog.setVisible(true);
     }
 
-    private String generateExportJson(){
-        StringBuilder sb = new StringBuilder();
-        sb.append("[\n");
-        boolean first = true;
-
-        if(gameCanvas.getGameObjects() != null){
-            for(GameObject obj : gameCanvas.getGameObjects()){
-                if(obj.mapID == activeEditingMapID){
-                    if(!first) sb.append(",\n");
-                    first = false;
-                    String jsonStr = String.format("  {\"kind\":\"object\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"type\":\"%s\", \"isTriggered\":%b, " +
-                        "\"triggeredX\":%d, \"triggeredY\":%d, \"triggeredDisplay\":%b, \"triggeredBy\":%d, \"activatesChannel\":%d, " +
-                        "\"time\":%d, \"timeElapsed\":%d, \"move\":\"%s\", \"returnReverse\":%b, \"moveX\":%d, \"moveY\":%d, \"triggerMoveX\":%d, \"triggerMoveY\":%d, " +
-                        "\"pathX\":%s, \"pathY\":%s, \"pathSpeed\":%s, \"pathSpeedIsSpeed\":%s, " +
-                        "\"triggeredPathX\":%s, \"triggeredPathY\":%s, \"triggeredPathSpeed\":%s, \"triggeredPathSpeedIsSpeed\":%s}", 
-                        obj.x, obj.y, obj.width, obj.height, obj.type.name(), obj.isTriggered, 
-                        obj.triggeredX, obj.triggeredY, obj.triggeredDisplay, obj.triggeredBy, obj.activatesChannel,
-                        obj.time, obj.timeElapsed, obj.move.name(), obj.returnReverse, obj.moveX, obj.moveY, obj.triggerMoveX, obj.triggerMoveY,
-                        obj.pathX.toString(), obj.pathY.toString(), obj.pathSpeed.toString(), obj.pathSpeedIsSpeed.toString(),
-                        obj.triggeredPathX.toString(), obj.triggeredPathY.toString(), obj.triggeredPathSpeed.toString(), obj.triggeredPathSpeedIsSpeed.toString()
-                    );
-                    sb.append(jsonStr);
-                }
-            }
-        }
-
-        if(gameCanvas.getMovement() != null && gameCanvas.getMovement().getEnemies() != null){
-            for(Enemy e : gameCanvas.getMovement().getEnemies()){
-                if(e.mapID == activeEditingMapID){
-                    if(!first) sb.append(",\n");
-                    first = false;
-                    double initialSpeed = (e instanceof FlyingEnemy) ? ((FlyingEnemy) e).getXSpeed() : e.velX;
-                    String jsonStr;
-                    if(e instanceof FlyingEnemy){
-                        FlyingEnemy fe = (FlyingEnemy) e;
-                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}", 
-                           e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.maxHealth, e.regeneration, e.hasPathfinding, e.type);
-                    }else if(e instanceof JumpingEnemy){
-                        JumpingEnemy je = (JumpingEnemy) e;
-                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}", 
-                           e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.maxHealth, e.regeneration, e.hasPathfinding, e.type);
-                    }else{
-                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"type\":\"%s\"}", 
-                           e.startX, e.startY, e.width, e.height, initialSpeed, e.maxHealth, e.regeneration, e.hasPathfinding, e.type);
-                    }
-                    sb.append(jsonStr);
-                }
-            }
-        }
-
-        if(gameCanvas.getMovement() != null && gameCanvas.getMovement().worldItems != null){
-            for(Item item : gameCanvas.getMovement().worldItems){
-                if(item.mapID == activeEditingMapID){
-                    if(!first) sb.append(",\n");
-                    first = false;
-                    String jsonStr = String.format("  {\"kind\":\"item\", \"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"effects\":\"%s\", \"reverseDirection\":\"%b\", \"attackX\":%s, \"attackY\":%s, \"speed\":%s, \"isSpeed\":%s}", 
-                            item.name, item.type.name(), item.color.getRGB(), item.startX, item.startY, item.width, item.height, item.effects, item.reverseDirection,
-                            item.attackX.toString(), item.attackY.toString(), item.speed.toString(), item.isSpeed.toString());
-                    sb.append(jsonStr);
-                }
-            }
-        }
-
-        sb.append("\n]");
-        return sb.toString();
-    }
-
     //import
     private void openImportDialog(){
         JDialog importDialog = new JDialog(this, "Import Level", true);
@@ -2465,237 +1741,8 @@ public class MapEditorWindow extends JFrame{
         importDialog.setLocationRelativeTo(this);
         importDialog.setVisible(true);
     }
-    
-    private void processImportJson(String jsonStringData){
-        if(jsonStringData == null || jsonStringData.trim().isEmpty()) return;
-        jsonStringData.trim();
-        if(jsonStringData.startsWith("[")){
-            jsonStringData = jsonStringData.substring(1);
-        }
-        if(jsonStringData.endsWith("]")){
-            jsonStringData = jsonStringData.substring(0, jsonStringData.length() - 1);
-        }
-        jsonStringData = jsonStringData.trim();
-        if(jsonStringData.isEmpty()) return;
 
-        int newMapID = getNextUnusedMapID();
-
-        String[] rawItems = jsonStringData.split("\\},\\s*\\{");
-        ArrayList<GameObject> importedObjects = new ArrayList<>();
-        ArrayList<Enemy> importedEnemies = new ArrayList<>();
-        ArrayList<Item> importedItems = new ArrayList<>();
-
-        for(String rawItem : rawItems){
-            rawItem = rawItem.replace("{", "").replace("}", "").trim();
-            String kind = "object";
-            String[] properties = rawItem.split(",(?![^\\[]*\\])");
-
-            for(String prop : properties){
-                String[] kv = prop.split(":", 2);
-                if(kv.length == 2){
-                    String key = kv[0].replace("\"", "").trim();
-                    String val = kv[1].replace("\"", "").trim();
-                    if(key.equals("kind")){
-                        kind = val;
-                        break;
-                    }
-                }
-            }
-
-            if(kind.equals("object")){
-                int x = 0, y = 0, width = 0, height = 0;
-                boolean isTriggered = false, triggeredDisplay = true;
-                int triggeredX = -1, triggeredY = -1, triggeredBy = 0, activatesChannel = 0;
-                int time = 0, timeElapsed = 0, moveX = 0, moveY = 0, triggerMoveX = 0, triggerMoveY = 0;
-                GameObject.Type type = GameObject.Type.solid;
-                GameObject.movement move = GameObject.movement.never;
-                boolean returnReverse = false;
-
-                ArrayList<Integer> pX = new ArrayList<>();
-                ArrayList<Integer> pY = new ArrayList<>();
-                ArrayList<Double> pSpd = new ArrayList<>();
-                ArrayList<Boolean> pIsSpd = new ArrayList<>();
-
-                ArrayList<Integer> tPX = new ArrayList<>();
-                ArrayList<Integer> tPY = new ArrayList<>();
-                ArrayList<Double> tPSpd = new ArrayList<>();
-                ArrayList<Boolean> tPIsSpd = new ArrayList<>();
-
-                for (String prop : properties) {
-                    int colonIdx = prop.indexOf(":");
-                    if (colonIdx == -1) continue;
-                    String key = prop.substring(0, colonIdx).replace("\"", "").trim();
-                    String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
-                    switch (key) {
-                        case "x": x = Integer.parseInt(val); break;
-                        case "y": y = Integer.parseInt(val); break;
-                        case "width": width = Integer.parseInt(val); break;
-                        case "height": height = Integer.parseInt(val); break;
-                        case "type": type = GameObject.Type.valueOf(val); break;
-                        case "isTriggered": isTriggered = Boolean.parseBoolean(val); break;
-                        case "triggeredX": triggeredX = Integer.parseInt(val); break;
-                        case "triggeredY": triggeredY = Integer.parseInt(val); break;
-                        case "triggeredDisplay": triggeredDisplay = Boolean.parseBoolean(val); break;
-                        case "triggeredBy": triggeredBy = Integer.parseInt(val); break;
-                        case "activatesChannel": activatesChannel = Integer.parseInt(val); break;
-                        case "time": time = Integer.parseInt(val); break;
-                        case "timeElapsed": timeElapsed = Integer.parseInt(val); break;
-                        case "move": move = GameObject.movement.valueOf(val); break;
-                        case "returnReverse": returnReverse = Boolean.parseBoolean(val); break;
-                        case "moveX": moveX = Integer.parseInt(val); break;
-                        case "moveY": moveY = Integer.parseInt(val); break;
-                        case "triggerMoveX": triggerMoveX = Integer.parseInt(val); break;
-                        case "triggerMoveY": triggerMoveY = Integer.parseInt(val); break;
-                        case "pathX":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pX.add(Integer.parseInt(s.trim()));
-                            break;
-                        case "pathY":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pY.add(Integer.parseInt(s.trim()));
-                            break;
-                        case "pathSpeed":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pSpd.add(Double.parseDouble(s.trim()));
-                            break;
-                        case "pathSpeedIsSpeed":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) pIsSpd.add(Boolean.parseBoolean(s.trim()));
-                            break;
-                        case "triggeredPathX":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPX.add(Integer.parseInt(s.trim()));
-                            break;
-                        case "triggeredPathY":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPY.add(Integer.parseInt(s.trim()));
-                            break;
-                        case "triggeredPathSpeed":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPSpd.add(Double.parseDouble(s.trim()));
-                            break;
-                        case "triggeredSpeedIsSpeed":
-                        case "triggeredPathSpeedIsSpeed":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPIsSpd.add(Boolean.parseBoolean(s.trim()));
-                            break;
-                    }
-                }
-                if (triggeredX == -1 && triggeredY == -1) { triggeredX = x; triggeredY = y; }
-                if (moveX == 0 && moveY == 0) { moveX = x; moveY = y; }
-                if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
-
-                importedObjects.add(new GameObject(x, y, width, height, type, newMapID, isTriggered, triggeredX, triggeredY, triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, returnReverse, moveX, moveY, triggerMoveX, triggerMoveY, x, y, pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
-            }else if(kind.equals("enemy")){
-                int x = 0, y = 0, width = 36, height = 36;
-                double velX = 0.1;
-                double jumpHeight = -15.5;
-                int intervalMax = 180, intervalMin = 60;
-                double xRange = 64.0, yRange = 32.0;
-                boolean hasPathfinding = false;
-                String type = "PATROL";
-                double maxHealth = 100.0, regeneration = 0.0;
-
-                for (String prop : properties) {
-                    int colonIdx = prop.indexOf(":");
-                    if (colonIdx == -1) continue;
-                    String key = prop.substring(0, colonIdx).replace("\"", "").trim();
-                    String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
-                    switch (key) {
-                        case "x": x = Integer.parseInt(val); break;
-                        case "y": y = Integer.parseInt(val); break;
-                        case "width": width = Integer.parseInt(val); break;
-                        case "height": height = Integer.parseInt(val); break;
-                        case "velX": velX = Double.parseDouble(val); break;
-                        case "xRange": xRange = Double.parseDouble(val); break;
-                        case "yRange": yRange = Double.parseDouble(val); break;
-                        case "maxHealth": maxHealth = Double.parseDouble(val); break;
-                        case "regeneration": regeneration = Double.parseDouble(val); break;
-                        case "jumpHeight": jumpHeight = Double.parseDouble(val); break;
-                        case "intervalMin": intervalMin = Integer.parseInt(val); break;
-                        case "intervalMax": intervalMax = Integer.parseInt(val); break;
-                        case "hasPathfinding": hasPathfinding = Boolean.parseBoolean(val); break;
-                        case "type": type = val; break;
-                    }
-                }
-                Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, newMapID, velX);
-                if (enemy != null) {
-                    enemy.hasPathfinding = hasPathfinding;
-                    enemy.maxHealth = maxHealth;
-                    enemy.currentHealth = maxHealth;
-                    enemy.regeneration = regeneration;
-                    if (enemy instanceof FlyingEnemy) {
-                        ((FlyingEnemy) enemy).setXRange(xRange);
-                        ((FlyingEnemy) enemy).setYRange(yRange);
-                    }
-                    if (enemy instanceof JumpingEnemy) {
-                        ((JumpingEnemy) enemy).setJumpHeight(jumpHeight);
-                        ((JumpingEnemy) enemy).setIntervalMax(intervalMax);
-                        ((JumpingEnemy) enemy).setIntervalMin(intervalMin);
-                    }
-                    importedEnemies.add(enemy);
-                }
-            }else if(kind.equals("item")){
-                int x = 0, y = 0, width = 32, height = 32;
-                String name = "COIN", type = "MISC", effects = "";
-                Color color = Color.YELLOW;
-                Boolean reverse = false;
-
-                ArrayList<Integer> attX = new ArrayList<>();
-                ArrayList<Integer> attY = new ArrayList<>();
-                ArrayList<Double> spd = new ArrayList<>();
-                ArrayList<Boolean> isSpd = new ArrayList<>();
-
-                for(String prop : properties){
-                    int colonIdx = prop.indexOf(":");
-                    if(colonIdx == -1) continue;
-                    String key = prop.substring(0, colonIdx).replace("\"", "").trim();
-                    String val = prop.substring(colonIdx + 1).replace("\"", "").trim();
-                    switch(key){
-                        case "x": x = Integer.parseInt(val); break;
-                        case "y": y = Integer.parseInt(val); break;
-                        case "width": width = Integer.parseInt(val); break;
-                        case "height": height = Integer.parseInt(val); break;
-                        case "name": name = val; break;
-                        case "type": type = val; break;
-                        case "effects": effects = val; break;
-                        case "reverseDirection": reverse = Boolean.parseBoolean(val); break;
-                        case "colorRGB": color = new Color(Integer.parseInt(val)); break;
-                        case "attackX":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attX.add(Integer.parseInt(s.trim()));
-                            break;
-                        case "attackY":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) attY.add(Integer.parseInt(s.trim()));
-                            break;
-                        case "speed":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) spd.add(Double.parseDouble(s.trim()));
-                            break;
-                        case "isSpeed":
-                            if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) isSpd.add(Boolean.parseBoolean(s.trim()));
-                            break;
-                    }
-                }
-                Item importedItem = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, newMapID, effects, reverse, attX, attY, spd, isSpd);
-                importedItems.add(importedItem);
-            }
-        }
-
-        if(gameCanvas.getGameObjects() != null){
-            gameCanvas.getGameObjects().addAll(importedObjects);
-        }
-
-        if(gameCanvas.getMovement().getEnemies() != null){
-            gameCanvas.getMovement().getEnemies().addAll(importedEnemies);
-        }
-
-        if(gameCanvas.getMovement().worldItems != null){
-            gameCanvas.getMovement().worldItems.addAll(importedItems);
-        }
-
-        activeEditingMapID = newMapID;
-        currentlyLoadedMapID = newMapID;
-        if(txtMapID != null){
-            txtMapID.setText(String.valueOf(newMapID));
-        }
-        try{
-            gameCanvas.loadLevel(activeEditingMapID);
-        }catch (Exception ex){}
-        gameCanvas.repaint();
-        JOptionPane.showMessageDialog(this, "Level imported successfully into Map: " + newMapID);
-    }
-
+    //good
     private Item createItemFromTemplate(String templateName, Item.ItemType type, int x, int y, int mapID){
         for(ItemRegistry reg : ItemRegistry.values()){
             Item temp = reg.create(x, y, mapID);
@@ -2721,7 +1768,6 @@ public class MapEditorWindow extends JFrame{
                     for(String p : parts){
                         String jsonBlock = "{" + p.replace("{", "").replace("}", "") + "}";
                         if(jsonBlock.contains("\"kind\":\"item\"") && jsonBlock.contains("\"name\":\"" + templateName + "\"") && jsonBlock.contains("\"type\":\"" + type.name() + "\"")){
-                            // Parse properties
                             int width = 32, height = 32;
                             String effects = "";
                             Color color = Color.YELLOW;
@@ -2764,7 +1810,6 @@ public class MapEditorWindow extends JFrame{
                                 absAttackY.add(y + relY.get(i));
                             }
                             Item created = new Item(templateName, type, color, x, y, width, height, mapID, effects, reverse, absAttackX, absAttackY, spd, isSpd);
-                            // created.reverseDirection = reverse;
                             return created;
                         }
                     }
@@ -3339,7 +2384,8 @@ public class MapEditorWindow extends JFrame{
         effectsPanel.setBorder(BorderFactory.createTitledBorder("Item Effects Manager"));
 
         JPanel effectInputRow = new JPanel(new GridLayout(1, 4, 5, 0));
-        JComboBox<String> cmbEffectType = new JComboBox<>(new String[]{"DAMAGE", "VALUE", "DURABILITY", "HEALING", "FIRE_DAMAGE", "COLD_DAMAGE", "LIGHTNING"});
+        //System.out
+        JComboBox<ItemRegistry.Effect> cmbEffectType = new JComboBox<>(ItemRegistry.getEffects());
         JTextField txtEffectVal = new JTextField(5);
         JButton btnAddOrUpdateEffect = new JButton("Set Effect");
         JButton btnRemoveEffect = new JButton("Remove Selected");
@@ -3632,6 +2678,7 @@ public class MapEditorWindow extends JFrame{
         }catch(Exception e){}
     }
     
+
     private void saveItemTemplateManual(Item item, String filePath){
         java.io.File file = new java.io.File(filePath);
         ArrayList<String> existingTemplates = new ArrayList<>();
@@ -3824,6 +2871,7 @@ public class MapEditorWindow extends JFrame{
         }
     }
 
+    //good
     private java.util.List<String> getTemplatesForType(Item.ItemType targetType){
         java.util.List<String> result = new java.util.ArrayList<>();
 
@@ -3874,6 +2922,7 @@ public class MapEditorWindow extends JFrame{
         return result;
     }
  
+    //good
     private java.util.List<String> getTemplatesForEnemy(EnemyRegistry targetType){
         java.util.List<String> result = new java.util.ArrayList<>();
 
@@ -3972,6 +3021,7 @@ public class MapEditorWindow extends JFrame{
         }catch(java.io.IOException ex){}
     }
 
+    //good
     private Enemy createEnemyFromTemplate(String templateName, int x, int y, int mapID){
         EnemyRegistry reg = EnemyRegistry.fromDisplayName(templateName);
         if(reg != null && reg != EnemyRegistry.NONE){
@@ -4048,6 +3098,7 @@ public class MapEditorWindow extends JFrame{
     }
  
 
+    //good
     public void saveStateForUndo(){
         String currentState = generateExportJson();
         undoStack.add(currentState);
@@ -4072,6 +3123,7 @@ public class MapEditorWindow extends JFrame{
         clearSelectionPoints();
     }
 
+    //probably good
     private void loadStateFromJsonIntoActiveMap(String jsonStringData){
         if(jsonStringData == null || jsonStringData.trim().isEmpty()) return;
         jsonStringData = jsonStringData.trim();
@@ -4094,27 +3146,46 @@ public class MapEditorWindow extends JFrame{
     }
 
     private void processImportJsonIntoMap(String jsonStringData, int targetMapID){
+        processImportJsonIntoMap(jsonStringData, targetMapID, "object");
+    }
+
+    private void processImportJsonIntoMap(String jsonStringData, int targetMapID, String defaultKind){
         if(jsonStringData == null || jsonStringData.trim().isEmpty()) return;
+        jsonStringData = jsonStringData.trim();
+        if(jsonStringData.startsWith("[")) jsonStringData = jsonStringData.substring(1);
+        if(jsonStringData.endsWith("]")) jsonStringData = jsonStringData.substring(0, jsonStringData.length() - 1);
+        jsonStringData = jsonStringData.trim();
+        if(jsonStringData.isEmpty()) return;
+
+
+
         String[] rawItems = jsonStringData.split("\\},\\s*\\{");
 
         for(String rawItem : rawItems){
             rawItem = rawItem.replace("{", "").replace("}", "").trim();
             if(rawItem.isEmpty()) continue;
 
-            String kind = "object";
+            String kind = defaultKind;
+            int itemMapID = targetMapID;
+            
             String[] properties = rawItem.split(",(?![^\\[]*\\])");
-
             for(String prop : properties){
-                String[] kv = prop.split(":", 2);
+                String[] kv = prop.split(":");
                 if(kv.length == 2){
                     String key = kv[0].replace("\"", "").trim();
                     String val = kv[1].replace("\"", "").trim();
                     if(key.equals("kind")){
                         kind = val;
-                        break;
+                    }else if(key.equals("mapID") && targetMapID == -1){
+                        try{
+                            itemMapID  = Integer.parseInt(val);
+                        }catch(NumberFormatException e){}
                     }
                 }
             }
+
+            if(itemMapID == -1) itemMapID = 1; 
+
 
             if(kind.equals("object")){
                 int x = 0, y = 0, width = 0, height = 0;
@@ -4181,7 +3252,6 @@ public class MapEditorWindow extends JFrame{
                         case "triggeredPathSpeed":
                             if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPSpd.add(Double.parseDouble(s.trim()));
                             break;
-                        case "triggeredSpeedIsSpeed":
                         case "triggeredPathSpeedIsSpeed":
                             if(!val.isEmpty() && !val.equals("[]")) for(String s : val.replace("[", "").replace("]", "").split(",")) if(!s.trim().isEmpty()) tPIsSpd.add(Boolean.parseBoolean(s.trim()));
                             break;
@@ -4192,7 +3262,7 @@ public class MapEditorWindow extends JFrame{
                 if (triggerMoveX == 0 && triggerMoveY == 0) { triggerMoveX = triggeredX; triggerMoveY = triggeredY; }
 
                 if(gameCanvas.getGameObjects() != null){
-                    gameCanvas.getGameObjects().add(new GameObject(x, y, width, height, type, targetMapID, isTriggered, triggeredX, triggeredY, triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, returnReverse, moveX, moveY, triggerMoveX, triggerMoveY, x, y, pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
+                    gameCanvas.getGameObjects().add(new GameObject(x, y, width, height, type, itemMapID, isTriggered, triggeredX, triggeredY, triggeredDisplay, triggeredBy, activatesChannel, time, timeElapsed, move, returnReverse, moveX, moveY, triggerMoveX, triggerMoveY, x, y, pX, pY, pSpd, pIsSpd, tPX, tPY, tPSpd, tPIsSpd));
                 }
             }else if(kind.equals("enemy")){
                 int x = 0, y = 0, width = 36, height = 36;
@@ -4227,7 +3297,7 @@ public class MapEditorWindow extends JFrame{
                         case "type": type = val; break;
                     }
                 }
-                Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, targetMapID, velX);
+                Enemy enemy = EnemyRegistry.createFromString(type, x, y, width, height, itemMapID, velX);
                 if(enemy != null){
                     enemy.hasPathfinding = hasPathfinding;
                     enemy.maxHealth = maxHealth;
@@ -4287,7 +3357,7 @@ public class MapEditorWindow extends JFrame{
                             break;
                     }
                 }
-                Item importedItem = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, targetMapID, effects, reverse, attX, attY, spd, isSpd);
+                Item importedItem = new Item(name, Item.ItemType.valueOf(type), color, x, y, width, height, itemMapID, effects, reverse, attX, attY, spd, isSpd);
                 if(gameCanvas.getMovement() != null && gameCanvas.getMovement().worldItems != null){
                     gameCanvas.getMovement().worldItems.add(importedItem);
                 }
@@ -4295,6 +3365,195 @@ public class MapEditorWindow extends JFrame{
         }
     }
 
+    //good
+    private void loadAllLevels(){
+        migrateLegacyFiles();
+        if(gameCanvas.getGameObjects() != null) gameCanvas.getGameObjects().clear();
+        if(gameCanvas.getMovement() != null){
+            gameCanvas.getMovement().getEnemies().clear();
+            gameCanvas.getMovement().worldItems.clear();
+        }
+
+        java.io.File dir = new java.io.File("src");
+        if(dir.exists() && dir.isDirectory()){
+            java.io.File[] files = dir.listFiles((d, name) -> name.matches("level\\d+\\.json"));
+            if(files != null){
+                for(java.io.File file : files){
+                    String name = file.getName();
+                    try{
+                        int mapID = Integer.parseInt(name.replaceAll("\\D+", ""));
+                        String content = new String(java.nio.file.Files.readAllBytes(file.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+                        processImportJsonIntoMap(content, mapID);
+                    }catch(Exception e){
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+
+    private String getLevelPath(int mapID){
+        return "src/level" + mapID + ".json";
+    }
+
+    private String serializeLevelJson(int targetMapID){
+        StringBuilder sb = new StringBuilder();
+        sb.append("[\n");
+        boolean first = true;
+
+        if(gameCanvas.getGameObjects() != null){
+            for(GameObject obj : gameCanvas.getGameObjects()){
+                if(obj.mapID == targetMapID){
+                    if(!first) sb.append(",\n");
+                    first = false;
+                    String jsonStr = String.format("  {\"kind\":\"object\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"type\":\"%s\", \"isTriggered\":%b, " +
+                        "\"triggeredX\":%d, \"triggeredY\":%d, \"triggeredDisplay\":%b, \"triggeredBy\":%d, \"activatesChannel\":%d, " +
+                        "\"time\":%d, \"timeElapsed\":%d, \"move\":\"%s\", \"returnReverse\":%b, \"moveX\":%d, \"moveY\":%d, \"triggerMoveX\":%d, \"triggerMoveY\":%d, " +
+                        "\"pathX\":%s, \"pathY\":%s, \"pathSpeed\":%s, \"pathSpeedIsSpeed\":%s, " +
+                        "\"triggeredPathX\":%s, \"triggeredPathY\":%s, \"triggeredPathSpeed\":%s, \"triggeredPathSpeedIsSpeed\":%s}", 
+                        obj.x, obj.y, obj.width, obj.height, obj.type.name(), obj.isTriggered, 
+                        obj.triggeredX, obj.triggeredY, obj.triggeredDisplay, obj.triggeredBy, obj.activatesChannel,
+                        obj.time, obj.timeElapsed, obj.move.name(), obj.returnReverse, obj.moveX, obj.moveY, obj.triggerMoveX, obj.triggerMoveY,
+                        obj.pathX.toString(), obj.pathY.toString(), obj.pathSpeed.toString(), obj.pathSpeedIsSpeed.toString(),
+                        obj.triggeredPathX.toString(), obj.triggeredPathY.toString(), obj.triggeredPathSpeed.toString(), obj.triggeredPathSpeedIsSpeed.toString()
+                    );
+                    sb.append(jsonStr); 
+                }
+            }
+        }
+        if(gameCanvas.getMovement() != null && gameCanvas.getMovement().getEnemies() != null){
+            for(Enemy e : gameCanvas.getMovement().getEnemies()){
+                if(e.mapID == targetMapID){
+                    if(!first) sb.append(",\n");
+                    first = false;
+                    double initialSpeed = (e instanceof FlyingEnemy) ? ((FlyingEnemy) e).getXSpeed() : e.velX;
+                    String jsonStr;
+                    if(e instanceof FlyingEnemy){
+                        FlyingEnemy fe = (FlyingEnemy) e;
+                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"xRange\":%.2f, \"yRange\":%.2f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"damage\":%.2f, \"type\":\"%s\"}", 
+                           e.startX, e.startY, e.width, e.height, initialSpeed, fe.getXRange(), fe.getYRange(), e.maxHealth, e.regeneration, e.hasPathfinding, e.damage, e.type);
+                    } else if (e instanceof JumpingEnemy) {
+                        JumpingEnemy je = (JumpingEnemy) e;
+                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"jumpHeight\":%.4f, \"intervalMax\":%d, \"intervalMin\":%d, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"damage\":%.2f, \"type\":\"%s\"}", 
+                           e.startX, e.startY, e.width, e.height, initialSpeed, je.getJumpHeight(), je.getIntervalMax(), je.getIntervalMin(), e.maxHealth, e.regeneration, e.hasPathfinding, e.damage, e.type);
+                    } else {
+                        jsonStr = String.format("  {\"kind\":\"enemy\", \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"velX\":%.4f, \"maxHealth\":%.2f, \"regeneration\":%.2f, \"hasPathfinding\":%b, \"damage\":%.2f, \"type\":\"%s\"}", 
+                           e.startX, e.startY, e.width, e.height, initialSpeed, e.maxHealth, e.regeneration, e.hasPathfinding, e.damage, e.type);
+                    }
+                    sb.append(jsonStr);
+                }
+            }
+        }
+
+        if(gameCanvas.getMovement() != null && gameCanvas.getMovement().worldItems != null){
+            for(Item item : gameCanvas.getMovement().worldItems){
+                if(item.mapID == targetMapID){
+                    if(!first) sb.append(",\n");
+                    first = false;
+                    String jsonStr = String.format("  {\"kind\":\"item\", \"name\":\"%s\", \"type\":\"%s\", \"colorRGB\":%d, \"x\":%d, \"y\":%d, \"width\":%d, \"height\":%d, \"effects\":\"%s\", \"reverseDirection\":\"%b\", \"attackX\":%s, \"attackY\":%s, \"speed\":%s, \"isSpeed\":%s}", 
+                            item.name, item.type.name(), item.color.getRGB(), item.startX, item.startY, item.width, item.height, item.effects, item.reverseDirection,
+                            item.attackX.toString(), item.attackY.toString(), item.speed.toString(), item.isSpeed.toString());
+                    sb.append(jsonStr);
+                }
+            }
+        }
+        sb.append("\n]");
+        return sb.toString();
+    }
+
+    private void saveLevelManual(int mapID){
+        String jsonContent = serializeLevelJson(mapID);
+        String filePath = getLevelPath(mapID);
+        try(java.io.FileWriter writer = new java.io.FileWriter(filePath)){
+            writer.write(jsonContent);
+        }catch(java.io.IOException e){
+            e.printStackTrace();
+        }
+    }
+
+    private void loadLevelManual(int mapID){
+        java.io.File file = new java.io.File(getLevelPath(mapID));
+
+        if(!file.exists()){
+            migrateLegacyFiles();
+        }
+
+        if(file.exists()){
+            if(gameCanvas.getGameObjects() != null) gameCanvas.getGameObjects().removeIf(obj -> obj.mapID == mapID);
+            if(gameCanvas.getMovement() != null){
+                if(gameCanvas.getMovement().getEnemies() != null) gameCanvas.getMovement().getEnemies().removeIf(e -> e.mapID == mapID);
+                if(gameCanvas.getMovement().worldItems != null) gameCanvas.getMovement().worldItems.removeIf(i -> i.mapID == mapID);
+            }
+            try(java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file))){
+                StringBuilder content = new StringBuilder();
+                String line;
+                while((line = reader.readLine()) != null){
+                    content.append(line);
+                }
+                processImportJsonIntoMap(content.toString(), mapID);
+            }catch(Exception e){}
+        }
+    }
+
+    private void migrateLegacyFiles(){
+        java.io.File legacyLevels = new java.io.File("src/levels.json");
+        java.io.File legacyEnemies = new java.io.File("src/enemies.json");
+        java.io.File legacyItems = new java.io.File("src/items.json");
+
+        if(legacyLevels.exists() || legacyEnemies.exists() || legacyItems.exists()){
+            if(legacyLevels.exists()){
+                try{
+                    String content = new String(java.nio.file.Files.readAllBytes(legacyLevels.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+                    processImportJsonIntoMap(content, -1, "object");
+                }catch(Exception e){ e.printStackTrace();}
+            }
+            if(legacyEnemies.exists()){
+                try{
+                    String content = new String(java.nio.file.Files.readAllBytes(legacyEnemies.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+                    processImportJsonIntoMap(content, -1, "enemy");
+                }catch(Exception e){ e.printStackTrace();}
+            }
+            if(legacyItems.exists()){
+                try{
+                    String content = new String(java.nio.file.Files.readAllBytes(legacyItems.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+                    processImportJsonIntoMap(content, -1, "item");
+                }catch(Exception e){ e.printStackTrace();}
+            }
+
+            java.util.Set<Integer> activeMaps = new java.util.HashSet<>();
+            if(gameCanvas.getGameObjects() != null) for (GameObject o : gameCanvas.getGameObjects()) {
+                activeMaps.add(o.mapID);
+            }
+            if(gameCanvas.getMovement() != null){
+                if(gameCanvas.getMovement().getEnemies() != null) for (Enemy e : gameCanvas.getMovement().getEnemies()) activeMaps.add(e.mapID);
+                if(gameCanvas.getMovement().worldItems != null) for (Item i : gameCanvas.getMovement().worldItems) activeMaps.add(i.mapID);
+            }
+
+            for(int mID : activeMaps){
+                saveLevelManual(mID);
+            }
+
+            if(legacyLevels.exists()) legacyLevels.renameTo(new java.io.File("src/levels.json.bak"));
+            if(legacyEnemies.exists()) legacyEnemies.renameTo(new java.io.File("src/enemies.json.bak"));
+            if(legacyItems.exists()) legacyItems.renameTo(new java.io.File("src/items.json.bak"));
+
+            // legacyLevels.delete();
+            // legacyEnemies.delete();
+            // legacyItems.delete();
+            // System.out.println();
+        }
+    }
+
+    private String generateExportJson(){
+        return serializeLevelJson(activeEditingMapID);
+    }
+
+    private void processImportJson(String jsonStringData){
+        if(jsonStringData == null || jsonStringData.trim().isEmpty()) return;
+        processImportJsonIntoMap(jsonStringData, activeEditingMapID);
+        gameCanvas.loadLevel(activeEditingMapID);
+        gameCanvas.repaint();
+    }
 
     public void updateMapIDField(String text){ if(txtMapID != null) txtMapID.setText(text);}
     public void setCurrentlyLoadedMapID(int id){ this.currentlyLoadedMapID = id;}

@@ -774,7 +774,7 @@ public class Movement {
             if(playerBounds.intersects(enemy.getBounds())){
                 if(playerInvulnerabilityTimer <= 0){
                     playerCurrentHealth -= enemy.damage;
-                    playerInvulnerabilityTimer = 45;
+                    playerInvulnerabilityTimer = 15;
 
                     if(playerCurrentHealth <= 0){
                         triggerDeathSequence(currentMap);
